@@ -977,6 +977,139 @@ Attractors shine with just layer 2 + echo_decay postfx.
 
 ---
 
+## Complexity Guide — Choosing What to Build
+
+Not every session has the same context budget. This guide helps calibrate
+ambition to what can actually be completed well. The goal is never to discourage
+big ideas — it's to make sure big ideas ship rather than stall.
+
+The best screen you can build right now beats the perfect screen you can't finish.
+
+---
+
+### Tier 1 — Lightweight (~1,500 tokens of working context)
+
+Complete, beautiful, shippable. Small doesn't mean boring — some of the most
+hypnotic screens in the gallery are Tier 1.
+
+What you can do:
+- Full-field math (Archetype 1) with 2–3 composed wave formulas
+- Single attractor (Clifford, IFS) with density accumulator
+- react() with 4–6 event handlers
+- glow_radius=1 (essentially free — always worth it)
+- One color tier transition (bright/accent/soft/dim)
+
+Skip at this tier:
+- Emergent systems (state complexity + config methods)
+- PostFX beyond glow
+- symmetry(), ambient_tick(), intensity_curve() (save for when you have headroom)
+
+Gallery neighbors: clifford-attractor, aurora-bands, lissajous-mind, barnsley-fern
+
+Approach: one archetype, clean implementation, glow, react() for 6 main events,
+register. That's a complete screen.
+
+---
+
+### Tier 2 — Standard (2,000–3,000 tokens, comfortable context)
+
+The sweet spot for most sessions. Full API coverage, one or two PostFX,
+react() fully wired, ambient breathing.
+
+What you can do:
+- Any archetype, implemented well
+- intensity_curve() to shape the feel
+- 2–3 PostFX: glow + one of (echo_decay, symmetry, decay_sequence)
+- react() covering 8–12 event kinds
+- ambient_tick() for calm→active transitions
+- sound: bell on agent_start, shatter on error
+- Intensity-reactive thresholds and speed scaling
+
+Skip at this tier:
+- Multiple emergent systems
+- warp_field + force_points together
+- Hybrid with full graph layer (unless graph layer stays very simple)
+
+Gallery neighbors: electric-storm, mandala-scope, coral-growth, ghost-echo
+
+---
+
+### Tier 3 — Rich (3,000–5,000 tokens, full context)
+
+Room to breathe. Multiple systems, full PostFX, immersive sound, the whole stack.
+
+What you can do:
+- One emergent system (physarum, boids, RD) composited with draw_extras
+- Full PostFX: glow + echo + symmetry + warp_field
+- render_mask for shaped displays (iris reveal, stencil)
+- force_points or void_points for physical drama
+- ambient_tick with idle_seconds-based state transitions
+- palette_shift() for event-driven color drama
+- sound: 3–5 cues across event severity tiers
+- special_effects() + draw_special() for one-shot climax moments
+- depth_layers for parallax
+
+Gallery neighbors: mycelium-network, neural-cascade, turing-garden, plasma-rainbow
+
+---
+
+### Tier 4 — Spectacular (5,000+ tokens, no pressure)
+
+Pull everything. Combine systems that have never been combined. Build something
+that makes someone stop breathing for a second.
+
+What you can do:
+- Hybrid: emergent system in draw_background + attractor in draw_extras
+- 3D rotating attractor with variable azimuth + nodding elevation
+- Counter-rotating dual plasma fields at beating frequencies
+- IFS chaos game + Gray-Scott RD layered
+- Full sound palette: bell/flash/say/file across all event tiers
+- Custom render_mask that morphs over time (iris open, dissolve, wipe)
+- warp_field with animated displacement curves
+- special_effects() with multi-stage draw_special() sequences
+- draw_overlay_effect() for gallery visual storytelling
+
+This is what the gallery was built for.
+
+---
+
+### Reading Your Context Budget
+
+Stay Tier 1–2 when:
+- Working from a compressed/summarized session
+- Already used 60%+ of context on planning or research
+- Long task description — lots of context consumed before you started coding
+
+Go Tier 3–4 when:
+- Fresh session, skill just loaded, little prior exchange
+- Explicitly asked for something "breathtaking" or "spectacular"
+- Clear brief, minimal back-and-forth
+
+If unsure: build Tier 2 cleanly and leave a comment noting what Tier 3 would add.
+A shipped Tier 2 screen is worth more than a half-built Tier 4 that errors on register().
+
+---
+
+### What Makes a Small Screen Still Feel Big
+
+These cost almost nothing to add and make a night-and-day difference:
+
+1. Character palette intentionality — match glyphs to the metaphor.
+   Cosmic screens: ✦✧·⊹★. Organic: ·.:;oO. Technical: =+-|/. Never mix blindly.
+
+2. Beating frequencies — sin(f*0.05) * sin(f*0.0073) instead of just sin(f*0.05).
+   Two incommensurable frequencies → never repeats → infinite variation, zero extra lines.
+
+3. Intensity threshold reactivity — thresh = max(0.45, 0.75 - 0.15 * intensity).
+   Screen visibly wakes up when events fire. Two lines. Massive perceptual impact.
+
+4. Aspect ratio compensation — dist = sqrt(dx*dx/2 + dy*dy). Always.
+   Without it, circles are ellipses. This single line makes everything feel right.
+
+5. glow_radius=1 — never skip this. One method, makes every bright cell luminous.
+
+---
+
 ## Quick New Screen Checklist
 
 [ ] Pick archetype: full-field math / density accumulator / simulation grid
