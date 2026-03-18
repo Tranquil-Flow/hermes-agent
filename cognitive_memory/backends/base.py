@@ -7,8 +7,14 @@ All benchmark adapters also implement BenchmarkableStore (see benchmarks/interfa
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
-import numpy as np
+from typing import Optional, List, Dict, Any, Union
+
+try:
+    import numpy as np
+    _ARRAY_TYPE = Union[np.ndarray, list, None]
+except ImportError:
+    np = None  # type: ignore
+    _ARRAY_TYPE = Union[list, None]  # type: ignore
 
 
 @dataclass
@@ -20,7 +26,7 @@ class MemoryEntry:
     category: str  # factual | preference | procedural | environment | episodic | semantic | causal
     scope: str = "global"  # global | project:<name> | topic:<name>
     importance: float = 0.5
-    embedding: Optional[np.ndarray] = None
+    embedding: Any = None  # np.ndarray or list — depends on numpy availability
     created_at: float = 0.0  # unix timestamp
     last_accessed: float = 0.0
     access_count: int = 0

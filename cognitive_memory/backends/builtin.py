@@ -184,10 +184,21 @@ class BuiltinSQLiteBackend(StorageBackend):
         )
         return [_row_to_entry(row) for row in cur.fetchall()]
 
+    _ALLOWED_UPDATE_FIELDS = frozenset({
+        "content", "category", "scope", "importance", "embedding",
+        "last_accessed", "access_count", "access_times", "layer",
+        "superseded_by", "source", "pinned", "metadata",
+    })
+
     def update(self, memory_id: str, **fields) -> None:
         """Update specific fields on a memory."""
         if not fields:
             return
+
+        # Validate field names to prevent SQL injection via kwargs
+        bad_fields = set(fields) - self._ALLOWED_UPDATE_FIELDS
+        if bad_fields:
+            raise ValueError(f"Cannot update fields: {bad_fields}")
 
         # Handle special serialization
         if "embedding" in fields:
@@ -349,6 +360,34 @@ class BuiltinSQLiteBackend(StorageBackend):
             "links": link_count,
             "db_path": self._db_path,
         }
+
+    # ─── Batch Operations (performance) ────────────────────────────
+
+    def get_all_links(self) -> List[MemoryLink]:
+        """Get ALL links in one query. Used for batch link map building."""
+        cur = self._conn.execute("SELECT * FROM memory_links")
+        return [
+            MemoryLink(
+                source_id=row["source_id"],
+                target_id=row["target_id"],
+                weight=row["weight"],
+                link_type=row["link_type"],
+                created_at=row["created_at"],
+                last_coactivated=row["last_coactivated"],
+            )
+            for row in cur.fetchall()
+        ]
+
+    def get_many(self, memory_ids: List[str]) -> Dict[str, MemoryEntry]:
+        """Fetch multiple memories by ID in a single query."""
+        if not memory_ids:
+            return {}
+        placeholders = ",".join("?" for _ in memory_ids)
+        cur = self._conn.execute(
+            f"SELECT * FROM memories WHERE id IN ({placeholders})",
+            memory_ids,
+        )
+        return {row["id"]: _row_to_entry(row) for row in cur.fetchall()}
 
     def close(self) -> None:
         """Close the database connection."""

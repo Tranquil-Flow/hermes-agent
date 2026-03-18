@@ -148,14 +148,17 @@ class CognitiveMemoryStore:
             metadata=metadata or {},
         )
 
+        # Fetch existing memories once for both contradiction + link checks
+        existing_memories = self._backend.get_all_active()
+
         # Contradiction check before storing
-        self._check_contradictions(entry)
+        self._check_contradictions(entry, existing_memories)
 
         # Persist
         self._backend.store(entry)
 
-        # Create semantic links to existing memories
-        self._create_semantic_links(entry)
+        # Create semantic links to existing memories (reuse same list)
+        self._create_semantic_links(entry, existing_memories)
 
         logger.debug(
             f"Stored memory {mem_id[:8]}: cat={category}, imp={importance:.2f}, "
@@ -191,14 +194,14 @@ class CognitiveMemoryStore:
         if not candidates:
             return []
 
-        # Pre-compute Hebbian link map for spreading activation
-        link_map = self._build_link_map(candidates)
+        # Pre-compute link map + embedding cache in batch (avoids N+1 queries)
+        link_map, embedding_cache = self._build_link_map_and_embeddings(candidates)
 
         # Score each memory
         scored = []
         for mem in candidates:
             components = self._compute_activation(
-                mem, query_embedding, now, link_map, scope
+                mem, query_embedding, now, link_map, scope, embedding_cache
             )
             total = sum(components.values())
             scored.append(ScoredMemory(
@@ -228,6 +231,7 @@ class CognitiveMemoryStore:
         now: float,
         link_map: Dict[str, List[MemoryLink]],
         scope: Optional[str] = None,
+        embedding_cache: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, float]:
         """
         Compute activation score with component breakdown.
@@ -247,17 +251,18 @@ class CognitiveMemoryStore:
 
         # Add Hebbian spreading (one hop)
         hebbian_spread = self._hebbian_spreading(
-            memory.id, link_map, query_embedding
+            memory.id, link_map, query_embedding,
+            embedding_cache or {},
         )
         spreading += hebbian_spread
 
         # 3. Importance boost
         importance_boost = cfg.w_importance * memory.importance
 
-        # 4. Scope boost
+        # 4. Scope boost — prefix match so project:hermes matches project:hermes/sub
         scope_boost = 0.0
-        if scope and memory.scope == scope:
-            scope_boost = cfg.scope_multiplier * 0.1  # scaled contribution
+        if scope and (memory.scope == scope or memory.scope.startswith(scope)):
+            scope_boost = cfg.scope_multiplier * cfg.w_importance  # scaled to importance weight
 
         return {
             "base_level": base_level,
@@ -295,11 +300,14 @@ class CognitiveMemoryStore:
         memory_id: str,
         link_map: Dict[str, List[MemoryLink]],
         query_embedding,
+        embedding_cache: Dict[str, Any],
     ) -> float:
         """
         One-hop Hebbian spreading activation.
         If linked memories are semantically similar to the query,
         this memory gets a boost proportional to link weight × similarity.
+
+        Uses pre-fetched embedding_cache to avoid N+1 queries.
         """
         links = link_map.get(memory_id, [])
         if not links or query_embedding is None:
@@ -307,25 +315,47 @@ class CognitiveMemoryStore:
 
         spread = 0.0
         for link in links:
-            # Get the linked memory's embedding
-            linked = self._backend.get(link.target_id)
-            if linked and linked.embedding is not None:
-                sim = cosine_similarity(query_embedding, linked.embedding)
+            emb = embedding_cache.get(link.target_id)
+            if emb is not None:
+                sim = cosine_similarity(query_embedding, emb)
                 spread += link.weight * sim
 
         # Cap spreading to avoid runaway values
         return min(spread, 0.5)
 
-    def _build_link_map(
+    def _build_link_map_and_embeddings(
         self, memories: List[MemoryEntry]
-    ) -> Dict[str, List[MemoryLink]]:
-        """Build a map of memory_id -> outgoing links for batch processing."""
+    ) -> tuple:
+        """
+        Build link map AND embedding cache in minimal SQL queries.
+        Returns (link_map, embedding_cache).
+        """
+        # Single query for all links
+        all_links = self._backend.get_all_links()
         link_map: Dict[str, List[MemoryLink]] = {}
+        needed_ids: set = set()
+        memory_ids = {m.id for m in memories}
+
+        for link in all_links:
+            if link.source_id in memory_ids:
+                link_map.setdefault(link.source_id, []).append(link)
+                needed_ids.add(link.target_id)
+
+        # Build embedding cache from candidates + linked targets
+        embedding_cache: Dict[str, Any] = {}
         for mem in memories:
-            links = self._backend.get_links(mem.id)
-            if links:
-                link_map[mem.id] = links
-        return link_map
+            if mem.embedding is not None:
+                embedding_cache[mem.id] = mem.embedding
+
+        # Fetch any linked memories not in the candidate set
+        missing_ids = list(needed_ids - set(embedding_cache))
+        if missing_ids:
+            linked_memories = self._backend.get_many(missing_ids)
+            for mid, mem in linked_memories.items():
+                if mem.embedding is not None:
+                    embedding_cache[mid] = mem.embedding
+
+        return link_map, embedding_cache
 
     # ─── Access Stats & Hebbian Strengthening ────────────────────
 
@@ -401,18 +431,23 @@ class CognitiveMemoryStore:
 
     # ─── Contradiction Detection ─────────────────────────────────
 
-    def _check_contradictions(self, new_entry: MemoryEntry) -> None:
+    def _check_contradictions(
+        self,
+        new_entry: MemoryEntry,
+        active_memories: Optional[List[MemoryEntry]] = None,
+    ) -> None:
         """
         Check for contradictions between new memory and existing ones.
         Stage 1 only (embedding similarity). No LLM calls.
 
-        If high similarity + same category → mark old as superseded.
+        If high similarity + same category + same scope → mark old as superseded.
         """
         if new_entry.embedding is None:
             return
 
         threshold = self._config.contradiction_threshold
-        active_memories = self._backend.get_all_active()
+        if active_memories is None:
+            active_memories = self._backend.get_all_active()
 
         for existing in active_memories:
             if existing.embedding is None:
@@ -443,13 +478,18 @@ class CognitiveMemoryStore:
 
     # ─── Semantic Link Creation ──────────────────────────────────
 
-    def _create_semantic_links(self, entry: MemoryEntry) -> None:
+    def _create_semantic_links(
+        self,
+        entry: MemoryEntry,
+        active_memories: Optional[List[MemoryEntry]] = None,
+    ) -> None:
         """Create semantic links to existing similar memories."""
         if entry.embedding is None:
             return
 
         cfg = self._config
-        active_memories = self._backend.get_all_active()
+        if active_memories is None:
+            active_memories = self._backend.get_all_active()
 
         # Find similar memories
         similarities = []
@@ -515,12 +555,19 @@ class CognitiveMemoryStore:
                 )
 
         # 2. Demote core → archive
+        # ACT-R base level is in log-space (typically -10 to +5).
+        # Convert thresholds: ln(threshold) maps linear to log-space.
+        # archive_threshold=0.1 → ln(0.1) ≈ -2.3 (demote if rarely accessed)
+        # prune_threshold=0.01  → ln(0.01) ≈ -4.6 (prune if essentially forgotten)
+        archive_bl_threshold = math.log(max(cfg.archive_threshold, 1e-10))
+        prune_bl_threshold = math.log(max(cfg.prune_threshold, 1e-10))
+
         core = self._backend.get_by_layer("core")
         for mem in core:
             if mem.pinned:
                 continue
             activation = self._actr_base_level(mem.access_times, now, cfg.d)
-            if activation < cfg.archive_threshold:
+            if activation < archive_bl_threshold:
                 self._backend.update(mem.id, layer="archive")
                 report.demoted_to_archive += 1
                 report.details.append(
@@ -533,7 +580,7 @@ class CognitiveMemoryStore:
             if mem.pinned:
                 continue
             activation = self._actr_base_level(mem.access_times, now, cfg.d)
-            if activation < cfg.prune_threshold:
+            if activation < prune_bl_threshold:
                 self._backend.update(mem.id, superseded_by="pruned")
                 report.pruned += 1
                 report.details.append(
