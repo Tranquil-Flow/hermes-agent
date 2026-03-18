@@ -27,6 +27,12 @@ class CognitiveBenchmarkAdapter(BenchmarkableStore):
         config.embedding_model = embedding_model
         # Use in-memory SQLite for benchmarks
         config.db_path = ":memory:"
+
+        # Apply any custom parameter overrides (for ablation/sweeps)
+        for key, value in kwargs.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+
         self._store = CognitiveMemoryStore(config=config, db_path=":memory:")
         # Use virtual clock so encoding speed doesn't create timing artifacts
         self._store.enable_virtual_clock()
