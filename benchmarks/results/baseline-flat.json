@@ -9,114 +9,162 @@
     0.545
   ],
   "per_category_mean": {
-    "semantic_recall": 0.96,
-    "temporal_decay": 0.37777777777777777,
     "importance_filtering": 0.55,
-    "cross_reference": 0.3333333333333333,
-    "contradictions": 0.3499999999999999
+    "temporal_decay": 0.37777777777777777,
+    "contradictions": 0.3499999999999999,
+    "semantic_recall": 0.96,
+    "cross_reference": 0.3333333333333333
   },
   "per_category_std": {
-    "semantic_recall": 0.0,
-    "temporal_decay": 0.0,
     "importance_filtering": 0.0,
-    "cross_reference": 0.0,
-    "contradictions": 6.798699777552591e-17
+    "temporal_decay": 0.0,
+    "contradictions": 6.798699777552591e-17,
+    "semantic_recall": 0.0,
+    "cross_reference": 0.0
   },
   "num_runs": 3,
   "runs": [
     {
       "seed": 42,
       "overall_score": 0.545,
-      "wall_time_seconds": 0.014426946640014648,
+      "wall_time_seconds": 0.007723093032836914,
+      "token_usage": {
+        "recall_tokens": 4423,
+        "recall_chars": 18260,
+        "recall_queries": 200,
+        "avg_recall_tokens_per_query": 22
+      },
       "categories": {
         "contradictions": {
           "score": 0.35,
           "correct": 7,
-          "total": 20
+          "total": 20,
+          "recall_tokens": 438,
+          "recall_chars": 1810
         },
         "cross_reference": {
           "score": 0.3333333333333333,
           "correct": 15,
-          "total": 45
+          "total": 45,
+          "recall_tokens": 834,
+          "recall_chars": 3478
         },
         "importance_filtering": {
           "score": 0.55,
           "correct": 22,
-          "total": 40
+          "total": 40,
+          "recall_tokens": 1474,
+          "recall_chars": 6067
         },
         "semantic_recall": {
           "score": 0.96,
           "correct": 48,
-          "total": 50
+          "total": 50,
+          "recall_tokens": 866,
+          "recall_chars": 3543
         },
         "temporal_decay": {
           "score": 0.37777777777777777,
           "correct": 17,
-          "total": 45
+          "total": 45,
+          "recall_tokens": 811,
+          "recall_chars": 3362
         }
       }
     },
     {
       "seed": 43,
       "overall_score": 0.545,
-      "wall_time_seconds": 0.014910459518432617,
+      "wall_time_seconds": 0.003170490264892578,
+      "token_usage": {
+        "recall_tokens": 4423,
+        "recall_chars": 18260,
+        "recall_queries": 200,
+        "avg_recall_tokens_per_query": 22
+      },
       "categories": {
         "contradictions": {
           "score": 0.35,
           "correct": 7,
-          "total": 20
+          "total": 20,
+          "recall_tokens": 438,
+          "recall_chars": 1810
         },
         "cross_reference": {
           "score": 0.3333333333333333,
           "correct": 15,
-          "total": 45
+          "total": 45,
+          "recall_tokens": 834,
+          "recall_chars": 3478
         },
         "importance_filtering": {
           "score": 0.55,
           "correct": 22,
-          "total": 40
+          "total": 40,
+          "recall_tokens": 1474,
+          "recall_chars": 6067
         },
         "semantic_recall": {
           "score": 0.96,
           "correct": 48,
-          "total": 50
+          "total": 50,
+          "recall_tokens": 866,
+          "recall_chars": 3543
         },
         "temporal_decay": {
           "score": 0.37777777777777777,
           "correct": 17,
-          "total": 45
+          "total": 45,
+          "recall_tokens": 811,
+          "recall_chars": 3362
         }
       }
     },
     {
       "seed": 44,
       "overall_score": 0.545,
-      "wall_time_seconds": 0.011249780654907227,
+      "wall_time_seconds": 0.002771139144897461,
+      "token_usage": {
+        "recall_tokens": 4423,
+        "recall_chars": 18260,
+        "recall_queries": 200,
+        "avg_recall_tokens_per_query": 22
+      },
       "categories": {
         "contradictions": {
           "score": 0.35,
           "correct": 7,
-          "total": 20
+          "total": 20,
+          "recall_tokens": 438,
+          "recall_chars": 1810
         },
         "cross_reference": {
           "score": 0.3333333333333333,
           "correct": 15,
-          "total": 45
+          "total": 45,
+          "recall_tokens": 834,
+          "recall_chars": 3478
         },
         "importance_filtering": {
           "score": 0.55,
           "correct": 22,
-          "total": 40
+          "total": 40,
+          "recall_tokens": 1474,
+          "recall_chars": 6067
         },
         "semantic_recall": {
           "score": 0.96,
           "correct": 48,
-          "total": 50
+          "total": 50,
+          "recall_tokens": 866,
+          "recall_chars": 3543
         },
         "temporal_decay": {
           "score": 0.37777777777777777,
           "correct": 17,
-          "total": 45
+          "total": 45,
+          "recall_tokens": 811,
+          "recall_chars": 3362
         }
       }
     }

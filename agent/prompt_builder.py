@@ -127,6 +127,18 @@ DEFAULT_AGENT_IDENTITY = (
     "Be targeted and efficient in your exploration and investigations."
 )
 
+# Minimal preamble used when SOUL.md provides the agent's identity.
+# Keeps behavioral guidance without imposing a competing persona.
+_SOUL_FALLBACK_IDENTITY = (
+    "You are an intelligent AI assistant. You assist users with a wide "
+    "range of tasks including answering questions, writing and editing code, "
+    "analyzing information, creative work, and executing actions via your tools. "
+    "You communicate clearly, admit uncertainty when appropriate, and prioritize "
+    "being genuinely useful over being verbose unless otherwise directed below. "
+    "Be targeted and efficient in your exploration and investigations. "
+    "Your identity and persona are defined in SOUL.md below — follow it completely."
+)
+
 MEMORY_GUIDANCE = (
     "You have persistent memory across sessions. Save durable facts using the memory "
     "tool: user preferences, environment details, tool quirks, and stable conventions. "

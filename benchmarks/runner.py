@@ -10,7 +10,7 @@ import json
 import time
 import sys
 from pathlib import Path
-from typing import Dict, List, Type
+from typing import Dict, List, Optional, Type
 
 from benchmarks.interface import (
     BenchmarkableStore, BenchmarkConfig, RunResult,
@@ -48,6 +48,24 @@ except ImportError:
     pass  # cognitive_memory not available
 
 
+# --- Token Estimation ---
+
+def estimate_tokens(text: str) -> int:
+    """Rough token estimate: ~4 chars per token for English text.
+    Good enough for cost estimation. For exact counts, use tiktoken.
+    """
+    return max(len(text) // 4, 1)
+
+
+def count_recall_tokens(results: list) -> tuple:
+    """Count tokens and chars in recalled memory strings.
+    Returns (token_count, char_count).
+    """
+    total_chars = sum(len(r) for r in results)
+    total_tokens = sum(estimate_tokens(r) for r in results)
+    return total_tokens, total_chars
+
+
 # --- Fixture Loading ---
 
 SUITE_DIR = Path(__file__).parent
@@ -73,12 +91,17 @@ def run_semantic_recall(backend: BenchmarkableStore, scenarios: list,
     """Run semantic recall scenarios (Suite A1)."""
     correct = 0
     details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
 
     for sc in scenarios:
         backend.reset()
         backend.store(sc["fact"], category="factual")
         results = backend.recall(sc["query"], top_k=5)
         actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
 
         jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
         if jr.correct:
@@ -106,6 +129,8 @@ def run_semantic_recall(backend: BenchmarkableStore, scenarios: list,
         score=correct / len(scenarios) if scenarios else 0,
         sub_scores=sub_scores,
         details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
     )
 
 
@@ -114,6 +139,8 @@ def run_contradictions(backend: BenchmarkableStore, scenarios: list,
     """Run contradiction handling scenarios (Suite A2)."""
     correct = 0
     details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
 
     for sc in scenarios:
         backend.reset()
@@ -123,6 +150,9 @@ def run_contradictions(backend: BenchmarkableStore, scenarios: list,
 
         results = backend.recall(sc["query"], top_k=5)
         actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
 
         jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
         if jr.correct:
@@ -142,6 +172,8 @@ def run_contradictions(backend: BenchmarkableStore, scenarios: list,
         correct=correct,
         score=correct / len(scenarios) if scenarios else 0,
         details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
     )
 
 
@@ -150,6 +182,8 @@ def run_temporal_decay(backend: BenchmarkableStore, scenarios: list,
     """Run temporal decay scenarios (Suite A3)."""
     correct = 0
     details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
 
     for sc in scenarios:
         backend.reset()
@@ -168,6 +202,9 @@ def run_temporal_decay(backend: BenchmarkableStore, scenarios: list,
 
         results = backend.recall(sc["query"], top_k=5)
         actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
 
         jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
         if jr.correct:
@@ -194,6 +231,8 @@ def run_temporal_decay(backend: BenchmarkableStore, scenarios: list,
         score=correct / len(scenarios) if scenarios else 0,
         sub_scores=sub_scores,
         details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
     )
 
 
@@ -202,6 +241,8 @@ def run_cross_reference(backend: BenchmarkableStore, scenarios: list,
     """Run cross-reference scenarios (Suite A4)."""
     correct = 0
     details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
 
     for sc in scenarios:
         backend.reset()
@@ -211,6 +252,9 @@ def run_cross_reference(backend: BenchmarkableStore, scenarios: list,
         results = backend.recall(sc["query"], top_k=10)
         # Concatenate top results as the answer context
         actual = " | ".join(results[:sc["num_facts_needed"]]) if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
 
         jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
         if jr.correct:
@@ -238,6 +282,8 @@ def run_cross_reference(backend: BenchmarkableStore, scenarios: list,
         score=correct / len(scenarios) if scenarios else 0,
         sub_scores=sub_scores,
         details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
     )
 
 
@@ -246,6 +292,8 @@ def run_importance_filtering(backend: BenchmarkableStore, scenarios: list,
     """Run importance filtering scenarios (Suite A5)."""
     correct = 0
     details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
 
     for sc in scenarios:
         backend.reset()
@@ -256,6 +304,9 @@ def run_importance_filtering(backend: BenchmarkableStore, scenarios: list,
 
         results = backend.recall(sc["query"], top_k=5)
         actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
 
         jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
         if jr.correct:
@@ -282,6 +333,8 @@ def run_importance_filtering(backend: BenchmarkableStore, scenarios: list,
         score=correct / len(scenarios) if scenarios else 0,
         sub_scores=sub_scores,
         details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
     )
 
 
@@ -333,10 +386,21 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
     total_items = sum(c.total for c in results_by_cat.values())
     overall = total_correct / total_items if total_items > 0 else 0
 
+    # Aggregate token usage across categories
+    total_recall_tokens = sum(c.recall_tokens for c in results_by_cat.values())
+    total_recall_chars = sum(c.recall_chars for c in results_by_cat.values())
+    num_queries = total_items
+
     return RunResult(
         seed=seed,
         results_by_category=results_by_cat,
         overall_score=overall,
+        token_usage={
+            "recall_tokens": total_recall_tokens,
+            "recall_chars": total_recall_chars,
+            "recall_queries": num_queries,
+            "avg_recall_tokens_per_query": total_recall_tokens // max(num_queries, 1),
+        },
         wall_time_seconds=elapsed,
     )
 
@@ -355,7 +419,8 @@ def run_benchmark(config: BenchmarkConfig) -> tuple:
     return aggregate_results(runs), runs
 
 
-def print_results(agg: AggregateResult, config: BenchmarkConfig):
+def print_results(agg: AggregateResult, config: BenchmarkConfig,
+                   runs: Optional[list] = None):
     """Print a summary table to stdout."""
     print(f"\n{'='*60}")
     print(f"  BENCHMARK RESULTS: {config.backend_name}")
@@ -369,6 +434,17 @@ def print_results(agg: AggregateResult, config: BenchmarkConfig):
     for cat, mean in sorted(agg.per_category_mean.items()):
         std = agg.per_category_std.get(cat, 0)
         print(f"  {cat:<25} {mean:>8.3f} {std:>8.3f}")
+    print(f"{'─'*60}")
+    # Token usage summary
+    if runs:
+        avg_tokens = sum(
+            r.token_usage.get("avg_recall_tokens_per_query", 0) for r in runs
+        ) // len(runs)
+        total_tokens = sum(r.token_usage.get("recall_tokens", 0) for r in runs) // len(runs)
+        total_queries = sum(r.token_usage.get("recall_queries", 0) for r in runs) // len(runs)
+        print(f"  Token cost (avg per run):")
+        print(f"    Recall tokens/query:  ~{avg_tokens}")
+        print(f"    Total recall tokens:  ~{total_tokens} ({total_queries} queries)")
     print(f"{'='*60}\n")
 
 
@@ -428,7 +504,7 @@ def main():
         }
         print(json.dumps(results_dict, indent=2))
     else:
-        print_results(agg, config)
+        print_results(agg, config, runs)
 
     # Save results
     output_dir = Path(args.output_dir)
@@ -450,8 +526,12 @@ def main():
                     "seed": r.seed,
                     "overall_score": r.overall_score,
                     "wall_time_seconds": r.wall_time_seconds,
+                    "token_usage": r.token_usage,
                     "categories": {
-                        cat: {"score": cr.score, "correct": cr.correct, "total": cr.total}
+                        cat: {
+                            "score": cr.score, "correct": cr.correct, "total": cr.total,
+                            "recall_tokens": cr.recall_tokens, "recall_chars": cr.recall_chars,
+                        }
                         for cat, cr in r.results_by_category.items()
                     },
                 }
@@ -473,7 +553,7 @@ def main():
             parameters={"profile": args.profile, "embedding_model": args.embedding},
         )
         agg2, runs2 = run_benchmark(config2)
-        print_results(agg2, config2)
+        print_results(agg2, config2, runs2)
 
         # Save comparison results
         result_file2 = output_dir / f"{config2.backend_name}.json"

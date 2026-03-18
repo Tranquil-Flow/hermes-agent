@@ -5447,11 +5447,17 @@ def _start_cron_ticker(stop_event: threading.Event, adapters=None, interval: int
     tick_count = 0
     while not stop_event.is_set():
         try:
-            cron_tick(verbose=False)
+            executed = cron_tick(verbose=False)
+            if executed:
+                logger.info("Cron tick: executed %d job(s)", executed)
         except Exception as e:
-            logger.debug("Cron tick error: %s", e)
+            logger.error("Cron tick error: %s", e, exc_info=True)
 
         tick_count += 1
+
+        # Heartbeat log every 10 minutes so we can verify ticker is alive
+        if tick_count % 10 == 0:
+            logger.info("Cron ticker heartbeat (tick #%d)", tick_count)
 
         if tick_count % CHANNEL_DIR_EVERY == 0 and adapters:
             try:

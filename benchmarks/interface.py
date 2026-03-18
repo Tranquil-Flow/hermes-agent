@@ -76,6 +76,8 @@ class CategoryResult:
     # sub_scores: e.g., {"easy": 0.93, "medium": 0.80, "hard": 0.67}
     details: List[Dict[str, Any]] = field(default_factory=list)
     # per-question details for debugging
+    recall_tokens: int = 0  # total tokens in recalled memories for this category
+    recall_chars: int = 0   # total chars in recalled memories
 
 
 @dataclass
@@ -85,7 +87,8 @@ class RunResult:
     results_by_category: Dict[str, CategoryResult] = field(default_factory=dict)
     overall_score: float = 0.0
     token_usage: Dict[str, int] = field(default_factory=dict)
-    # token_usage: {"total_input": N, "total_output": N, "judge_input": N, ...}
+    # token_usage: {"recall_tokens": N, "recall_chars": N, "judge_tokens": N,
+    #               "embed_calls": N, "store_calls": N, "recall_calls": N}
     wall_time_seconds: float = 0.0
 
 
