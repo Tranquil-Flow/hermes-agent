@@ -451,6 +451,169 @@ class CognitiveMemoryStore:
 
     # ─── Contradiction Detection ─────────────────────────────────
 
+    @staticmethod
+    def _extract_key_terms(text: str) -> tuple:
+        """Extract key terms that identify the topic of a fact.
+
+        Returns (technical_terms, domain_words) where both are sets of
+        lowercase strings. Used for entity-overlap contradiction detection.
+
+        Focuses on: product names, version numbers, acronyms, and
+        domain-specific nouns. Aggressively filters common words.
+        """
+        import re as _re
+
+        terms: set = set()
+        text_lower = text.lower()
+
+        # Product + version (PostgreSQL 14, iOS 13, Python 3.10)
+        for m in _re.finditer(
+            r'\b([A-Z][a-zA-Z]+(?:\.[a-zA-Z]+)?)\s+(\d+(?:\.\d+)*)\b', text
+        ):
+            terms.add(f"{m.group(1).lower()} {m.group(2)}")
+            terms.add(m.group(1).lower())
+
+        # Cloud/infra identifiers (us-east-1, us-central1)
+        for m in _re.finditer(
+            r'\b([a-z]+-(?:east|west|central|north|south)\d*-?\d*)\b', text_lower
+        ):
+            terms.add(m.group(1))
+
+        # Technical acronyms (API, CI, JWT, TTL, UTC, JSON) — 2+ uppercase letters
+        _stop_acronyms = {
+            'the', 'a', 'an', 'all', 'we', 'our', 'no', 'yes', 'pm', 'am',
+        }
+        for m in _re.finditer(r'\b([A-Z]{2,})\b', text):
+            term = m.group(1).lower()
+            if term not in _stop_acronyms:
+                terms.add(term)
+
+        # Known product/service names
+        _known_products = {
+            'postgresql', 'aws', 'gcp', 'jenkins', 'github actions',
+            'cloudwatch', 'grafana', 'loki', 'sentry', 'launchdarkly',
+            'react', 'next.js', 'typescript', 'javascript', 'docker',
+            'kubernetes', 'protocol buffers', 'redis', 'mongodb', 'nginx',
+        }
+        for prod in _known_products:
+            if prod in text_lower:
+                terms.add(prod)
+
+        # Domain-specific nouns (topic identifiers)
+        _stop_words = {
+            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'with', 'and', 'or',
+            'for', 'in', 'on', 'at', 'to', 'of', 'it', 'its', 'by', 'as',
+            'that', 'this', 'from', 'has', 'have', 'be', 'been', 'we', 'our',
+            'they', 'do', 'does', 'not', 'but', 'so', 'if', 'than', 'then',
+            'about', 'up', 'out', 'all', 'now', 'use', 'uses', 'using', 'used',
+            'after', 'new', 'more', 'added', 'two', 'three', 'also', 'still',
+            'due', 'every', 'other', 'each', 'first', 'per', 'how', 'what',
+            'where', 'when', 'into', 'over', 'single', 'total', 'only', 'some',
+            'took', 'moved', 'migrated', 'switched', 'upgraded', 'reduced',
+            'increased', 'dropped', 'hired', 'brought', 'bringing', 'free',
+            'rewritten', 'extracted', 'custom', 'main', 'current', 'currently',
+            'requires', 'require', 'smaller', 'better', 'separate',
+            'additional', 'alternative', 'runs', 'run', 'goes', 'go',
+            'handles', 'handle', 'supports', 'mirrors', 'matches', 'tier',
+            'plan', 'costs', 'complete', 'minutes', 'hour', 'hours', 'daily',
+            'frequent', 'updates', 'save', 'app', 'environment', 'production',
+            'instance', 'sizes', 'format', 'response', 'responses', 'clients',
+            'mobile', 'web', 'minimum',
+        }
+        domain_words: set = set()
+        for w in _re.findall(r'\b[a-z]{4,}\b', text_lower):
+            if w not in _stop_words:
+                # Basic stemming: strip trailing s/es/ed/ing for matching
+                stem = _re.sub(r'(?:ing|ed|es|s)$', '', w)
+                if len(stem) >= 3:
+                    domain_words.add(stem)
+                else:
+                    domain_words.add(w)
+
+        return terms, domain_words
+
+    @staticmethod
+    def _has_update_signal(text: str) -> bool:
+        """Detect whether text contains language indicating it updates/replaces
+        a previous state. This is the key discriminator between contradictions
+        (update) and complementary facts (new info about same topic).
+
+        Examples of update signals:
+          "We migrated to PostgreSQL 16"  → True
+          "Kubernetes orchestrates Docker" → False
+        """
+        import re as _re
+
+        text_lower = text.lower()
+
+        # Verb patterns that signal state change
+        _update_verbs = (
+            r'\b(?:migrat|switch|upgrad|mov|chang|replac|rewrit|dropp|'
+            r'increas|reduc|extract|took\s+over|brought|hiring|hired|'
+            r'added|paralleliz|no\s+longer)\w*\b'
+        )
+        if _re.search(_update_verbs, text_lower):
+            return True
+
+        # "now uses/is/has" pattern
+        if _re.search(r'\bnow\s+(?:use|is|has|run|complete|support)\w*\b', text_lower):
+            return True
+
+        # "after X" temporal pattern suggesting change (but not "after N hours/minutes")
+        if _re.search(r'\bafter\s+(?![\d]+\s*(?:hour|minute|second|day|week|month|year))\w+', text_lower):
+            return True
+
+        # "minimum is now" / "was X; Y" patterns
+        if _re.search(r'\bwas\s+\w+.*?(?:now|;)', text_lower):
+            return True
+
+        return False
+
+    def _contradiction_score(
+        self, new_content: str, existing_content: str, embedding_sim: float
+    ) -> float:
+        """Compute contradiction score using entity overlap + update signal.
+
+        Key insight: two facts sharing an entity are NOT contradictions unless
+        the newer fact signals an update/change ("migrated", "switched", "now").
+        "Docker is a tool" + "K8s orchestrates Docker" share an entity but are
+        complementary — no update language.
+
+        Returns 0.0 if no update signal detected (complementary facts).
+        Returns >0 when entity overlap + update language both present.
+        """
+        # Gate: if the new fact has no update language, it's complementary
+        if not self._has_update_signal(new_content):
+            # Exception: very high embedding similarity (near-duplicate/restatement)
+            if embedding_sim >= 0.85:
+                return embedding_sim
+            return 0.0
+
+        terms_new, words_new = self._extract_key_terms(new_content)
+        terms_old, words_old = self._extract_key_terms(existing_content)
+
+        # Technical term overlap (strongest signal)
+        shared_terms = terms_new & terms_old
+        all_terms = terms_new | terms_old
+        term_overlap = len(shared_terms) / len(all_terms) if all_terms else 0
+
+        # Domain word overlap
+        shared_words = words_new & words_old
+        all_words = words_new | words_old
+        word_overlap = len(shared_words) / len(all_words) if all_words else 0
+
+        # Combined entity score
+        entity_score = 0.5 * term_overlap + 0.5 * word_overlap
+
+        # Final: entity overlap + embedding similarity
+        combined = entity_score * 0.6 + embedding_sim * 0.4
+
+        # Boost if shared technical terms exist (strongest contradiction signal)
+        if shared_terms:
+            combined += 0.1
+
+        return combined
+
     def _check_contradictions(
         self,
         new_entry: MemoryEntry,
@@ -458,9 +621,15 @@ class CognitiveMemoryStore:
     ) -> None:
         """
         Check for contradictions between new memory and existing ones.
-        Stage 1 only (embedding similarity). No LLM calls.
 
-        If high similarity + same category + same scope → mark old as superseded.
+        Uses a combined signal of entity overlap + embedding similarity to
+        detect when a new fact updates/contradicts an existing one about
+        the same topic. Pure embedding similarity fails because contradicting
+        facts use different words to describe opposing states of the same entity
+        (e.g., "uses PostgreSQL 14" vs "migrated to PostgreSQL 16").
+
+        Same category + same scope is still required as a guard.
+        When detected, the old memory is marked as superseded.
         """
         if new_entry.embedding is None:
             return
@@ -477,14 +646,16 @@ class CognitiveMemoryStore:
             if existing.scope != new_entry.scope:
                 continue
 
-            sim = cosine_similarity(new_entry.embedding, existing.embedding)
-            if sim >= threshold:
-                # High similarity + same category + same scope → likely contradiction
-                # Newer supersedes older
+            emb_sim = cosine_similarity(new_entry.embedding, existing.embedding)
+            score = self._contradiction_score(
+                new_entry.content, existing.content, emb_sim
+            )
+
+            if score >= threshold:
                 logger.info(
                     f"Contradiction detected: '{existing.content[:50]}...' "
                     f"superseded by '{new_entry.content[:50]}...' "
-                    f"(similarity={sim:.3f})"
+                    f"(score={score:.3f}, emb_sim={emb_sim:.3f})"
                 )
                 self._backend.update(
                     existing.id,
@@ -493,8 +664,16 @@ class CognitiveMemoryStore:
                 # Store contradiction metadata
                 meta = new_entry.metadata.copy()
                 meta["supersedes"] = existing.id
-                meta["contradiction_similarity"] = float(sim)
+                meta["contradiction_score"] = float(score)
+                meta["contradiction_emb_sim"] = float(emb_sim)
                 new_entry.metadata = meta
+
+                # Boost importance of superseding fact — it carries critical
+                # updated information and needs to overcome recency bias from
+                # distractors. Inherit the superseded fact's importance (at
+                # minimum) and add a boost.
+                boosted = max(new_entry.importance, existing.importance, 0.7) + 0.2
+                new_entry.importance = min(boosted, 1.0)
 
     # ─── Semantic Link Creation ──────────────────────────────────
 

@@ -46,8 +46,9 @@ class TestStoreBasic:
 
     def test_stats(self):
         store = _make_store()
-        store.store("fact one")
-        store.store("fact two")
+        # Use distinct memories that won't trigger contradiction detection
+        store.store("Python is a programming language")
+        store.store("The office has a coffee machine")
         stats = store.get_stats()
         assert stats["active"] == 2
         assert stats["by_layer"]["working"] == 2
