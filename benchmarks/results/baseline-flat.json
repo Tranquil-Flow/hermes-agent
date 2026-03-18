@@ -1,7 +1,7 @@
 {
   "backend": "baseline-flat",
   "profile": "balanced",
-  "embedding_model": "tfidf",
+  "embedding_model": "auto",
   "mean_score": 0.69,
   "std": 0.0,
   "ci_95": [
@@ -11,15 +11,15 @@
   "per_category_mean": {
     "contradictions": 0.55,
     "cross_reference": 0.4,
-    "temporal_decay": 0.7333333333333333,
     "semantic_recall": 0.98,
+    "temporal_decay": 0.7333333333333333,
     "importance_filtering": 0.675
   },
   "per_category_std": {
     "contradictions": 0.0,
     "cross_reference": 0.0,
-    "temporal_decay": 0.0,
     "semantic_recall": 0.0,
+    "temporal_decay": 0.0,
     "importance_filtering": 0.0
   },
   "num_runs": 1,
@@ -27,7 +27,7 @@
     {
       "seed": 42,
       "overall_score": 0.69,
-      "wall_time_seconds": 0.006424903869628906,
+      "wall_time_seconds": 0.00675201416015625,
       "token_usage": {
         "recall_tokens": 4524,
         "recall_chars": 18687,
