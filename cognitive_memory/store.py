@@ -69,6 +69,8 @@ class CognitiveMemoryStore:
         )
         self._embedder = EmbeddingProvider(model=self._config.embedding_model)
         self._simulated_time_offset: float = 0.0  # for benchmarking
+        self._use_virtual_clock: bool = False
+        self._virtual_clock: float = time.time()
 
         logger.info(
             f"CognitiveMemoryStore initialized: "
@@ -90,11 +92,24 @@ class CognitiveMemoryStore:
 
     def _now(self) -> float:
         """Current time, accounting for simulated time offset."""
+        if self._use_virtual_clock:
+            return self._virtual_clock
         return time.time() + self._simulated_time_offset
 
     def advance_time(self, seconds: float) -> None:
         """Advance simulated clock (for benchmarking)."""
-        self._simulated_time_offset += seconds
+        if self._use_virtual_clock:
+            self._virtual_clock += seconds
+        else:
+            self._simulated_time_offset += seconds
+
+    def enable_virtual_clock(self) -> None:
+        """Switch to virtual clock mode — time only advances via advance_time().
+        Eliminates wall-clock timing artifacts in benchmarks where encoding
+        speed (e.g., sentence-transformers) creates artificial recency bias.
+        """
+        self._use_virtual_clock = True
+        self._virtual_clock = time.time()
 
     # ─── Store ───────────────────────────────────────────────────
 
@@ -203,11 +218,7 @@ class CognitiveMemoryStore:
             components = self._compute_activation(
                 mem, query_embedding, now, link_map, scope, embedding_cache
             )
-            # Use the importance-adjusted total; _importance_factor and _raw_total
-            # are internal metadata, not scoring components
-            raw_total = components.pop("_raw_total", 0.0)
-            imp_factor = components.pop("_importance_factor", 1.0)
-            total = raw_total * imp_factor
+            total = sum(components.values())
             scored.append(ScoredMemory(
                 entry=mem,
                 score=total,
@@ -260,32 +271,24 @@ class CognitiveMemoryStore:
         )
         spreading += hebbian_spread
 
-        # 3. Importance boost — both additive and multiplicative.
-        # The additive term follows the design doc: W_IMPORTANCE × importance.
-        # The multiplicative factor ensures high-importance memories always
-        # outrank low-importance ones when semantic scores are close.
-        # Factor range: [1 - w_importance, 1 + w_importance] centered on 1.0
-        # at importance=0.5. This means importance=1.0 amplifies by ~1.2x
-        # and importance=0.1 dampens by ~0.92x (with w_importance=0.2).
-        importance_boost = cfg.w_importance * memory.importance
-        importance_factor = 1.0 + cfg.w_importance * (memory.importance - 0.5)
+        # 3. Importance boost — scaled additive term.
+        # Scale the boost to the activation range so importance remains
+        # meaningful at any base_level magnitude. The (1 + |base|) factor
+        # ensures importance=1.0 gets a boost proportional to how much
+        # base_level contributes, so it can't be drowned out.
+        base_magnitude = max(abs(base_level), 1.0)
+        importance_boost = cfg.w_importance * memory.importance * (2.0 + base_magnitude)
 
         # 4. Scope boost — prefix match so project:hermes matches project:hermes/sub
         scope_boost = 0.0
         if scope and (memory.scope == scope or memory.scope.startswith(scope)):
-            scope_boost = cfg.scope_multiplier * cfg.w_importance  # scaled to importance weight
-
-        # Apply importance as a multiplicative factor to the full score
-        raw_score = base_level + spreading + importance_boost + scope_boost
-        adjusted_score = raw_score * importance_factor
+            scope_boost = cfg.scope_multiplier * cfg.w_importance
 
         return {
             "base_level": base_level,
             "spreading": spreading,
             "importance_boost": importance_boost,
             "scope_boost": scope_boost,
-            "_importance_factor": importance_factor,
-            "_raw_total": raw_score,
         }
 
     def _actr_base_level(
@@ -652,3 +655,5 @@ class CognitiveMemoryStore:
         self._backend.reset()
         self._embedder.reset()
         self._simulated_time_offset = 0.0
+        if self._use_virtual_clock:
+            self._virtual_clock = time.time()

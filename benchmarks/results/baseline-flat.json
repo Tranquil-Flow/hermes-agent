@@ -10,16 +10,16 @@
   ],
   "per_category_mean": {
     "semantic_recall": 0.96,
+    "temporal_decay": 0.37777777777777777,
     "importance_filtering": 0.55,
     "cross_reference": 0.3333333333333333,
-    "temporal_decay": 0.37777777777777777,
     "contradictions": 0.3499999999999999
   },
   "per_category_std": {
     "semantic_recall": 0.0,
+    "temporal_decay": 0.0,
     "importance_filtering": 0.0,
     "cross_reference": 0.0,
-    "temporal_decay": 0.0,
     "contradictions": 6.798699777552591e-17
   },
   "num_runs": 3,
@@ -27,7 +27,7 @@
     {
       "seed": 42,
       "overall_score": 0.545,
-      "wall_time_seconds": 0.002965688705444336,
+      "wall_time_seconds": 0.014426946640014648,
       "categories": {
         "contradictions": {
           "score": 0.35,
@@ -59,7 +59,7 @@
     {
       "seed": 43,
       "overall_score": 0.545,
-      "wall_time_seconds": 0.003173351287841797,
+      "wall_time_seconds": 0.014910459518432617,
       "categories": {
         "contradictions": {
           "score": 0.35,
@@ -91,7 +91,7 @@
     {
       "seed": 44,
       "overall_score": 0.545,
-      "wall_time_seconds": 0.0024428367614746094,
+      "wall_time_seconds": 0.011249780654907227,
       "categories": {
         "contradictions": {
           "score": 0.35,

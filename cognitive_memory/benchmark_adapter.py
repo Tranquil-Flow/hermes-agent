@@ -28,6 +28,8 @@ class CognitiveBenchmarkAdapter(BenchmarkableStore):
         # Use in-memory SQLite for benchmarks
         config.db_path = ":memory:"
         self._store = CognitiveMemoryStore(config=config, db_path=":memory:")
+        # Use virtual clock so encoding speed doesn't create timing artifacts
+        self._store.enable_virtual_clock()
 
     def store(
         self,
@@ -42,6 +44,9 @@ class CognitiveBenchmarkAdapter(BenchmarkableStore):
             scope=scope,
             importance=importance,
         )
+        # Tiny virtual time step preserves insertion order while keeping
+        # base_level differences negligible between batch-stored memories.
+        self._store.advance_time(0.0001)  # 0.1ms virtual gap
 
     def recall(
         self,
