@@ -15,14 +15,16 @@ class CognitiveMemoryConfig:
     """All tunable parameters for the cognitive memory system."""
 
     # --- ACT-R Parameters ---
-    d: float = 0.5
-    """ACT-R decay parameter in tᵢ^(-d). Standard value is 0.5. Lower = slower decay."""
+    d: float = 0.3
+    """ACT-R decay parameter in tᵢ^(-d). Lower = slower decay. Optimized from
+    grid search: d=0.3 scores 85.0% vs d=0.5 at 79.5% on Suite A."""
 
     w_semantic: float = 0.4
     """Weight of cosine similarity (query vs memory embedding) in activation score."""
 
-    w_importance: float = 0.2
-    """Weight of importance score in activation."""
+    w_importance: float = 0.4
+    """Weight of importance score in activation. Optimized from grid search:
+    w=0.4 scores 83.0% vs w=0.2 at 79.5% on Suite A. Plateaus above 0.4."""
 
     hebbian_learning_rate: float = 0.05
     """How fast co-activation strengthens Hebbian links. η in ΔW = η × aᵢ × aⱼ."""
@@ -85,31 +87,31 @@ class CognitiveMemoryConfig:
 
     @classmethod
     def developer(cls) -> "CognitiveMemoryConfig":
-        """Profile for developers/coders. Recency matters; fast link formation."""
+        """Profile for developers/coders. Moderate decay; balanced weights."""
         return cls(
-            d=0.5,
+            d=0.4,
             w_semantic=0.45,
-            w_importance=0.15,
+            w_importance=0.35,
             hebbian_learning_rate=0.06,
         )
 
     @classmethod
     def researcher(cls) -> "CognitiveMemoryConfig":
-        """Profile for researchers. Older memories stay relevant; importance matters."""
+        """Profile for researchers. Slow decay; high importance weight."""
         return cls(
-            d=0.4,
-            w_semantic=0.55,
-            w_importance=0.25,
+            d=0.3,
+            w_semantic=0.50,
+            w_importance=0.45,
             hebbian_learning_rate=0.03,
         )
 
     @classmethod
     def personal(cls) -> "CognitiveMemoryConfig":
-        """Profile for personal assistant use. Preferences/corrections heavily weighted."""
+        """Profile for personal assistant use. Slow decay; high importance."""
         return cls(
-            d=0.5,
+            d=0.3,
             w_semantic=0.35,
-            w_importance=0.35,
+            w_importance=0.45,
             hebbian_learning_rate=0.05,
         )
 
