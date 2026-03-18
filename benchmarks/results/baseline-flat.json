@@ -2,32 +2,32 @@
   "backend": "baseline-flat",
   "profile": "balanced",
   "embedding_model": "tfidf",
-  "mean_score": 0.545,
+  "mean_score": 0.6,
   "std": 0.0,
   "ci_95": [
-    0.545,
-    0.545
+    0.6,
+    0.6
   ],
   "per_category_mean": {
-    "importance_filtering": 0.55,
-    "temporal_decay": 0.37777777777777777,
-    "contradictions": 0.3499999999999999,
     "semantic_recall": 0.96,
-    "cross_reference": 0.3333333333333333
+    "importance_filtering": 0.55,
+    "temporal_decay": 0.6222222222222222,
+    "cross_reference": 0.3333333333333333,
+    "contradictions": 0.3499999999999999
   },
   "per_category_std": {
+    "semantic_recall": 0.0,
     "importance_filtering": 0.0,
     "temporal_decay": 0.0,
-    "contradictions": 6.798699777552591e-17,
-    "semantic_recall": 0.0,
-    "cross_reference": 0.0
+    "cross_reference": 0.0,
+    "contradictions": 6.798699777552591e-17
   },
   "num_runs": 3,
   "runs": [
     {
       "seed": 42,
-      "overall_score": 0.545,
-      "wall_time_seconds": 0.007723093032836914,
+      "overall_score": 0.6,
+      "wall_time_seconds": 0.003506898880004883,
       "token_usage": {
         "recall_tokens": 4423,
         "recall_chars": 18260,
@@ -64,8 +64,8 @@
           "recall_chars": 3543
         },
         "temporal_decay": {
-          "score": 0.37777777777777777,
-          "correct": 17,
+          "score": 0.6222222222222222,
+          "correct": 28,
           "total": 45,
           "recall_tokens": 811,
           "recall_chars": 3362
@@ -74,8 +74,8 @@
     },
     {
       "seed": 43,
-      "overall_score": 0.545,
-      "wall_time_seconds": 0.003170490264892578,
+      "overall_score": 0.6,
+      "wall_time_seconds": 0.003493785858154297,
       "token_usage": {
         "recall_tokens": 4423,
         "recall_chars": 18260,
@@ -112,8 +112,8 @@
           "recall_chars": 3543
         },
         "temporal_decay": {
-          "score": 0.37777777777777777,
-          "correct": 17,
+          "score": 0.6222222222222222,
+          "correct": 28,
           "total": 45,
           "recall_tokens": 811,
           "recall_chars": 3362
@@ -122,8 +122,8 @@
     },
     {
       "seed": 44,
-      "overall_score": 0.545,
-      "wall_time_seconds": 0.002771139144897461,
+      "overall_score": 0.6,
+      "wall_time_seconds": 0.0027604103088378906,
       "token_usage": {
         "recall_tokens": 4423,
         "recall_chars": 18260,
@@ -160,8 +160,8 @@
           "recall_chars": 3543
         },
         "temporal_decay": {
-          "score": 0.37777777777777777,
-          "correct": 17,
+          "score": 0.6222222222222222,
+          "correct": 28,
           "total": 45,
           "recall_tokens": 811,
           "recall_chars": 3362

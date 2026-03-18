@@ -1,13 +1,13 @@
 {
   "backend": "cognitive",
-  "mean_score": 0.665,
-  "std": 0.0,
+  "mean_score": 0.7200000000000001,
+  "std": 1.3597399555105182e-16,
   "num_runs": 3,
   "per_category_mean": {
-    "importance_filtering": 0.525,
-    "temporal_decay": 0.4000000000000001,
-    "contradictions": 0.9499999999999998,
     "semantic_recall": 0.96,
-    "cross_reference": 0.6
+    "importance_filtering": 0.525,
+    "temporal_decay": 0.6444444444444445,
+    "cross_reference": 0.6,
+    "contradictions": 0.9499999999999998
   }
 }

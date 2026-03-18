@@ -188,17 +188,28 @@ def run_temporal_decay(backend: BenchmarkableStore, scenarios: list,
     for sc in scenarios:
         backend.reset()
 
-        # Store facts with simulated time
-        max_days = max(f["stored_days_ago"] for f in sc["facts"])
-        for fact in sorted(sc["facts"], key=lambda f: f["stored_days_ago"], reverse=True):
-            # Store oldest first
+        # Store facts with proper time simulation.
+        # Sort by stored_days_ago descending (oldest first).
+        # Advance simulated time between stores to create real recency gaps.
+        sorted_facts = sorted(sc["facts"], key=lambda f: f["stored_days_ago"], reverse=True)
+        prev_days_ago = sorted_facts[0]["stored_days_ago"] if sorted_facts else 0
+
+        for fact in sorted_facts:
+            # Advance time from previous fact to this one
+            time_gap = prev_days_ago - fact["stored_days_ago"]
+            if time_gap > 0:
+                backend.simulate_time(time_gap)
+            prev_days_ago = fact["stored_days_ago"]
+
             backend.store(fact["content"], category="factual")
+
             # Simulate rehearsals if present
             for r_day in fact.get("rehearsed_days_ago", []):
                 backend.simulate_access(fact["content"])
 
-        # Simulate passage of time to "now"
-        backend.simulate_time(max_days)
+        # Advance remaining time to "now" (days_ago=0)
+        if prev_days_ago > 0:
+            backend.simulate_time(prev_days_ago)
 
         results = backend.recall(sc["query"], top_k=5)
         actual = results[0] if results else ""
