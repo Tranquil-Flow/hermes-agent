@@ -931,6 +931,32 @@ class AIAgent:
             except Exception:
                 pass  # Memory is optional -- don't break agent init
         
+        # Cognitive memory (ACT-R scoring, Hebbian links, 3-layer consolidation)
+        self._cognitive_store = None  # CognitiveMemoryStore | None
+        if not skip_memory:
+            try:
+                from hermes_cli.config import load_config as _load_cog_config
+                cog_config = _load_cog_config().get("cognitive_memory", {})
+                if cog_config.get("enabled", False):
+                    import sys, os as _os
+                    _hermes_agent_src = _os.path.expanduser("~/Projects/hermes-agent")
+                    if _hermes_agent_src not in sys.path:
+                        sys.path.insert(0, _hermes_agent_src)
+                    from cognitive_memory.store import CognitiveMemoryStore
+                    from cognitive_memory.config import CognitiveMemoryConfig
+                    _profile = cog_config.get("profile", "balanced")
+                    _cog_cfg = CognitiveMemoryConfig.from_profile(_profile)
+                    if cog_config.get("db_path"):
+                        _cog_cfg.db_path = cog_config["db_path"]
+                    if cog_config.get("embedding_model"):
+                        _cog_cfg.embedding_model = cog_config["embedding_model"]
+                    self._cognitive_store = CognitiveMemoryStore(_cog_cfg)
+                    from tools.cognitive_memory_tool import set_cognitive_store
+                    set_cognitive_store(self._cognitive_store)
+                    logger.info("Cognitive memory initialized (profile=%s)", _profile)
+            except Exception as _e:
+                logger.warning("Cognitive memory init failed — disabled: %s", _e)
+
         # Honcho AI-native memory (cross-session user modeling)
         # Reads $HERMES_HOME/honcho.json (instance) or ~/.honcho/config.json (global).
         self._honcho = None  # HonchoSessionManager | None
@@ -2329,6 +2355,14 @@ class AIAgent:
 
         # Tool-aware behavioral guidance: only inject when the tools are loaded
         tool_guidance = []
+        if "cognitive_recall" in self.valid_tool_names:
+            tool_guidance.append(
+                "You have access to a cognitive memory system (cognitive_recall, "
+                "cognitive_store, cognitive_consolidate). Use cognitive_recall before "
+                "answering questions that depend on past context or learned facts. "
+                "Use cognitive_store to record important new facts, user preferences, "
+                "and decisions worth preserving across sessions."
+            )
         if "memory" in self.valid_tool_names:
             tool_guidance.append(MEMORY_GUIDANCE)
         if "session_search" in self.valid_tool_names:

@@ -344,6 +344,22 @@ memory:
   flush_min_turns: 6        # Min user turns to trigger flush on exit/reset (0 = disabled)
 
 # =============================================================================
+# Cognitive Memory (ACT-R activation scoring, Hebbian links, 3-layer consolidation)
+# =============================================================================
+# Disabled by default — requires sentence-transformers or a compatible embedding
+# backend. Enable once you have: pip install sentence-transformers
+#
+# cognitive_memory:
+#   enabled: false
+#
+#   # Profile: balanced | developer | researcher | personal
+#   profile: balanced
+#
+#   # Override individual parameters (see CognitiveMemoryConfig for all options)
+#   # embedding_model: auto   # auto | sentence-transformers | ollama | openai | tfidf
+#   # db_path: ""             # default: ~/.hermes/cognitive_memory.db
+
+# =============================================================================
 # Session Reset Policy (Messaging Platforms)
 # =============================================================================
 # Controls when messaging sessions (Telegram, Discord, WhatsApp, Slack) are
