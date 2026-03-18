@@ -584,9 +584,17 @@ class CognitiveMemoryStore:
         """
         # Gate: if the new fact has no update language, it's complementary
         if not self._has_update_signal(new_content):
-            # Exception: very high embedding similarity (near-duplicate/restatement)
+            # Exception: near-duplicate/restatement detection.
+            # High embedding sim alone isn't enough — structurally similar but
+            # factually different sentences (e.g., "A depends on B" vs "B depends
+            # on C") can have very high TF-IDF cosine similarity. Require both
+            # high embedding sim AND high word overlap to trigger supersession.
             if embedding_sim >= 0.85:
-                return embedding_sim
+                words_new = set(new_content.lower().split())
+                words_old = set(existing_content.lower().split())
+                word_jaccard = len(words_new & words_old) / len(words_new | words_old) if (words_new | words_old) else 0
+                if word_jaccard >= 0.75:
+                    return embedding_sim
             return 0.0
 
         terms_new, words_new = self._extract_key_terms(new_content)
