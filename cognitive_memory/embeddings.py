@@ -199,14 +199,25 @@ class TfidfEmbedder:
 # ─── Sentence Transformers Provider ──────────────────────────────────
 
 class SentenceTransformerEmbedder:
-    """Wraps sentence-transformers for high-quality embeddings."""
+    """Wraps sentence-transformers for high-quality embeddings.
+    
+    Caches the model globally so multiple stores can share it.
+    Loading ~80MB model per instance would be wasteful.
+    """
+
+    _shared_models: dict = {}  # class-level cache: model_name -> model
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         try:
-            from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(model_name)
+            if model_name in self._shared_models:
+                self._model = self._shared_models[model_name]
+                logger.info(f"Reusing cached sentence-transformers model: {model_name}")
+            else:
+                from sentence_transformers import SentenceTransformer
+                self._model = SentenceTransformer(model_name)
+                self._shared_models[model_name] = self._model
+                logger.info(f"Loaded sentence-transformers model: {model_name}")
             self._dimension = self._model.get_sentence_embedding_dimension()
-            logger.info(f"Loaded sentence-transformers model: {model_name} ({self._dimension}d)")
         except Exception as e:
             raise ImportError(f"sentence-transformers not available: {e}")
 

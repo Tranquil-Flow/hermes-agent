@@ -1,0 +1,124 @@
+{
+  "backend": "baseline-flat",
+  "profile": "balanced",
+  "embedding_model": "tfidf",
+  "mean_score": 0.545,
+  "std": 0.0,
+  "ci_95": [
+    0.545,
+    0.545
+  ],
+  "per_category_mean": {
+    "semantic_recall": 0.96,
+    "importance_filtering": 0.55,
+    "cross_reference": 0.3333333333333333,
+    "temporal_decay": 0.37777777777777777,
+    "contradictions": 0.3499999999999999
+  },
+  "per_category_std": {
+    "semantic_recall": 0.0,
+    "importance_filtering": 0.0,
+    "cross_reference": 0.0,
+    "temporal_decay": 0.0,
+    "contradictions": 6.798699777552591e-17
+  },
+  "num_runs": 3,
+  "runs": [
+    {
+      "seed": 42,
+      "overall_score": 0.545,
+      "wall_time_seconds": 0.002965688705444336,
+      "categories": {
+        "contradictions": {
+          "score": 0.35,
+          "correct": 7,
+          "total": 20
+        },
+        "cross_reference": {
+          "score": 0.3333333333333333,
+          "correct": 15,
+          "total": 45
+        },
+        "importance_filtering": {
+          "score": 0.55,
+          "correct": 22,
+          "total": 40
+        },
+        "semantic_recall": {
+          "score": 0.96,
+          "correct": 48,
+          "total": 50
+        },
+        "temporal_decay": {
+          "score": 0.37777777777777777,
+          "correct": 17,
+          "total": 45
+        }
+      }
+    },
+    {
+      "seed": 43,
+      "overall_score": 0.545,
+      "wall_time_seconds": 0.003173351287841797,
+      "categories": {
+        "contradictions": {
+          "score": 0.35,
+          "correct": 7,
+          "total": 20
+        },
+        "cross_reference": {
+          "score": 0.3333333333333333,
+          "correct": 15,
+          "total": 45
+        },
+        "importance_filtering": {
+          "score": 0.55,
+          "correct": 22,
+          "total": 40
+        },
+        "semantic_recall": {
+          "score": 0.96,
+          "correct": 48,
+          "total": 50
+        },
+        "temporal_decay": {
+          "score": 0.37777777777777777,
+          "correct": 17,
+          "total": 45
+        }
+      }
+    },
+    {
+      "seed": 44,
+      "overall_score": 0.545,
+      "wall_time_seconds": 0.0024428367614746094,
+      "categories": {
+        "contradictions": {
+          "score": 0.35,
+          "correct": 7,
+          "total": 20
+        },
+        "cross_reference": {
+          "score": 0.3333333333333333,
+          "correct": 15,
+          "total": 45
+        },
+        "importance_filtering": {
+          "score": 0.55,
+          "correct": 22,
+          "total": 40
+        },
+        "semantic_recall": {
+          "score": 0.96,
+          "correct": 48,
+          "total": 50
+        },
+        "temporal_decay": {
+          "score": 0.37777777777777777,
+          "correct": 17,
+          "total": 45
+        }
+      }
+    }
+  ]
+}
