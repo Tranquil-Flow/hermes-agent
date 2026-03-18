@@ -511,7 +511,7 @@ def main():
                         help="Memory backend to benchmark")
     parser.add_argument("--profile", default="balanced",
                         help="Config profile for cognitive backend")
-    parser.add_argument("--embedding", default="tfidf",
+    parser.add_argument("--embedding", default="auto",
                         help="Embedding model: auto, sentence-transformers, tfidf")
     parser.add_argument("--suite", default="a",
                         help="Suite(s) to run: a,b,c,d,e,f or 'all'")

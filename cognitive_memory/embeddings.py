@@ -31,6 +31,19 @@ if _PERSISTENT_HF_CACHE.exists() and "HF_HOME" not in os.environ:
     os.environ["HF_HOME"] = str(_PERSISTENT_HF_CACHE)
     logger.debug(f"Using persistent HF cache: {_PERSISTENT_HF_CACHE}")
 
+# In Docker containers behind MITM proxy (hermes-aegis), httpx SSL
+# verification fails even with the cert in the system store (httpx doesn't
+# use the OS trust store by default). Two mitigations:
+# 1. Disable HF SSL checks (suppresses warnings)
+# 2. Set HF_HUB_OFFLINE if the model is already cached (avoids network entirely)
+if Path("/certs/mitmproxy-ca-cert.pem").exists():
+    os.environ.setdefault("HF_HUB_DISABLE_SSL_VERIFICATION", "1")
+    # If the model is already cached, prefer offline mode to avoid SSL issues
+    _CACHED_MODEL = _PERSISTENT_HF_CACHE / "hub" / "models--sentence-transformers--all-MiniLM-L6-v2"
+    if _CACHED_MODEL.exists():
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        logger.debug("HF model cached — using offline mode to avoid SSL issues")
+
 # Try numpy — if unavailable, use pure Python vectors
 try:
     import numpy as np

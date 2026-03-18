@@ -1,7 +1,7 @@
 {
   "backend": "cognitive",
   "profile": "balanced",
-  "embedding_model": "tfidf",
+  "embedding_model": "auto",
   "mean_score": 0.93,
   "std": 0.0,
   "ci_95": [
@@ -9,25 +9,25 @@
     0.93
   ],
   "per_category_mean": {
-    "cross_reference": 0.9111111111111111,
-    "temporal_decay": 0.9333333333333333,
-    "contradictions": 0.85,
     "importance_filtering": 0.9,
-    "semantic_recall": 1.0
+    "contradictions": 0.85,
+    "semantic_recall": 1.0,
+    "temporal_decay": 0.9333333333333333,
+    "cross_reference": 0.9111111111111111
   },
   "per_category_std": {
-    "cross_reference": 0.0,
-    "temporal_decay": 0.0,
-    "contradictions": 0.0,
     "importance_filtering": 0.0,
-    "semantic_recall": 0.0
+    "contradictions": 0.0,
+    "semantic_recall": 0.0,
+    "temporal_decay": 0.0,
+    "cross_reference": 0.0
   },
   "num_runs": 1,
   "runs": [
     {
       "seed": 42,
       "overall_score": 0.93,
-      "wall_time_seconds": 0.3291192054748535,
+      "wall_time_seconds": 0.6655900478363037,
       "token_usage": {
         "recall_tokens": 6043,
         "recall_chars": 25043,
