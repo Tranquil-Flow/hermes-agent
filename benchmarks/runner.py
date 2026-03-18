@@ -362,23 +362,24 @@ CATEGORY_RUNNERS = {
 # --- Main Run Logic ---
 
 def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
-    """Execute one full benchmark run with a given seed."""
+    """Execute one full benchmark run with a given seed.
+    
+    The seed controls scenario shuffling to measure variance from
+    insertion/query order effects. This is critical for detecting
+    order-dependent bugs (e.g., TF-IDF vocab growth, Hebbian link
+    formation path-dependence).
+    """
     import random
     random.seed(seed)
 
     start = time.time()
     backend = get_backend(config.backend_name, config)
 
-    # Use HeuristicJudge by default; LLM judge requires API setup
+    # Use HeuristicJudge by default; LLM judge for real results
     if config.judge_model == "heuristic":
         judge = HeuristicJudge(model="heuristic")
     else:
-        try:
-            judge = MemoryJudge(model=config.judge_model)
-            # Test if it works
-            judge.judge_answer("test", "test", "test")
-        except NotImplementedError:
-            judge = HeuristicJudge(model="heuristic")
+        judge = MemoryJudge(model=config.judge_model)
 
     results_by_cat = {}
 
@@ -387,7 +388,10 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
         for category_name, scenarios in fixtures.items():
             runner = CATEGORY_RUNNERS.get(category_name)
             if runner:
-                cat_result = runner(backend, scenarios, judge)
+                # Shuffle scenarios to measure order-dependence
+                shuffled = list(scenarios)
+                random.shuffle(shuffled)
+                cat_result = runner(backend, shuffled, judge)
                 results_by_cat[category_name] = cat_result
 
     elapsed = time.time() - start
