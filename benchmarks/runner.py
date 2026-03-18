@@ -136,17 +136,54 @@ def run_semantic_recall(backend: BenchmarkableStore, scenarios: list,
 
 def run_contradictions(backend: BenchmarkableStore, scenarios: list,
                        judge: MemoryJudge) -> CategoryResult:
-    """Run contradiction handling scenarios (Suite A2)."""
+    """Run contradiction handling scenarios (Suite A2).
+    
+    Harder than naive "store A then B": stores fact_a among distractors,
+    advances time, then stores the contradicting fact_b. This means
+    recency alone isn't enough — the system needs to either supersede
+    fact_a or reliably rank fact_b higher even with many other recent
+    memories in the store.
+    """
     correct = 0
     details = []
     total_recall_tokens = 0
     total_recall_chars = 0
 
+    # Distractor facts that persist across all scenarios
+    distractors = [
+        "The office has a ping pong table in the break room",
+        "Team lunch is every Thursday at noon",
+        "The wifi password is posted near the coffee machine",
+        "Company all-hands meeting is the first Monday of each month",
+        "The parking garage closes at 10 PM",
+    ]
+
     for sc in scenarios:
         backend.reset()
-        # Store older fact first, then newer
+
+        # Store distractors first
+        for d in distractors:
+            backend.store(d, category="factual")
+
+        # Store the original fact
         backend.store(sc["fact_a"], category="factual")
+
+        # More distractors to bury fact_a
+        backend.store("Code reviews require at least two approvals", category="factual")
+        backend.store("Sprint planning happens every other Monday", category="factual")
+
+        # Advance time — simulates days passing
+        backend.simulate_time(7)  # 1 week later
+
+        # Add some recent distractors (before fact_b)
+        backend.store("The new intern starts next week", category="factual")
+        backend.store("Friday is demo day for the current sprint", category="factual")
+
+        # Now store the contradicting/updated fact (not the most recent)
         backend.store(sc["fact_b"], category="factual")
+
+        # One more distractor after — fact_b is NOT the newest thing
+        backend.store("Remember to water the office plants", category="factual")
 
         results = backend.recall(sc["query"], top_k=5)
         actual = results[0] if results else ""
