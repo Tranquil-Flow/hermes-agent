@@ -15,12 +15,21 @@ Configured via CognitiveMemoryConfig.embedding_model:
 from __future__ import annotations
 
 import math
+import os
 import re
 import logging
 from collections import Counter
+from pathlib import Path
 from typing import List, Optional, Dict, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Auto-detect persisted HuggingFace cache in the project workspace.
+# Containers lose /root/.cache on restart; this survives via mount.
+_PERSISTENT_HF_CACHE = Path("/workspace/Projects/.huggingface_cache")
+if _PERSISTENT_HF_CACHE.exists() and "HF_HOME" not in os.environ:
+    os.environ["HF_HOME"] = str(_PERSISTENT_HF_CACHE)
+    logger.debug(f"Using persistent HF cache: {_PERSISTENT_HF_CACHE}")
 
 # Try numpy — if unavailable, use pure Python vectors
 try:

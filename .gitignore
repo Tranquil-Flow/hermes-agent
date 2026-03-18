@@ -58,3 +58,6 @@ mini-swe-agent/
 # Nix
 .direnv/
 result
+
+# HuggingFace model cache (persisted across containers)
+.huggingface_cache/
