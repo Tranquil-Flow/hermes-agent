@@ -717,7 +717,12 @@ def run_scale(backend: BenchmarkableStore, scenarios: list,
             for fact in sc.get("noise_facts", []):
                 backend.store(fact, category="factual")
         else:
-            # Flat scenarios: store target + noise
+            # Flat scenarios: store target + noise.
+            # Target is stored first so it gets the same small virtual-clock gap
+            # as noise facts (0.1ms per insert in the adapter).  After all facts
+            # are stored we advance time by 30 days so every fact has the same
+            # age at recall — this isolates semantic/importance discrimination
+            # from ACT-R recency effects (recency is Suite B's domain).
             backend.store(sc["target_fact"], category="factual", importance=0.8)
             for fact in sc.get("noise_facts", []):
                 backend.store(fact, category="factual", importance=0.3)
@@ -729,6 +734,10 @@ def run_scale(backend: BenchmarkableStore, scenarios: list,
             for i in range(noise_count - existing_noise):
                 content = template.format(i=i, val=f"value_{i}")
                 backend.store(content, category="factual", importance=0.1)
+
+            # Age all facts equally so recall tests semantic discrimination,
+            # not insertion order (ACT-R recency)
+            backend.simulate_time(30)
 
         results = backend.recall(sc["query"], top_k=5)
         actual = results[0] if results else ""

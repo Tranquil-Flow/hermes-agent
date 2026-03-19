@@ -1,0 +1,35 @@
+{
+  "backend": "cognitive-sbert",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "mean_score": 0.8364312267657993,
+  "std_score": 0.0,
+  "ci_95": [
+    0.8364312267657993,
+    0.8364312267657993
+  ],
+  "per_category_mean": {
+    "semantic_recall": 1.0,
+    "temporal_decay": 0.9111111111111111,
+    "consolidation": 0.6,
+    "integration": 1.0,
+    "importance_filtering": 0.775,
+    "contradictions": 0.9499999999999998,
+    "scopes": 0.3499999999999999,
+    "scale": 0.375,
+    "compression": 1.0,
+    "cross_reference": 0.9111111111111111
+  },
+  "per_category_std": {
+    "semantic_recall": 0.0,
+    "temporal_decay": 0.0,
+    "consolidation": 0.0,
+    "integration": 0.0,
+    "importance_filtering": 0.0,
+    "contradictions": 1.3597399555105182e-16,
+    "scopes": 6.798699777552591e-17,
+    "scale": 0.0,
+    "compression": 0.0,
+    "cross_reference": 0.0
+  },
+  "num_runs": 3
+}
