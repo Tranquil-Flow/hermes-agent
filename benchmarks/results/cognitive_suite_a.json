@@ -1,0 +1,29 @@
+{
+  "backend": "cognitive",
+  "embedding_model": "tfidf",
+  "suite": "a",
+  "mean_score": 0.93,
+  "std": 0.0,
+  "ci_95": [0.93, 0.93],
+  "num_runs": 3,
+  "seeds": [42, 43, 44],
+  "per_category": {
+    "semantic_recall": 1.0,
+    "contradictions": 0.85,
+    "temporal_decay": 0.9333333333333332,
+    "cross_reference": 0.9111111111111111,
+    "importance_filtering": 0.9
+  },
+  "baseline_comparison": {
+    "backend": "baseline-flat",
+    "mean_score": 0.775,
+    "per_category": {
+      "semantic_recall": 1.0,
+      "contradictions": 0.6,
+      "temporal_decay": 0.8222222222222222,
+      "cross_reference": 0.5333333333333333,
+      "importance_filtering": 0.8
+    }
+  },
+  "notes": "Cognitive TF-IDF backend outperforms baseline-flat by +15.5pp overall. Key wins: contradictions (+25pp), cross_reference (+37.8pp), temporal_decay (+11.1pp). semantic_recall tied at 1.0."
+}

@@ -386,6 +386,304 @@ def run_importance_filtering(backend: BenchmarkableStore, scenarios: list,
     )
 
 
+# --- Suite B: Consolidation & Compression ---
+
+def run_consolidation(backend: BenchmarkableStore, scenarios: list,
+                      judge: MemoryJudge) -> CategoryResult:
+    """Run consolidation scenarios (Suite B1).
+
+    Each scenario stores facts, rehearses some via access_sequence,
+    advances time by time_gap_days, calls consolidate(), then checks
+    whether the target fact is still recalled.  The expects_layer field
+    (core/archive) is recorded in details for downstream analysis; the
+    benchmark score is purely based on recall correctness.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        for fact in sc["facts"]:
+            backend.store(fact, category="factual")
+
+        # Simulate rehearsals
+        for access_hint in sc.get("access_sequence", []):
+            backend.simulate_access(access_hint)
+
+        # Advance time to trigger decay / consolidation pressure
+        backend.simulate_time(sc.get("time_gap_days", 30))
+
+        # Run consolidation cycle
+        backend.consolidate()
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "expects_layer": sc.get("expects_layer", "unknown"),
+            "time_gap_days": sc.get("time_gap_days", 30),
+            "rehearsals": len(sc.get("access_sequence", [])),
+            "correct": jr.correct,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+
+    # Sub-scores: core (frequently accessed) vs archive (never accessed)
+    sub_scores = {}
+    for layer in ["core", "archive"]:
+        subset = [d for d in details if d["expects_layer"] == layer]
+        if subset:
+            sub_scores[layer] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    return CategoryResult(
+        category="consolidation",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+    )
+
+
+def run_compression(backend: BenchmarkableStore, scenarios: list,
+                    judge: MemoryJudge) -> CategoryResult:
+    """Run compression scenarios (Suite B2).
+
+    Stores a set of facts (some redundant), advances time, consolidates,
+    then checks that critical information is preserved in recall.
+    Scoring: correct if gold_answer recalled AND all must_preserve
+    substrings appear in the top-5 recalled memories.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        for fact in sc["facts"]:
+            backend.store(fact, category="factual")
+
+        # Let time pass and consolidate
+        backend.simulate_time(30)
+        backend.consolidate()
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        # Check gold answer
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+
+        # Check must_preserve substrings in top-5
+        combined = " ".join(results).lower()
+        must_preserve = sc.get("must_preserve", [])
+        preserved = all(mp.lower() in combined for mp in must_preserve)
+
+        scenario_correct = jr.correct and preserved
+        if scenario_correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "correct": scenario_correct,
+            "answer_correct": jr.correct,
+            "preserved": preserved,
+            "must_preserve": must_preserve,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+
+    return CategoryResult(
+        category="compression",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+    )
+
+
+# --- Suite C: Multi-scope memory ---
+
+def run_scopes(backend: BenchmarkableStore, scenarios: list,
+               judge: MemoryJudge) -> CategoryResult:
+    """Run multi-scope memory scenarios (Suite C).
+
+    Stores facts with different scope tags, recalls with query_scope,
+    checks that the gold answer appears AND the should_not_contain
+    string is absent from the top-5 results.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        for fact_obj in sc["facts"]:
+            backend.store(
+                fact_obj["content"],
+                category="factual",
+                scope=fact_obj.get("scope", "global"),
+            )
+
+        query_scope = sc.get("query_scope", "global")
+        results = backend.recall(sc["query"], top_k=5, scope=query_scope)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+
+        # Check that the wrong-scope content did not leak in
+        combined = " ".join(results).lower()
+        should_not = sc.get("should_not_contain", "")
+        no_leak = should_not.lower() not in combined if should_not else True
+
+        scenario_correct = jr.correct and no_leak
+        if scenario_correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "query_scope": query_scope,
+            "correct": scenario_correct,
+            "answer_correct": jr.correct,
+            "no_leak": no_leak,
+            "should_not_contain": should_not,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+
+    # Sub-scores: answer correctness vs leak prevention
+    sub_scores = {
+        "answer_correct": (
+            sum(1 for d in details if d["answer_correct"]) / len(details)
+            if details else 0
+        ),
+        "no_scope_leak": (
+            sum(1 for d in details if d["no_leak"]) / len(details)
+            if details else 0
+        ),
+    }
+
+    return CategoryResult(
+        category="scopes",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+    )
+
+
+# --- Suite D: Adversarial robustness ---
+
+def run_adversarial(backend: BenchmarkableStore, scenarios: list,
+                    judge: MemoryJudge) -> CategoryResult:
+    """Run adversarial robustness scenarios (Suite D).
+
+    Stores normal facts + one malicious fact, recalls with a legitimate
+    query, checks that:
+      1. The gold answer is present in the top result.
+      2. If should_be_blocked=True, the malicious_fact content does NOT
+         appear as the top-1 result.
+
+    Note: the cognitive store does not sanitize injections (that is
+    hermes-aegis's job).  This benchmark measures whether embedding-based
+    relevance scoring naturally de-prioritises adversarial payloads.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        # Store normal facts first
+        for fact in sc.get("normal_facts", []):
+            backend.store(fact, category="factual")
+
+        # Store the adversarial fact (at standard importance — no special treatment)
+        backend.store(sc["malicious_fact"], category="factual")
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+
+        # For should_be_blocked cases: malicious payload must not be top-1
+        should_be_blocked = sc.get("should_be_blocked", False)
+        malicious = sc["malicious_fact"].lower()
+        top1_is_malicious = actual.lower().strip() == malicious.strip()
+        blocked_ok = (not should_be_blocked) or (not top1_is_malicious)
+
+        scenario_correct = jr.correct and blocked_ok
+        if scenario_correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "type": sc.get("type", "unknown"),
+            "should_be_blocked": should_be_blocked,
+            "top1_is_malicious": top1_is_malicious,
+            "blocked_ok": blocked_ok,
+            "correct": scenario_correct,
+            "answer_correct": jr.correct,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+
+    # Sub-scores by adversarial type
+    sub_scores = {}
+    for atype in set(d["type"] for d in details):
+        subset = [d for d in details if d["type"] == atype]
+        if subset:
+            sub_scores[atype] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Also report overall block rate
+    blockable = [d for d in details if d["should_be_blocked"]]
+    if blockable:
+        sub_scores["block_rate"] = sum(1 for d in blockable if d["blocked_ok"]) / len(blockable)
+
+    return CategoryResult(
+        category="adversarial",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+    )
+
+
 # Category runner dispatch
 CATEGORY_RUNNERS = {
     "semantic_recall": run_semantic_recall,
@@ -393,6 +691,13 @@ CATEGORY_RUNNERS = {
     "temporal_decay": run_temporal_decay,
     "cross_reference": run_cross_reference,
     "importance_filtering": run_importance_filtering,
+    # Suite B
+    "consolidation": run_consolidation,
+    "compression": run_compression,
+    # Suite C
+    "scopes": run_scopes,
+    # Suite D
+    "adversarial": run_adversarial,
 }
 
 
@@ -420,8 +725,12 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
 
     results_by_cat = {}
 
-    for suite_letter in ["a"]:  # TODO: expand for b-f
-        fixtures = load_fixtures(suite_letter)
+    suites_to_run = config.parameters.get("suites", ["a"])
+    for suite_letter in suites_to_run:
+        try:
+            fixtures = load_fixtures(suite_letter)
+        except FileNotFoundError:
+            continue
         for category_name, scenarios in fixtures.items():
             runner = CATEGORY_RUNNERS.get(category_name)
             if runner:
@@ -531,6 +840,12 @@ def main():
 
     args = parser.parse_args()
 
+    # Parse suite argument: 'a' -> ['a'], 'a,b,c' -> ['a','b','c'], 'all' -> all
+    if args.suite == "all":
+        suites = ["a", "b", "c", "d", "e", "f"]
+    else:
+        suites = [s.strip() for s in args.suite.split(",")]
+
     config = BenchmarkConfig(
         backend_name=args.backend,
         profile=args.profile,
@@ -539,7 +854,11 @@ def main():
         judge_model=args.judge_model,
         output_path=args.output_dir,
         seeds=args.seeds,
-        parameters={"profile": args.profile, "embedding_model": args.embedding},
+        parameters={
+            "profile": args.profile,
+            "embedding_model": args.embedding,
+            "suites": suites,
+        },
     )
 
     print(f"\nRunning {config.backend_name} benchmark ({config.num_runs} runs)...")
