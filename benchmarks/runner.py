@@ -684,6 +684,182 @@ def run_adversarial(backend: BenchmarkableStore, scenarios: list,
     )
 
 
+# --- Suite E: Scale & Performance ---
+
+def run_scale(backend: BenchmarkableStore, scenarios: list,
+              judge: MemoryJudge) -> CategoryResult:
+    """Run scale & performance scenarios (Suite E).
+
+    Each scenario has either a flat list of facts or a time_series list.
+    The noise_count / noise_template fields generate synthetic padding to
+    reach the target memory_count without bloating the fixture file.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        # Time-series scenarios: store facts at different simulated ages
+        if "time_series" in sc:
+            # Sort oldest first so time advances forward
+            series = sorted(sc["time_series"], key=lambda x: -x["stored_days_ago"])
+            prev_days = series[0]["stored_days_ago"]
+            for item in series:
+                gap = prev_days - item["stored_days_ago"]
+                if gap > 0:
+                    backend.simulate_time(gap)
+                backend.store(item["content"], category="factual")
+                prev_days = item["stored_days_ago"]
+            # Store noise facts at current time
+            for fact in sc.get("noise_facts", []):
+                backend.store(fact, category="factual")
+        else:
+            # Flat scenarios: store target + noise
+            backend.store(sc["target_fact"], category="factual", importance=0.8)
+            for fact in sc.get("noise_facts", []):
+                backend.store(fact, category="factual", importance=0.3)
+
+            # Generate synthetic padding facts if noise_count specified
+            noise_count = sc.get("noise_count", 0)
+            template = sc.get("noise_template", "Configuration parameter {i} has value {val}")
+            existing_noise = len(sc.get("noise_facts", []))
+            for i in range(noise_count - existing_noise):
+                content = template.format(i=i, val=f"value_{i}")
+                backend.store(content, category="factual", importance=0.1)
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc.get("difficulty", "medium"),
+            "memory_count": sc.get("memory_count", "?"),
+            "correct": jr.correct,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+
+    sub_scores = {}
+    for diff in ["easy", "medium", "hard"]:
+        subset = [d for d in details if d["difficulty"] == diff]
+        if subset:
+            sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    return CategoryResult(
+        category="scale",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+    )
+
+
+# --- Suite F: Integration ---
+
+def run_integration(backend: BenchmarkableStore, scenarios: list,
+                    judge: MemoryJudge) -> CategoryResult:
+    """Run integration scenarios (Suite F).
+
+    Each scenario is a sequence of steps (store / recall / advance_time /
+    simulate_access / consolidate).  A scenario passes if all recall steps
+    find their expected_in_result string in the result set.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+        scenario_pass = True
+        recall_results_log = []
+
+        for step in sc["steps"]:
+            action = step["action"]
+
+            if action == "store":
+                kwargs = {
+                    "category": step.get("category", "factual"),
+                    "scope": step.get("scope", "global"),
+                    "importance": step.get("importance", 0.5),
+                }
+                backend.store(step["content"], **kwargs)
+
+            elif action == "recall":
+                top_k = step.get("top_k", 5)
+                scope = step.get("scope")
+                results = backend.recall(step["query"], top_k=top_k, scope=scope)
+                rt, rc = count_recall_tokens(results)
+                total_recall_tokens += rt
+                total_recall_chars += rc
+
+                combined = " ".join(results).lower()
+                expected = step.get("expected_in_result", "").lower()
+                step_pass = expected in combined if expected else True
+                recall_results_log.append({
+                    "query": step["query"],
+                    "expected": expected,
+                    "found": step_pass,
+                    "top_result": results[0] if results else "",
+                })
+                if not step_pass:
+                    scenario_pass = False
+
+            elif action == "advance_time":
+                backend.simulate_time(step["days"])
+
+            elif action == "simulate_access":
+                backend.simulate_access(step["content_substring"])
+
+            elif action == "consolidate":
+                backend.consolidate()
+
+        if scenario_pass:
+            correct += 1
+
+        # Use the judge on the final recall step's gold answer for details
+        final_recall = recall_results_log[-1] if recall_results_log else {}
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc.get("difficulty", "medium"),
+            "correct": scenario_pass,
+            "steps": len(sc["steps"]),
+            "recall_steps": len(recall_results_log),
+            "recalls": recall_results_log,
+            "gold": sc["gold_answer"],
+        })
+
+    sub_scores = {}
+    for diff in ["easy", "medium", "hard"]:
+        subset = [d for d in details if d["difficulty"] == diff]
+        if subset:
+            sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    return CategoryResult(
+        category="integration",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+    )
+
+
 # Category runner dispatch
 CATEGORY_RUNNERS = {
     "semantic_recall": run_semantic_recall,
@@ -698,6 +874,10 @@ CATEGORY_RUNNERS = {
     "scopes": run_scopes,
     # Suite D
     "adversarial": run_adversarial,
+    # Suite E
+    "scale": run_scale,
+    # Suite F
+    "integration": run_integration,
 }
 
 

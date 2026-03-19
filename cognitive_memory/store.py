@@ -280,9 +280,13 @@ class CognitiveMemoryStore:
         importance_boost = cfg.w_importance * memory.importance * (2.0 + base_magnitude)
 
         # 4. Scope boost — prefix match so project:hermes matches project:hermes/sub
+        # Multiplicative on the semantic component so it scales with relevance:
+        # a highly-relevant in-scope fact gets a large boost; a weakly-relevant
+        # one gets a small boost.  This prevents constant-additive boosts from
+        # promoting low-relevance scoped facts over high-relevance global ones.
         scope_boost = 0.0
         if scope and (memory.scope == scope or memory.scope.startswith(scope)):
-            scope_boost = cfg.scope_multiplier * cfg.w_importance
+            scope_boost = (cfg.scope_multiplier - 1.0) * cfg.w_semantic * semantic_sim
 
         return {
             "base_level": base_level,
