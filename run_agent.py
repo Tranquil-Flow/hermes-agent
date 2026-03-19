@@ -938,10 +938,6 @@ class AIAgent:
                 from hermes_cli.config import load_config as _load_cog_config
                 cog_config = _load_cog_config().get("cognitive_memory", {})
                 if cog_config.get("enabled", False):
-                    import sys, os as _os
-                    _hermes_agent_src = _os.path.expanduser("~/Projects/hermes-agent")
-                    if _hermes_agent_src not in sys.path:
-                        sys.path.insert(0, _hermes_agent_src)
                     from cognitive_memory.store import CognitiveMemoryStore
                     from cognitive_memory.config import CognitiveMemoryConfig
                     _profile = cog_config.get("profile", "balanced")
