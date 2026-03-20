@@ -1016,7 +1016,7 @@ def main():
     parser.add_argument("--runs", type=int, default=5,
                         help="Number of runs per benchmark")
     parser.add_argument("--judge-model", default="heuristic",
-                        help="Model for LLM-as-judge (default: heuristic)")
+                        help="Model for LLM-as-judge (default: heuristic, use claude-haiku-4-5 for LLM judge)")
     parser.add_argument("--output-dir", default="benchmarks/results/",
                         help="Directory for JSON results")
     parser.add_argument("--seeds", nargs="+", type=int,

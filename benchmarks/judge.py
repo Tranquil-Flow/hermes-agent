@@ -39,7 +39,7 @@ Verdict:"""
 class MemoryJudge:
     """Evaluates memory recall answers using an LLM judge (Claude Haiku)."""
 
-    def __init__(self, model: str = "claude-haiku-4-5-20241022",
+    def __init__(self, model: str = "claude-haiku-4-5",
                  api_key: Optional[str] = None):
         self.model = model
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
