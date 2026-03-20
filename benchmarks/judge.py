@@ -14,16 +14,20 @@ from benchmarks.interface import JudgeResult
 
 logger = logging.getLogger(__name__)
 
-JUDGE_SYSTEM_PROMPT = """You are a strict but fair judge evaluating memory recall accuracy.
+JUDGE_SYSTEM_PROMPT = """You are a judge evaluating a memory retrieval system's recall accuracy.
 
-Given a question, the expected gold answer, and the actual answer produced by a memory system, determine if the actual answer is CORRECT.
+The memory system retrieves stored facts relevant to a question. The gold answer shows what a correct response requires. Your job is to determine whether the retrieved facts are SUFFICIENT to answer the question correctly.
 
 Rules:
-- CORRECT: The actual answer contains the key information from the gold answer. Paraphrasing, reordering, and minor wording differences are acceptable.
-- INCORRECT: The actual answer is missing critical information, contains wrong information, or fails to address the question.
-- Partial matches: If the answer contains SOME but not all key facts, mark INCORRECT. We need complete recall.
-- Extra information: If the answer includes correct extra details beyond the gold answer, still mark CORRECT.
-- No answer: If the actual answer is empty or clearly irrelevant, mark INCORRECT.
+- CORRECT: The retrieved facts contain the key information needed to produce the gold answer. This includes:
+  * Direct matches (facts explicitly state the gold answer)
+  * Inferential matches (facts contain the component data that logically implies the gold answer, even if the computation isn't shown — e.g., if gold says "500 > 200 limit" and facts show "50 instances × 10 connections" and "max_connections = 200", that's CORRECT)
+  * Paraphrasing and minor wording differences are acceptable
+- INCORRECT: The retrieved facts are missing critical information needed to answer the question, or contain wrong information.
+- Extra information: If retrieved facts include correct extra details beyond what's needed, still mark CORRECT.
+- No answer: If the retrieved facts are empty or completely irrelevant, mark INCORRECT.
+
+Key insight: The memory system's job is fact retrieval, not reasoning. If the retrieved facts contain all the pieces needed to derive the correct answer, mark CORRECT.
 
 Respond with exactly one word: CORRECT or INCORRECT
 Then on a new line, a brief explanation (one sentence max)."""

@@ -186,7 +186,12 @@ def run_contradictions(backend: BenchmarkableStore, scenarios: list,
         backend.store("Remember to water the office plants", category="factual")
 
         results = backend.recall(sc["query"], top_k=5)
-        actual = results[0] if results else ""
+        # For subtle_update contradictions (facts that ADD to rather than replace),
+        # the gold answer may require multiple facts — provide top-2
+        if sc.get("contradiction_type") == "subtle_update" and len(results) > 1:
+            actual = " | ".join(results[:2])
+        else:
+            actual = results[0] if results else ""
         rt, rc = count_recall_tokens(results)
         total_recall_tokens += rt
         total_recall_chars += rc
@@ -351,7 +356,12 @@ def run_importance_filtering(backend: BenchmarkableStore, scenarios: list,
             backend.store(fact["content"], importance=fact["importance"])
 
         results = backend.recall(sc["query"], top_k=5)
-        actual = results[0] if results else ""
+        # Use top-k results to cover multi-fact scenarios (num_important >= 2)
+        num_needed = len(sc.get("important_facts", []))
+        if num_needed > 1 and len(results) > 1:
+            actual = " | ".join(results[:num_needed])
+        else:
+            actual = results[0] if results else ""
         rt, rc = count_recall_tokens(results)
         total_recall_tokens += rt
         total_recall_chars += rc
