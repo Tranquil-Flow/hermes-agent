@@ -6,10 +6,10 @@
 - [x] Fix 3 judge verification test failures (heuristic judge cannot verify hard reasoning answers)
 - [x] Upgrade TF-IDF embeddings to sentence transformers (or tune Hebbian spreading activation) to fix recall miss on bridge facts
 - [x] Fix remaining 1 cross-reference test failure (recall miss) — xr_h02 now CORRECT with LLM judge
-- [ ] Implement LongMemEval Suite B adapter (ICLR 2026, 500 questions)
-- [ ] Run LongMemEval benchmark and report scores
-- [ ] Debug Honcho dialectic query errors — get cross-session memory querying working
-- [ ] Document final benchmark results in COGNITIVE_MEMORY_HANDOVER.md
+- [x] Implement LongMemEval Suite B adapter (ICLR 2026, 500 questions)
+- [x] Run LongMemEval benchmark and report scores
+- [x] Debug Honcho dialectic query errors — get cross-session memory querying working
+- [x] Document final benchmark results in COGNITIVE_MEMORY_HANDOVER.md
 
 ## Notes for Claude
 Cognitive memory system lives in cognitive_memory/. Benchmarks in benchmarks/. Tests in tests/cognitive_memory/.
@@ -43,6 +43,19 @@ Current benchmark state (2026-03-21):
 - LLM judge benchmark (92.5%) falls back to heuristic when anthropic not in container env
   - Heuristic judge + sentence-transformers achieves 95.5% and IS the target metric
 - 37 unit tests passing
+
+## Session 7 work (2026-03-21)
+- Implemented LongMemEval adapter (benchmarks/longmemeval/adapter.py + runner.py)
+  - Loads 500Q from xiaowu0162/longmemeval-cleaned (HuggingFace streaming)
+  - Ingests haystack sessions into CognitiveMemoryStore, evaluates via recall
+  - 100 stratified questions: 7.0% overall (knowledge-update: 20%, temporal: 10%)
+  - Low scores expected — cognitive store is atomic-fact based, LongMemEval needs conversation reasoning
+- Added 21 unit tests for LongMemEval adapter (all passing)
+- Fixed Honcho dialectic errors: honcho-ai package was missing from .venv
+  - Installed honcho-ai 2.0.1, verified all 103 honcho_integration tests pass
+  - Fixed pre-existing race condition in test_flush_all_drains_async_queue
+- Updated COGNITIVE_MEMORY_HANDOVER.md with final benchmark results
+- All 161 tests passing (37 cognitive + 103 honcho + 21 longmemeval)
 
 ## Session 5 work (2026-03-21)
 - Fixed LLM judge model name (claude-haiku-4-5-20241022 -> claude-haiku-4-5)
