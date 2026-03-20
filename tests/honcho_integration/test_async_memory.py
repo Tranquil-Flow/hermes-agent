@@ -328,9 +328,11 @@ class TestFlushAll:
         mgr = _make_manager(write_frequency="async")
         sess = _make_session()
         sess.add_message("user", "pending")
-        mgr._async_queue.put(sess)
 
+        # Stop the async writer thread BEFORE adding the item so the
+        # background thread cannot consume it ahead of flush_all().
         with patch.object(mgr, "_flush_session") as mock_flush:
+            mgr._async_queue.put(sess)
             mgr.flush_all()
             # Called at least once for the queued item
             assert mock_flush.call_count >= 1
