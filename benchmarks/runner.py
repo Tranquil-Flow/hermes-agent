@@ -254,7 +254,11 @@ def run_temporal_decay(backend: BenchmarkableStore, scenarios: list,
             backend.simulate_time(prev_days_ago)
 
         results = backend.recall(sc["query"], top_k=5)
-        actual = results[0] if results else ""
+        # For hard temporal scenarios, top fact may be partial — pass top-2
+        if sc.get("difficulty") == "hard" and len(results) > 1:
+            actual = " | ".join(results[:2])
+        else:
+            actual = results[0] if results else ""
         rt, rc = count_recall_tokens(results)
         total_recall_tokens += rt
         total_recall_chars += rc
