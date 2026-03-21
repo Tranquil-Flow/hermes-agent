@@ -280,3 +280,45 @@ def test_execute_prefers_shell_env_over_hermes_dotenv(monkeypatch):
 
     assert "GITHUB_TOKEN=value_from_shell" in popen_calls[0]
     assert "GITHUB_TOKEN=value_from_dotenv" not in popen_calls[0]
+
+
+def test_execute_rewrites_localhost_proxy_for_docker(monkeypatch):
+    """HTTP_PROXY/HTTPS_PROXY 127.0.0.1 should become host.docker.internal."""
+    env = _make_execute_only_env(["HTTP_PROXY", "HTTPS_PROXY"])
+    popen_calls = []
+
+    def _fake_popen(cmd, **kwargs):
+        popen_calls.append(cmd)
+        return _FakePopen(cmd, **kwargs)
+
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:8444")
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:8444")
+    monkeypatch.setattr(docker_env, "_load_hermes_env_vars", lambda: {})
+    monkeypatch.setattr(docker_env.subprocess, "Popen", _fake_popen)
+
+    env.execute("echo hi")
+
+    cmd = popen_calls[0]
+    assert "HTTP_PROXY=http://host.docker.internal:8444" in cmd
+    assert "HTTPS_PROXY=http://host.docker.internal:8444" in cmd
+
+
+def test_execute_rewrites_localhost_proxy_preserves_non_proxy(monkeypatch):
+    """Non-proxy vars should NOT have 127.0.0.1 rewritten."""
+    env = _make_execute_only_env(["HTTP_PROXY", "AEGIS_ACTIVE"])
+    popen_calls = []
+
+    def _fake_popen(cmd, **kwargs):
+        popen_calls.append(cmd)
+        return _FakePopen(cmd, **kwargs)
+
+    monkeypatch.setenv("HTTP_PROXY", "http://localhost:8444")
+    monkeypatch.setenv("AEGIS_ACTIVE", "1")
+    monkeypatch.setattr(docker_env, "_load_hermes_env_vars", lambda: {})
+    monkeypatch.setattr(docker_env.subprocess, "Popen", _fake_popen)
+
+    env.execute("echo hi")
+
+    cmd = popen_calls[0]
+    assert "HTTP_PROXY=http://host.docker.internal:8444" in cmd
+    assert "AEGIS_ACTIVE=1" in cmd
