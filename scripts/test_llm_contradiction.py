@@ -1,40 +1,62 @@
-"""Test LLM contradiction detection on known failure cases."""
-import sys, os
-sys.path.insert(0, '/workspace/Projects/hermes-agent')
-os.environ['HF_HUB_OFFLINE'] = '1'
-os.environ['HF_HOME'] = '/workspace/Projects/.huggingface_cache'
-os.environ['TRANSFORMERS_CACHE'] = '/workspace/Projects/.huggingface_cache'
-
+#!/usr/bin/env python3
+"""Test LLM contradiction detection end-to-end via aegis proxy."""
+import sys
+import os
 import logging
-logging.basicConfig(level=logging.INFO)
 
-from cognitive_memory.llm_contradiction import check_contradiction_llm
+# Enable debug logging to see what's happening
+logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
 
-# Test cases — known failures that heuristic can't catch
-cases = [
-    # ct_07: monolith -> microservice extraction (emb_sim=0.189)
-    ("The payments service was extracted into a separate microservice",
-     "The monolith handles all API requests",
-     True),
-    # Complementary facts that should NOT be contradictions
-    ("API keys are stored in environment variables, never in code",
-     "Rotate API keys every 90 days or immediately after any suspected exposure",
-     False),
-    # Clear contradiction
-    ("The database now runs on PostgreSQL 16",
-     "We use PostgreSQL 14 for all services",
-     True),
-    # Complementary 
-    ("The API uses REST with JSON payloads",
-     "API authentication uses OAuth 2.0 with PKCE",
-     False),
+sys.path.insert(0, '/workspace/Projects/hermes-agent')
+
+from cognitive_memory.llm_contradiction import check_contradiction_llm, _detect_proxy_port
+
+print(f"Proxy port: {_detect_proxy_port()}")
+print()
+
+test_cases = [
+    # Should CONTRADICT
+    (
+        "We use a monolithic architecture where one service handles all API requests.",
+        "Payments have been extracted into a separate microservice.",
+        True,
+        "monolith -> microservice"
+    ),
+    (
+        "The project uses React for the frontend.",
+        "We migrated the frontend from React to Next.js.",
+        True,
+        "React -> Next.js"
+    ),
+    # Should NOT contradict
+    (
+        "The API uses JSON for data exchange.",
+        "The authentication service uses JWT tokens.",
+        False,
+        "unrelated facts"
+    ),
+    (
+        "The database is PostgreSQL.",
+        "We use Redis for caching.",
+        False,
+        "complementary facts"
+    ),
 ]
 
-print("Testing LLM contradiction detection:\n")
-for new, existing, expected in cases:
-    result = check_contradiction_llm(new, existing)
-    status = "✓" if result == expected else "✗"
-    print(f"  [{status}] Expected={expected}, Got={result}")
-    print(f"      New: {new[:60]}")
-    print(f"      Old: {existing[:60]}")
-    print()
+passed = 0
+failed = 0
+for new_content, existing_content, expected, desc in test_cases:
+    result = check_contradiction_llm(new_content, existing_content)
+    status = "PASS" if result == expected else "FAIL"
+    if result == expected:
+        passed += 1
+    else:
+        failed += 1
+    print(f"[{status}] {desc}: expected={expected}, got={result}")
+
+print(f"\n{passed}/{passed+failed} tests passed")
+if failed == 0:
+    print("LLM contradiction detection working via proxy!")
+    sys.exit(0)
+else:
+    sys.exit(1)
