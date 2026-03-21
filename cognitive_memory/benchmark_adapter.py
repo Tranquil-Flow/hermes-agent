@@ -67,22 +67,54 @@ class CognitiveBenchmarkAdapter(BenchmarkableStore):
         self._store.advance_time(days * 86400)  # convert days to seconds
 
     def simulate_access(self, content_substring: str) -> None:
-        """Simulate accessing a memory by content substring match."""
-        import time as _time
+        """Simulate accessing a memory by content substring or semantic match.
+
+        First tries case-insensitive substring match; if no match, falls
+        back to embedding similarity.  Picks the best-matching memory and
+        advances the virtual clock between accesses so ACT-R base-level
+        can discriminate multiple rehearsals.
+        """
         active = self._store.backend.get_all_active()
+        if not active:
+            return
         now = self._store._now()
-        for mem in active:
-            if content_substring in mem.content:
-                access_times = mem.access_times + [now]
-                if len(access_times) > self._store.config.max_access_times:
-                    access_times = access_times[-self._store.config.max_access_times:]
-                self._store.backend.update(
-                    mem.id,
-                    last_accessed=now,
-                    access_count=mem.access_count + 1,
-                    access_times=access_times,
-                )
-                break
+        needle = content_substring.lower()
+
+        # Try substring match first
+        matches = [
+            mem for mem in active
+            if needle in mem.content.lower()
+        ]
+
+        if matches:
+            # Prefer shortest matching content (most specific fact)
+            best = min(matches, key=lambda m: len(m.content))
+        else:
+            # Fall back to embedding similarity
+            from cognitive_memory.embeddings import cosine_similarity
+            query_emb = self._store._embedder.encode(content_substring)
+            best = None
+            best_sim = -1.0
+            for mem in active:
+                if mem.embedding is not None:
+                    sim = cosine_similarity(query_emb, mem.embedding)
+                    if sim > best_sim:
+                        best_sim = sim
+                        best = mem
+            if best is None or best_sim < 0.3:
+                return
+
+        access_times = best.access_times + [now]
+        if len(access_times) > self._store.config.max_access_times:
+            access_times = access_times[-self._store.config.max_access_times:]
+        self._store.backend.update(
+            best.id,
+            last_accessed=now,
+            access_count=best.access_count + 1,
+            access_times=access_times,
+        )
+        # Small time step between accesses so ACT-R sees distinct timestamps
+        self._store.advance_time(3600)  # 1 hour between rehearsals
 
     def consolidate(self) -> None:
         self._store.consolidate()

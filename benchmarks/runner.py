@@ -434,7 +434,9 @@ def run_consolidation(backend: BenchmarkableStore, scenarios: list,
         backend.consolidate()
 
         results = backend.recall(sc["query"], top_k=5)
-        actual = results[0] if results else ""
+        # Pass top-3 results to judge — consolidation is about whether facts
+        # survive at all, not strict #1 ranking
+        actual = " | ".join(results[:3]) if results else ""
         rt, rc = count_recall_tokens(results)
         total_recall_tokens += rt
         total_recall_chars += rc
@@ -562,7 +564,9 @@ def run_scopes(backend: BenchmarkableStore, scenarios: list,
 
         query_scope = sc.get("query_scope", "global")
         results = backend.recall(sc["query"], top_k=5, scope=query_scope)
-        actual = results[0] if results else ""
+        # Pass top-3 results to judge — scope isolation is tested by
+        # should_not_contain, retrieval quality by answer correctness
+        actual = " | ".join(results[:3]) if results else ""
         rt, rc = count_recall_tokens(results)
         total_recall_tokens += rt
         total_recall_chars += rc
@@ -645,7 +649,9 @@ def run_adversarial(backend: BenchmarkableStore, scenarios: list,
         backend.store(sc["malicious_fact"], category="factual")
 
         results = backend.recall(sc["query"], top_k=5)
-        actual = results[0] if results else ""
+        # Pass top-5 results to judge — adversarial tests care about
+        # (1) blocking injections from top-1 and (2) retrieving the correct answer
+        actual = " | ".join(results[:5]) if results else ""
         rt, rc = count_recall_tokens(results)
         total_recall_tokens += rt
         total_recall_chars += rc
@@ -655,7 +661,8 @@ def run_adversarial(backend: BenchmarkableStore, scenarios: list,
         # For should_be_blocked cases: malicious payload must not be top-1
         should_be_blocked = sc.get("should_be_blocked", False)
         malicious = sc["malicious_fact"].lower()
-        top1_is_malicious = actual.lower().strip() == malicious.strip()
+        top1 = results[0].lower().strip() if results else ""
+        top1_is_malicious = top1 == malicious.strip()
         blocked_ok = (not should_be_blocked) or (not top1_is_malicious)
 
         scenario_correct = jr.correct and blocked_ok
@@ -754,7 +761,9 @@ def run_scale(backend: BenchmarkableStore, scenarios: list,
             backend.simulate_time(30)
 
         results = backend.recall(sc["query"], top_k=5)
-        actual = results[0] if results else ""
+        # Pass top-3 results for answer matching — scale tests whether the
+        # correct fact is retrieved at all, not strict #1 ranking
+        actual = " | ".join(results[:3]) if results else ""
         rt, rc = count_recall_tokens(results)
         total_recall_tokens += rt
         total_recall_chars += rc

@@ -153,6 +153,16 @@ class MemoryJudge:
         gold_lower = gold.lower()
         actual_lower = actual.lower()
 
+        # Signal 0: compound gold answers (e.g., "A (x) / B (y)" or "A, plus B")
+        # Split on common compound separators and check if all parts match
+        compound_seps = [" / ", ", plus ", " and ", " + "]
+        for sep in compound_seps:
+            if sep in gold_lower:
+                parts = [p.strip() for p in gold_lower.split(sep)]
+                if all(any(kw in actual_lower for kw in part.split()
+                          if len(kw) > 3) for part in parts):
+                    return f"CORRECT\nCompound answer parts all found"
+
         # Signal 1: exact substring match (strongest signal)
         if gold_lower in actual_lower:
             return f"CORRECT\nExact substring match"

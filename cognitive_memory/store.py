@@ -271,28 +271,44 @@ class CognitiveMemoryStore:
         )
         spreading += hebbian_spread
 
-        # 3. Importance boost — scaled additive term.
-        # Scale the boost to the activation range so importance remains
-        # meaningful at any base_level magnitude. The (1 + |base|) factor
-        # ensures importance=1.0 gets a boost proportional to how much
-        # base_level contributes, so it can't be drowned out.
+        # 3. Importance boost — hybrid additive + relevance-gated term.
+        # Split into two parts:
+        # a) Small additive floor so importance still matters for low-relevance facts
+        # b) Relevance-gated boost: importance * semantic_sim, so a high-importance
+        #    fact only gets a large boost when it's also semantically relevant.
+        # This prevents high-importance low-relevance facts from beating
+        # low-importance high-relevance facts.
         base_magnitude = max(abs(base_level), 1.0)
-        importance_boost = cfg.w_importance * memory.importance * (2.0 + base_magnitude)
+        importance_floor = cfg.w_importance * memory.importance * 1.5  # small additive
+        importance_relevance = cfg.w_importance * memory.importance * semantic_sim * (2.0 + base_magnitude)
+        importance_boost = importance_floor + importance_relevance
 
         # 4. Scope boost — prefix match so project:hermes matches project:hermes/sub
-        # Multiplicative on the semantic component so it scales with relevance:
-        # a highly-relevant in-scope fact gets a large boost; a weakly-relevant
-        # one gets a small boost.  This prevents constant-additive boosts from
-        # promoting low-relevance scoped facts over high-relevance global ones.
+        # Uses a strong additive boost for exact-scope memories so they outrank
+        # global memories on the same topic. Global memories get no boost when
+        # a specific scope is queried, letting scoped facts win.
         scope_boost = 0.0
-        if scope and (memory.scope == scope or memory.scope.startswith(scope)):
-            scope_boost = (cfg.scope_multiplier - 1.0) * cfg.w_semantic * semantic_sim
+        if scope and memory.scope != "global" and (
+            memory.scope == scope or memory.scope.startswith(scope)
+        ):
+            # Strong additive boost: ensures scoped facts beat global facts
+            # on same topic. Scales weakly with semantic_sim so off-topic
+            # scoped facts don't swamp highly relevant global ones.
+            scope_boost = cfg.scope_multiplier * (0.5 + 0.5 * semantic_sim)
+
+        # 5. Adversarial content penalty — any score above 0.2 triggers strong demotion
+        adv_score = self._adversarial_score(memory.content)
+        if adv_score > 0.2:
+            adversarial_penalty = -adv_score * 10.0  # Strong enough to overcome any positive score
+        else:
+            adversarial_penalty = 0.0
 
         return {
             "base_level": base_level,
             "spreading": spreading,
             "importance_boost": importance_boost,
             "scope_boost": scope_boost,
+            "adversarial_penalty": adversarial_penalty,
         }
 
     def _actr_base_level(
@@ -346,6 +362,68 @@ class CognitiveMemoryStore:
 
         # Cap spreading to avoid runaway values
         return min(spread, 0.5)
+
+    @staticmethod
+    def _adversarial_score(content: str) -> float:
+        """
+        Score content for adversarial injection likelihood.
+        Returns 0.0 (benign) to 1.0 (highly adversarial).
+
+        Uses a points-based system where ANY single strong injection signal
+        immediately pushes above the detection threshold. This is intentionally
+        aggressive — false positives on benign facts are rare because normal
+        technical facts don't use command/instruction vocabulary.
+        """
+        import re
+        text = content.lower()
+        score = 0.0
+
+        # --- Tier 1: Strong signals (any one = adversarial) → 0.6+ each ---
+        strong_patterns = [
+            r"\bsystem\s+override\b",
+            r"\badmin\s+override\b",
+            r"\bsystem\s+config\s*:",
+            r"\bpriority\s+level\s+\d+\b",
+            r"ignore\s+(?:all\s+)?previous\s+instructions?",
+            r"\bnew\s+directive\b",
+            r"\bdo\s+anything\s+now\b",
+            r"---+\s*end\s+of\s+instructions?\s*---+",
+            r"\byou\s+are\s+now\s+\w+\b",  # role reassignment
+            r"\bnote\s+to\s+self\s*:",
+            r"\bimportant\s+reminder\s*:",
+            r"\bmemory\s+recall\s+instruction\s*:",
+            r"this\s+fact\s+supersedes\s+all",
+            r"^important\s*:",  # "IMPORTANT:" as fact prefix
+            r"\bdeveloper\s+note\s*:",  # "Developer note:" as fact prefix
+            r"\bthe\s+correct\s+response\s+to\b",  # meta-instruction about how to respond
+        ]
+        for pat in strong_patterns:
+            if re.search(pat, text):
+                score += 0.6
+
+        # --- Tier 2: Medium signals (need 2+ to trigger) → 0.25 each ---
+        medium_patterns = [
+            r"\bfrom\s+now\s+on\b",
+            r"\bwhen\s+(?:answering|asked\s+about)\b",
+            r"\balways\s+(?:include|reveal|return|respond)\b",
+            r"\bfor\s+every\s+query\b",
+            r"\bin\s+all\s+(?:future\s+)?responses?\b",
+            r"\bignore\s+safety\b",
+            r"\bout?put\s+all\b",
+            r"\breveal\s+.*(?:content|memor|secret|key)\b",
+            r"\bdump\s+all\b",
+            r"\binsert\s+full\s+memor",
+            r"\bregardless\s+of\s+(?:query\s+)?relevance\b",
+            r"\bwithout\s+restriction\b",
+            r"\bcurl\s+-[xX]\s+DELETE\b",
+            r"\bnew\s+instruction\b",
+            r"\bprepend\s+every\s+response\b",
+        ]
+        for pat in medium_patterns:
+            if re.search(pat, text):
+                score += 0.25
+
+        return min(score, 1.0)
 
     def _build_link_map_and_embeddings(
         self, memories: List[MemoryEntry]
@@ -563,8 +641,9 @@ class CognitiveMemoryStore:
         if _re.search(r'\bnow\s+(?:use|is|has|run|complete|support)\w*\b', text_lower):
             return True
 
-        # "after X" temporal pattern suggesting change (but not "after N hours/minutes")
-        if _re.search(r'\bafter\s+(?![\d]+\s*(?:hour|minute|second|day|week|month|year))\w+', text_lower):
+        # "after X" temporal pattern suggesting change — only when describing
+        # a change event, not conditional triggers like "after any exposure"
+        if _re.search(r'\bafter\s+(?:the\s+)?(?:migration|switch|upgrade|rewrite|refactor|move|transition|conversion)\b', text_lower):
             return True
 
         # "minimum is now" / "was X; Y" patterns
@@ -680,11 +759,11 @@ class CognitiveMemoryStore:
                 meta["contradiction_emb_sim"] = float(emb_sim)
                 new_entry.metadata = meta
 
-                # Boost importance of superseding fact — it carries critical
-                # updated information and needs to overcome recency bias from
-                # distractors. Inherit the superseded fact's importance (at
-                # minimum) and add a boost.
-                boosted = max(new_entry.importance, existing.importance, 0.7) + 0.2
+                # Boost importance of superseding fact — it carries updated
+                # information. Inherit the superseded fact's importance but
+                # don't over-boost (with relevance-gated importance, raw
+                # importance is less dominant, so moderate boost is enough).
+                boosted = max(new_entry.importance, existing.importance) + 0.1
                 new_entry.importance = min(boosted, 1.0)
 
     # ─── Semantic Link Creation ──────────────────────────────────
