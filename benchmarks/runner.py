@@ -924,6 +924,7 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
     formation path-dependence).
     """
     import random
+    import gc
     random.seed(seed)
 
     start = time.time()
@@ -951,6 +952,12 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
                 random.shuffle(shuffled)
                 cat_result = runner(backend, shuffled, judge)
                 results_by_cat[category_name] = cat_result
+
+                # Free transient memory between categories to prevent OOM
+                # in constrained Docker containers.  The backend.reset()
+                # inside each scenario already clears the store; this just
+                # reclaims Python garbage (embedding vectors, scored lists).
+                gc.collect()
 
     elapsed = time.time() - start
 
@@ -1045,6 +1052,8 @@ def main():
     parser.add_argument("--seeds", nargs="+", type=int,
                         default=[42, 43, 44, 45, 46],
                         help="Random seeds for runs")
+    parser.add_argument("--contradiction-llm", default=None,
+                        help="LLM model for contradiction fallback (e.g., claude-haiku-4-5)")
     parser.add_argument("--compare", default=None,
                         help="Compare against another backend (runs both)")
     parser.add_argument("--json", action="store_true",
@@ -1070,6 +1079,8 @@ def main():
             "profile": args.profile,
             "embedding_model": args.embedding,
             "suites": suites,
+            **({"contradiction_llm_model": args.contradiction_llm}
+               if args.contradiction_llm else {}),
         },
     )
 

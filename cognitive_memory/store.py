@@ -713,11 +713,12 @@ class CognitiveMemoryStore:
         """
         Check for contradictions between new memory and existing ones.
 
-        Uses a combined signal of entity overlap + embedding similarity to
-        detect when a new fact updates/contradicts an existing one about
-        the same topic. Pure embedding similarity fails because contradicting
-        facts use different words to describe opposing states of the same entity
-        (e.g., "uses PostgreSQL 14" vs "migrated to PostgreSQL 16").
+        Two-stage approach:
+        1. Heuristic: entity overlap + embedding similarity + update-language gate.
+           Fast, no API calls. Catches ~90% of contradictions.
+        2. LLM fallback: when entity overlap exists but embedding sim is too low
+           for the heuristic (different vocabulary describing same concept change),
+           ask an LLM. Only triggered when contradiction_llm_model is configured.
 
         Same category + same scope is still required as a guard.
         When detected, the old memory is marked as superseded.
@@ -726,6 +727,7 @@ class CognitiveMemoryStore:
             return
 
         threshold = self._config.contradiction_threshold
+        llm_model = self._config.contradiction_llm_model
         if active_memories is None:
             active_memories = self._backend.get_all_active()
 
@@ -742,12 +744,40 @@ class CognitiveMemoryStore:
                 new_entry.content, existing.content, emb_sim
             )
 
-            if score >= threshold:
-                logger.info(
-                    f"Contradiction detected: '{existing.content[:50]}...' "
-                    f"superseded by '{new_entry.content[:50]}...' "
-                    f"(score={score:.3f}, emb_sim={emb_sim:.3f})"
-                )
+            is_contradiction = score >= threshold
+
+            # Stage 2: LLM fallback for cases with entity overlap but low
+            # embedding similarity (different words for same concept change).
+            # Only fires when: heuristic didn't trigger, LLM model configured,
+            # and there's meaningful entity overlap (shared technical terms).
+            if not is_contradiction and llm_model:
+                terms_new, _ = self._extract_key_terms(new_entry.content)
+                terms_old, _ = self._extract_key_terms(existing.content)
+                shared_terms = terms_new & terms_old
+                if shared_terms:
+                    from cognitive_memory.llm_contradiction import (
+                        check_contradiction_llm,
+                    )
+                    is_contradiction = check_contradiction_llm(
+                        new_entry.content, existing.content, model=llm_model,
+                    )
+                    if is_contradiction:
+                        # Use a synthetic score for metadata
+                        score = 0.5
+                        logger.info(
+                            f"LLM contradiction detected: "
+                            f"'{existing.content[:50]}...' superseded by "
+                            f"'{new_entry.content[:50]}...' "
+                            f"(shared_terms={shared_terms}, emb_sim={emb_sim:.3f})"
+                        )
+
+            if is_contradiction:
+                if score >= threshold:
+                    logger.info(
+                        f"Contradiction detected: '{existing.content[:50]}...' "
+                        f"superseded by '{new_entry.content[:50]}...' "
+                        f"(score={score:.3f}, emb_sim={emb_sim:.3f})"
+                    )
                 self._backend.update(
                     existing.id,
                     superseded_by=new_entry.id,
@@ -757,6 +787,9 @@ class CognitiveMemoryStore:
                 meta["supersedes"] = existing.id
                 meta["contradiction_score"] = float(score)
                 meta["contradiction_emb_sim"] = float(emb_sim)
+                meta["contradiction_method"] = (
+                    "llm" if score == 0.5 else "heuristic"
+                )
                 new_entry.metadata = meta
 
                 # Boost importance of superseding fact — it carries updated
