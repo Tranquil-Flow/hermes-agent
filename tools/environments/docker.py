@@ -412,6 +412,12 @@ class DockerEnvironment(BaseEnvironment):
             if value is None:
                 value = hermes_env.get(key)
             if value is not None:
+                # Rewrite localhost proxy URLs for Docker containers —
+                # 127.0.0.1 inside a container refers to the container itself,
+                # not the host where the proxy is running.
+                if key.upper() in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+                    value = value.replace("://127.0.0.1:", "://host.docker.internal:")
+                    value = value.replace("://localhost:", "://host.docker.internal:")
                 cmd.extend(["-e", f"{key}={value}"])
         cmd.extend([self._container_id, "bash", "-lc", exec_command])
 
