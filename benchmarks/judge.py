@@ -52,6 +52,22 @@ class MemoryJudge:
         self._total_output_tokens = 0
         self._client = None
 
+    @staticmethod
+    def _detect_proxy_port() -> int:
+        """Read the aegis proxy port from its pid file, fall back to 8444."""
+        import json as _json
+        for path in [
+            os.path.expanduser("~/.hermes-aegis/proxy.pid"),
+            "/Users/evinova/.hermes-aegis/proxy.pid",
+        ]:
+            try:
+                with open(path) as f:
+                    data = _json.load(f)
+                    return data.get("port", 8444)
+            except (FileNotFoundError, ValueError, KeyError):
+                continue
+        return 8444
+
     def _get_client(self):
         """Lazy-init the Anthropic client.
         
@@ -63,10 +79,11 @@ class MemoryJudge:
             import httpx
 
             # Try aegis proxy first (container environment)
-            proxy_url = "http://host.docker.internal:8443"
             ca_cert = "/certs/mitmproxy-ca-cert.pem"
 
             if os.path.exists(ca_cert):
+                port = self._detect_proxy_port()
+                proxy_url = f"http://host.docker.internal:{port}"
                 # Route through aegis proxy — it injects the API key
                 http_client = httpx.Client(
                     proxy=proxy_url,
@@ -76,7 +93,7 @@ class MemoryJudge:
                     api_key=self.api_key or "placeholder-aegis-injects",
                     http_client=http_client,
                 )
-                logger.info("LLM judge using aegis proxy")
+                logger.info("LLM judge using aegis proxy on port %d", port)
             else:
                 # Direct connection (host environment)
                 self._client = anthropic.Anthropic(api_key=self.api_key)

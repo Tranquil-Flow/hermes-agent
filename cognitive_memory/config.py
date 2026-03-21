@@ -19,7 +19,7 @@ class CognitiveMemoryConfig:
     """ACT-R decay parameter in tᵢ^(-d). Lower = slower decay. Optimized from
     grid search: d=0.3 scores 85.0% vs d=0.5 at 79.5% on Suite A."""
 
-    w_semantic: float = 0.4
+    w_semantic: float = 0.55
     """Weight of cosine similarity (query vs memory embedding) in activation score."""
 
     w_importance: float = 0.4

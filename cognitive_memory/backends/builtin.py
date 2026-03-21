@@ -179,7 +179,7 @@ class BuiltinSQLiteBackend(StorageBackend):
     def get_by_scope(self, scope: str) -> List[MemoryEntry]:
         """Get all active memories matching a scope prefix."""
         cur = self._conn.execute(
-            "SELECT * FROM memories WHERE scope LIKE ? AND superseded_by IS NULL",
+            "SELECT * FROM memories WHERE (scope LIKE ? OR scope = 'global') AND superseded_by IS NULL",
             (scope + "%",),
         )
         return [_row_to_entry(row) for row in cur.fetchall()]

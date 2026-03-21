@@ -1000,7 +1000,8 @@ class AIAgent:
             except Exception as e:
                 logger.warning("Honcho init failed — memory disabled: %s", e)
                 print(f"  Honcho init failed: {e}")
-                print("  Run 'hermes honcho setup' to reconfigure.")
+                print("  If using hermes-aegis, run: hermes-aegis honcho start")
+                print("  If Honcho is not installed: hermes-aegis honcho setup")
                 self._honcho = None
 
         # Tools are initially discovered before Honcho activation. If Honcho

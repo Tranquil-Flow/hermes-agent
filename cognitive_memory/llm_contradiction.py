@@ -39,21 +39,37 @@ def _cache_set(key: Tuple[str, str], value: bool) -> None:
     _cache_order.append(key)
 
 
+def _detect_proxy_port() -> int:
+    """Read the aegis proxy port from its pid file, fall back to 8444."""
+    import json as _json
+    pid_file = os.path.expanduser("~/.hermes-aegis/proxy.pid")
+    # Also check container-mounted path
+    for path in [pid_file, "/Users/evinova/.hermes-aegis/proxy.pid"]:
+        try:
+            with open(path) as f:
+                data = _json.load(f)
+                return data.get("port", 8444)
+        except (FileNotFoundError, ValueError, KeyError):
+            continue
+    return 8444
+
+
 def _build_client(api_key: str | None = None):
     """Build an Anthropic client, routing through aegis proxy if available."""
     import anthropic
     import httpx
 
-    proxy_url = "http://host.docker.internal:8443"
     ca_cert = "/certs/mitmproxy-ca-cert.pem"
 
     if os.path.exists(ca_cert):
+        port = _detect_proxy_port()
+        proxy_url = f"http://host.docker.internal:{port}"
         http_client = httpx.Client(proxy=proxy_url, verify=ca_cert)
         client = anthropic.Anthropic(
             api_key=api_key or "placeholder-aegis-injects",
             http_client=http_client,
         )
-        logger.debug("llm_contradiction: using aegis proxy")
+        logger.debug("llm_contradiction: using aegis proxy at port %d", port)
     else:
         resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         client = anthropic.Anthropic(api_key=resolved_key)

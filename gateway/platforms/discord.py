@@ -383,10 +383,16 @@ class VoiceReceiver:
         with tempfile.NamedTemporaryFile(suffix=".pcm", delete=False) as f:
             f.write(pcm_data)
             pcm_path = f.name
+        # Locate ffmpeg — check common Homebrew paths if not on PATH
+        import shutil as _shutil
+        _ffmpeg = _shutil.which("ffmpeg") or next(
+            (p for p in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg")
+             if os.path.isfile(p)), "ffmpeg"
+        )
         try:
             subprocess.run(
                 [
-                    "ffmpeg", "-y", "-loglevel", "error",
+                    _ffmpeg, "-y", "-loglevel", "error",
                     "-f", "s16le",
                     "-ar", str(src_rate),
                     "-ac", str(src_channels),
