@@ -57,6 +57,22 @@ Current benchmark state (2026-03-21):
 - Updated COGNITIVE_MEMORY_HANDOVER.md with final benchmark results
 - All 161 tests passing (37 cognitive + 103 honcho + 21 longmemeval)
 
+## Session 9 work (2026-03-21) — aegis proxy plumbing verified
+- Root cause of 401s identified and confirmed resolved by previous subagent:
+  - Hook now sets TERMINAL_DOCKER_FORWARD_ENV for env forwarding on next hermes restart
+  - Proxy bound to 0.0.0.0:8443 so Docker containers can reach it
+- Verified working from inside containers:
+  - Proxy reachable at host.docker.internal:8443
+  - Vault key injection confirmed: placeholder -> real API key via MITM
+  - LLM contradiction detection 4/4 cases passing via live Anthropic API
+- Baseline benchmark state (pre-LLM judge run):
+  - cognitive-sbert: 83.6% overall (heuristic judge + sentence-transformers)
+  - contradictions: 95%, cross_ref: 91.1%, temporal: 91.1%
+  - consolidation: 60%, scopes: 35%, scale: 37.5%
+- Note: full suite benchmark with LLM judge OOMs/times out in container (5 categories * LLM calls)
+  - Need to run with --suite=contradictions only, or on host
+  - LLM contradiction detection (store-level) already wired and tested separately
+
 ## Session 8 work (2026-03-21)
 - Improved Suite B-E benchmark scores:
   - Suite B consolidation: 0.60 → 0.85 (core: 100%, archive: 70%)
