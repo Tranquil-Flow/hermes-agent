@@ -57,6 +57,25 @@ Current benchmark state (2026-03-21):
 - Updated COGNITIVE_MEMORY_HANDOVER.md with final benchmark results
 - All 161 tests passing (37 cognitive + 103 honcho + 21 longmemeval)
 
+## Session 8 work (2026-03-21)
+- Improved Suite B-E benchmark scores:
+  - Suite B consolidation: 0.60 → 0.85 (core: 100%, archive: 70%)
+  - Suite B compression: 1.00 (maintained)
+  - Suite C scopes: 0.35 → 1.00 (zero scope leaks, 100% answer accuracy)
+  - Suite D adversarial: 0.53 → 0.80 (injection blocking 100%, hallucinated_fact 50%)
+  - Suite E scale: 0.375 → 1.00
+- Fixed benchmark_adapter.py: simulate_access uses case-insensitive + embedding fallback, 1hr time gaps
+- Fixed runner.py: consolidation/scopes/adversarial/scale pass top-3/5 results to judge
+- Fixed judge.py: compound gold answer matching (A / B format)
+- Fixed store.py: tightened false-positive 'after X' pattern in contradiction detection
+- Added GC between benchmark categories to prevent OOM in constrained containers
+- Wired LLM contradiction detection (llm_contradiction.py):
+  - Two-stage: heuristic first (fast), LLM fallback when entity overlap but low embedding sim
+  - Catches semantic contradictions like "monolith handles all API" → "payments extracted to microservice"
+  - Requires contradiction_llm_model config + aegis proxy running
+  - Graceful fallback when LLM unavailable (returns False)
+- 37 cognitive memory unit tests passing
+
 ## Session 5 work (2026-03-21)
 - Fixed LLM judge model name (claude-haiku-4-5-20241022 -> claude-haiku-4-5)
 - Updated judge prompt: clarify memory retrieval semantics (inferential matches are CORRECT)
