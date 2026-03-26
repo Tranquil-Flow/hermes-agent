@@ -63,6 +63,22 @@ class BenchmarkableStore(ABC):
         """
         pass  # default no-op
 
+    def explore(self, query: str, top_k: int = 20, scope: Optional[str] = None) -> List[str]:
+        """Multi-hop exploration. Default: falls back to recall().
+
+        Backends that implement Personalized PageRank graph walking can override
+        this to enable multi-hop retrieval across linked memories.
+
+        Args:
+            query: The query to explore
+            top_k: Number of results to return
+            scope: Optional scope filter
+
+        Returns:
+            List of memory content strings, ranked by relevance
+        """
+        return self.recall(query, top_k=top_k, scope=scope)
+
 
 # --- Result dataclasses ---
 

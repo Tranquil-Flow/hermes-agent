@@ -134,6 +134,20 @@ class CognitiveBenchmarkAdapter(BenchmarkableStore):
         """
         self._store.reward_memory(memory_id, signal)
 
+    def explore(
+        self,
+        query: str,
+        top_k: int = 20,
+        scope: Optional[str] = None,
+    ) -> List[str]:
+        """Multi-hop exploration via PPR graph walking.
+
+        Uses explore() to discover memories not reachable via
+        direct embedding similarity alone.
+        """
+        result = self._store.explore(query, scope=scope, top_k=top_k)
+        return [item.entry.content for item in result.results]
+
     def recall_with_ids(
         self,
         query: str,

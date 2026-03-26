@@ -322,3 +322,72 @@ def test_execute_rewrites_localhost_proxy_preserves_non_proxy(monkeypatch):
     cmd = popen_calls[0]
     assert "HTTP_PROXY=http://host.docker.internal:8444" in cmd
     assert "AEGIS_ACTIVE=1" in cmd
+
+
+def test_execute_translates_cert_host_path_to_container_path(monkeypatch):
+    """SSL_CERT_FILE and friends must point to /certs/ inside the container, not the host path."""
+    env = _make_execute_only_env(["SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS",
+                                   "CURL_CA_BUNDLE", "GIT_SSL_CAINFO", "PIP_CERT"])
+    popen_calls = []
+
+    def _fake_popen(cmd, **kwargs):
+        popen_calls.append(cmd)
+        return _FakePopen(cmd, **kwargs)
+
+    host_cert = "/Users/someone/.mitmproxy/mitmproxy-ca-cert.pem"
+    monkeypatch.setenv("SSL_CERT_FILE", host_cert)
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", host_cert)
+    monkeypatch.setenv("NODE_EXTRA_CA_CERTS", host_cert)
+    monkeypatch.setenv("CURL_CA_BUNDLE", host_cert)
+    monkeypatch.setenv("GIT_SSL_CAINFO", host_cert)
+    monkeypatch.setenv("PIP_CERT", host_cert)
+    monkeypatch.setattr(docker_env, "_load_hermes_env_vars", lambda: {})
+    monkeypatch.setattr(docker_env.subprocess, "Popen", _fake_popen)
+
+    env.execute("echo hi")
+
+    cmd = popen_calls[0]
+    for var in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS",
+                "CURL_CA_BUNDLE", "GIT_SSL_CAINFO", "PIP_CERT"):
+        assert f"{var}=/certs/mitmproxy-ca-cert.pem" in cmd, f"{var} not translated"
+        assert host_cert not in " ".join(
+            v for v in cmd if v.startswith(f"{var}=")
+        ), f"{var} still contains host path"
+
+
+def test_aegis_cert_mounted_when_aegis_active(monkeypatch, tmp_path):
+    """When AEGIS_ACTIVE=1 and the mitmproxy cert exists, it should be volume-mounted."""
+    cert_file = tmp_path / ".mitmproxy" / "mitmproxy-ca-cert.pem"
+    cert_file.parent.mkdir()
+    cert_file.write_text("fake cert")
+
+    monkeypatch.setenv("AEGIS_ACTIVE", "1")
+    monkeypatch.setattr(docker_env, "find_docker", lambda: "/usr/bin/docker")
+    # Patch Path.home() to point at tmp_path so the cert is "found"
+    import pathlib
+    monkeypatch.setattr(pathlib.Path, "home", classmethod(lambda cls: tmp_path))
+
+    calls = _mock_subprocess_run(monkeypatch)
+    _make_dummy_env()
+
+    run_call = next(c for c in calls if isinstance(c[0], list) and "run" in c[0])
+    run_args = " ".join(run_call[0])
+    assert "/certs/mitmproxy-ca-cert.pem" in run_args
+    assert "mitmproxy-ca-cert.pem" in run_args
+
+
+def test_aegis_cert_not_mounted_when_aegis_inactive(monkeypatch, tmp_path):
+    """When AEGIS_ACTIVE is not set, no cert volume mount should be added."""
+    cert_file = tmp_path / ".mitmproxy" / "mitmproxy-ca-cert.pem"
+    cert_file.parent.mkdir()
+    cert_file.write_text("fake cert")
+
+    monkeypatch.delenv("AEGIS_ACTIVE", raising=False)
+    monkeypatch.setattr(docker_env, "find_docker", lambda: "/usr/bin/docker")
+
+    calls = _mock_subprocess_run(monkeypatch)
+    _make_dummy_env()
+
+    run_call = next(c for c in calls if isinstance(c[0], list) and "run" in c[0])
+    run_args = " ".join(run_call[0])
+    assert "/certs/mitmproxy-ca-cert.pem" not in run_args

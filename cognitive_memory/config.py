@@ -150,6 +150,31 @@ class CognitiveMemoryConfig:
     qvalue_exploration_c: float = 0.2
     """UCB exploration constant. Higher = more exploration of under-retrieved memories."""
 
+    # --- Explore (Personalized PageRank multi-hop retrieval) ---
+    enable_explore: bool = True
+    """Enable explore() / explore_recursive() multi-hop retrieval via PPR.
+    When disabled, explore() falls back to plain recall()."""
+
+    ppr_alpha: float = 0.45
+    """Teleport probability for Personalized PageRank. 0.45 validated by HippoRAG.
+    Higher values = more weight on seed nodes vs. graph diffusion."""
+
+    ppr_boost: float = 0.2
+    """How much PPR score boosts an existing memory's activation in explore().
+    score += ppr_boost * score * ppr_norm. Keep small to avoid over-weighting."""
+
+    explore_max_rounds: int = 3
+    """Maximum recursion depth for explore_recursive(). Each round generates
+    sub-questions and explores them. Budget: O(rounds * max_sub_questions * top_k)."""
+
+    explore_convergence_threshold: float = 0.1
+    """Stop recursion when new_notes / total_notes < this fraction.
+    Prevents wasted LLM calls when exploration has saturated the graph."""
+
+    explore_max_notes: int = 50
+    """Hard cap on total memories visited across all rounds in explore_recursive().
+    Prevents runaway memory usage on large graphs."""
+
     def __post_init__(self):
         if not self.db_path:
             hermes_home = os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))

@@ -1269,6 +1269,52 @@ class CognitiveMemoryStore:
             self._backend.update(memory_id, superseded_by=None)
         # If not keeping, it stays superseded (no action needed)
 
+    def explore(self, query: str, scope: Optional[str] = None, top_k: int = 20, **kwargs) -> "ExploreResult":
+        """Multi-hop exploration via Personalized PageRank graph walking.
+
+        Extends recall() by walking the Hebbian link graph from seed results,
+        discovering memories not directly reachable via embedding similarity alone.
+
+        Args:
+            query: The query to explore
+            scope: Optional scope filter
+            top_k: Total results to return after PPR expansion
+            **kwargs: Passed to explore() (ppr_alpha, ppr_boost, initial_top_k)
+
+        Returns:
+            ExploreResult with results, rounds, and PPR metadata
+        """
+        from cognitive_memory.explore import explore as _explore, ExploreResult
+        return _explore(self, query, expand_top_k=top_k, scope=scope, **kwargs)
+
+    def explore_recursive(
+        self,
+        query: str,
+        llm_fn=None,
+        scope: Optional[str] = None,
+        top_k: int = 20,
+        **kwargs,
+    ) -> "ExploreResult":
+        """Recursive multi-hop exploration with optional LLM sub-question decomposition.
+
+        Phase 3 of the explore pipeline: runs PPR expansion then iteratively
+        generates sub-questions via an LLM to discover additional linked memories.
+        Falls back to PPR-only if no llm_fn is provided.
+
+        Args:
+            query: The original query
+            llm_fn: Callable(context: str, query: str) -> List[str] of sub-questions.
+                    If None, falls back to PPR-only explore().
+            scope: Optional scope filter
+            top_k: Final result count
+            **kwargs: Passed to explore_recursive() (max_rounds, max_sub_questions, etc.)
+
+        Returns:
+            ExploreResult with results, rounds, sub_questions, and convergence info
+        """
+        from cognitive_memory.explore import explore_recursive as _explore_recursive, ExploreResult
+        return _explore_recursive(self, query, llm_fn=llm_fn, expand_top_k=top_k, scope=scope, **kwargs)
+
     def reset(self) -> None:
         """Clear all data (for benchmarks)."""
         self._backend.reset()
