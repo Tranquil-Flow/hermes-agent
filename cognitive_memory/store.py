@@ -25,6 +25,7 @@ import time
 import uuid
 import logging
 from dataclasses import dataclass, field
+from collections import defaultdict
 from typing import Dict, List, Optional, Any
 
 import numpy as np
@@ -617,15 +618,43 @@ class CognitiveMemoryStore:
         self, results: List[ScoredMemory], now: float
     ) -> None:
         """
-        Strengthen Hebbian links between co-recalled memories.
-        "Neurons that fire together wire together."
+        Strengthen Hebbian links between co-recalled memories using
+        Ori-Mnemos-style co-occurrence edge learning.
+
+        Upgrades over naive additive updates:
+
+        1. GloVe-style frequency weighting (NPMI approximation):
+           co_signal = min(co_count, xmax)^0.75 / xmax^0.75
+           Prevents rare co-occurrences from having outsized weight and
+           gives diminishing returns as co-retrieval count grows.
+
+        2. Ebbinghaus decay with strength accumulation:
+           strength = 1 + strength_rate * log1p(co_count)
+           Links reinforced often accumulate more "memory strength",
+           making them more resistant to future decay.  The strength
+           modulates delta_w via a boost factor.
+
+        3. Turrigiano homeostasis:
+           After all link updates, any node (source or target) whose
+           mean updated-link weight exceeds homeostasis_target is
+           scaled DOWN to that target.  This prevents hub memories
+           from absorbing all link weight over time.
         """
         if len(results) < 2:
             return
 
         cfg = self._config
+        lr = cfg.hebbian_learning_rate
+        xmax = cfg.hebbian_glove_xmax
+        xmax_norm = xmax ** 0.75
+        strength_rate = cfg.hebbian_strength_rate
+
         # Only strengthen among top results (avoid quadratic explosion)
         top_results = results[:cfg.links_per_memory]
+
+        # Track all (source_id, target_id, new_weight) for homeostasis
+        # key: (source_id, target_id) -> new_weight
+        updated: Dict[tuple, float] = {}
 
         for i, a in enumerate(top_results):
             for b in top_results[i + 1:]:
@@ -634,9 +663,7 @@ class CognitiveMemoryStore:
                 if activation_product <= 0:
                     continue
 
-                delta_w = cfg.hebbian_learning_rate * activation_product
-
-                # Check if link exists (in either direction)
+                # ── Check if link exists (forward direction) ──────────────
                 existing_links = self._backend.get_links(a.entry.id)
                 existing = None
                 for link in existing_links:
@@ -645,13 +672,31 @@ class CognitiveMemoryStore:
                         break
 
                 if existing:
+                    # ── 1. GloVe co-occurrence frequency weighting ────────
+                    # Approximate co_retrieval_count from existing weight:
+                    # weight encodes past reinforcement, so weight*10 as proxy.
+                    co_count_proxy = existing.weight * 10.0
+                    co_signal = (min(co_count_proxy, xmax) ** 0.75) / xmax_norm
+
+                    # ── 2. Ebbinghaus strength accumulation ───────────────
+                    # More reinforced links get a larger update (diminishing
+                    # returns built in via co_signal's 0.75 exponent).
+                    strength = 1.0 + strength_rate * math.log1p(co_count_proxy)
+                    boost = 1.0 + co_signal * 0.5 * strength
+
+                    delta_w = lr * activation_product * boost
                     new_weight = min(existing.weight + delta_w, 1.0)
+
                     self._backend.update_link(
                         a.entry.id, b.entry.id,
                         weight=new_weight,
                         last_coactivated=now,
                     )
+                    updated[(a.entry.id, b.entry.id)] = new_weight
+
                 elif activation_product > 0.1:  # threshold for new link
+                    # New link: no history, minimal boost
+                    delta_w = lr * activation_product
                     self._backend.create_link(
                         a.entry.id, b.entry.id,
                         weight=delta_w,
@@ -663,6 +708,43 @@ class CognitiveMemoryStore:
                         weight=delta_w,
                         link_type="hebbian",
                     )
+                    updated[(a.entry.id, b.entry.id)] = delta_w
+                    updated[(b.entry.id, a.entry.id)] = delta_w
+
+        # ── 3. Turrigiano homeostasis ─────────────────────────────────────
+        # After all updates, normalise per-node mean weight downward so that
+        # hub memories cannot accumulate unbounded link strength.
+        if cfg.enable_hebbian_homeostasis and updated:
+            target = cfg.hebbian_homeostasis_target
+
+            # Group updated links by both source and target nodes
+            node_weights: Dict[str, List[tuple]] = defaultdict(list)
+            for (src, tgt), w in updated.items():
+                node_weights[src].append((src, tgt, w))
+                node_weights[tgt].append((src, tgt, w))
+
+            # Track which (src,tgt) pairs have already been rescaled to avoid
+            # double-applying homeostasis when a link appears in two node groups
+            rescaled: Dict[tuple, float] = {}
+
+            for node_id, link_tuples in node_weights.items():
+                if len(link_tuples) < 2:
+                    continue
+                weights = [w for _, _, w in link_tuples]
+                mean_w = sum(weights) / len(weights)
+                if mean_w <= 0:
+                    continue
+                scale = target / mean_w
+                if scale >= 1.0:
+                    # Only scale DOWN, never up
+                    continue
+                for src, tgt, w in link_tuples:
+                    key = (src, tgt)
+                    if key in rescaled:
+                        continue
+                    rescaled[key] = True
+                    new_w = max(w * scale, 0.0)
+                    self._backend.update_link(src, tgt, weight=new_w)
 
     # ─── Contradiction Detection ─────────────────────────────────
 

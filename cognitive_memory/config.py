@@ -100,6 +100,25 @@ class CognitiveMemoryConfig:
     """Weight applied to the BM25 keyword signal in RRF fusion.
     Lower values prevent BM25 from overriding temporal/importance signals."""
 
+    # --- Hebbian Upgrade: Ori-Mnemos co-occurrence learning ---
+    hebbian_glove_xmax: int = 100
+    """GloVe-style saturation count for co-occurrence frequency weighting.
+    co_signal = min(count, xmax)^0.75 / xmax^0.75.  Prevents rare
+    co-occurrences from having outsized weight.  Default: 100."""
+
+    hebbian_strength_rate: float = 0.2
+    """Ebbinghaus strength accumulation rate.  strength = 1 + rate * log1p(count).
+    Higher = stronger resistance to decay for frequently reinforced links."""
+
+    hebbian_homeostasis_target: float = 0.5
+    """Turrigiano homeostasis target mean weight per node.
+    After strengthening, any node whose outgoing updated-link mean exceeds
+    this value is scaled DOWN to prevent hub absorption.  Default: 0.5."""
+
+    enable_hebbian_homeostasis: bool = True
+    """Enable Turrigiano homeostatic scaling after each Hebbian update round.
+    Prevents hub memories from accumulating unbounded link weight."""
+
     # --- Dampening Pipeline (ported from Ori-Mnemos dampening.ts) ---
     enable_dampening: bool = True
     """Enable post-scoring dampening pipeline (gravity, hub, resolution boost).
