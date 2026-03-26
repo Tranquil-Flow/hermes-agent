@@ -314,6 +314,17 @@ class DockerEnvironment(BaseEnvironment):
 
         logger.info(f"Docker volume_args: {volume_args}")
         all_run_args = list(_SECURITY_ARGS) + writable_args + resource_args + volume_args
+
+        # Mount mitmproxy CA cert when running under Aegis so Python, curl, git,
+        # and Chromium can verify TLS through the MITM proxy.
+        _aegis_cert_mounted = False
+        if os.getenv("AEGIS_ACTIVE") == "1":
+            from pathlib import Path as _Path
+            _cert_src = _Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem"
+            if _cert_src.exists():
+                all_run_args.extend(["-v", f"{_cert_src}:/certs/mitmproxy-ca-cert.pem:ro"])
+                _aegis_cert_mounted = True
+
         logger.info(f"Docker run_args: {all_run_args}")
 
         # Resolve the docker executable once so it works even when
@@ -340,6 +351,17 @@ class DockerEnvironment(BaseEnvironment):
         )
         self._container_id = result.stdout.strip()
         logger.info(f"Started container {container_name} ({self._container_id[:12]})")
+
+        # Install mitmproxy CA cert into the container's system trust store.
+        # This makes Chromium (Playwright), curl, wget, and apt trust TLS connections
+        # routed through the Aegis MITM proxy. Must run after container starts.
+        if _aegis_cert_mounted:
+            subprocess.run(
+                [self._docker_exe, "exec", self._container_id, "bash", "-c",
+                 "cp /certs/mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/aegis-proxy.crt"
+                 " && update-ca-certificates -f 2>/dev/null || true"],
+                capture_output=True, timeout=15,
+            )
 
     @staticmethod
     def _storage_opt_supported() -> bool:
@@ -418,6 +440,11 @@ class DockerEnvironment(BaseEnvironment):
                 if key.upper() in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
                     value = value.replace("://127.0.0.1:", "://host.docker.internal:")
                     value = value.replace("://localhost:", "://host.docker.internal:")
+                # Translate host cert paths to the container mount point.
+                if key in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "GIT_SSL_CAINFO",
+                           "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE", "PIP_CERT"):
+                    if "mitmproxy-ca-cert.pem" in value:
+                        value = "/certs/mitmproxy-ca-cert.pem"
                 cmd.extend(["-e", f"{key}={value}"])
         cmd.extend([self._container_id, "bash", "-lc", exec_command])
 
