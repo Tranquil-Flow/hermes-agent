@@ -18,7 +18,7 @@ from benchmarks.interface import (
 )
 from benchmarks.judge import MemoryJudge, HeuristicJudge
 from benchmarks.statistical import aggregate_results, compare_runs
-from benchmarks.metrics import compute_metric_suite, token_f1, exact_match, recall_at_k, mrr
+from benchmarks.metrics import compute_metric_suite, token_f1, exact_match, recall_at_k, mrr, compute_cost_metrics
 
 
 # --- Backend Registry ---
@@ -1144,6 +1144,12 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
         wall_time_seconds=elapsed,
     )
     run_result.retrieval_metrics = avg_metrics
+    run_result.cost_metrics = compute_cost_metrics(
+        total_tokens=total_recall_tokens,
+        total_queries=num_queries,
+        correct=total_correct,
+        total=total_items,
+    )
     return run_result
 
 
@@ -1201,6 +1207,22 @@ def print_results(agg: AggregateResult, config: BenchmarkConfig,
             print(f"    Recall@5:  {avg_rm.get('recall_at_5', 0):.3f}")
             print(f"    MRR:       {avg_rm.get('mrr', 0):.3f}")
             print(f"    Token F1:  {avg_rm.get('token_f1', 0):.3f}")
+    # Cost efficiency metrics
+    if runs:
+        all_cost_metrics = [r.cost_metrics for r in runs if hasattr(r, "cost_metrics") and r.cost_metrics]
+        if all_cost_metrics:
+            avg_cm = {}
+            for key in all_cost_metrics[0]:
+                values = [m[key] for m in all_cost_metrics if key in m]
+                avg_cm[key] = sum(values) / len(values) if values else 0.0
+            print(f"{'─'*60}")
+            print(f"  Cost Efficiency:")
+            tpq = avg_cm.get('tokens_per_query', 0)
+            tpc = avg_cm.get('tokens_per_correct', 0)
+            eff = avg_cm.get('cost_efficiency', 0)
+            print(f"    Tokens/query:    ~{tpq:.0f}")
+            print(f"    Tokens/correct:  ~{tpc:.0f}")
+            print(f"    Efficiency:      {eff:.3f} (score / log2(tokens))")
     print(f"{'='*60}\n")
 
 
@@ -1271,6 +1293,13 @@ def main():
             for key in all_run_rm[0]:
                 vals = [m[key] for m in all_run_rm if key in m]
                 avg_retrieval_metrics_json[key] = sum(vals) / len(vals) if vals else 0.0
+        # Compute avg cost metrics across runs for JSON output
+        all_run_cm = [r.cost_metrics for r in runs if hasattr(r, "cost_metrics") and r.cost_metrics]
+        avg_cost_metrics_json = {}
+        if all_run_cm:
+            for key in all_run_cm[0]:
+                vals = [m[key] for m in all_run_cm if key in m]
+                avg_cost_metrics_json[key] = sum(vals) / len(vals) if vals else 0.0
         results_dict = {
             "backend": config.backend_name,
             "mean_score": agg.mean_score,
@@ -1279,6 +1308,7 @@ def main():
             "per_category": agg.per_category_mean,
             "num_runs": agg.num_runs,
             "retrieval_metrics": avg_retrieval_metrics_json,
+            "cost_metrics": avg_cost_metrics_json,
         }
         print(json.dumps(results_dict, indent=2))
     else:
@@ -1295,6 +1325,13 @@ def main():
         for key in all_run_rm_file[0]:
             vals = [m[key] for m in all_run_rm_file if key in m]
             avg_rm_file[key] = sum(vals) / len(vals) if vals else 0.0
+    # Compute avg cost metrics for file output
+    all_run_cm_file = [r.cost_metrics for r in runs if hasattr(r, "cost_metrics") and r.cost_metrics]
+    avg_cm_file = {}
+    if all_run_cm_file:
+        for key in all_run_cm_file[0]:
+            vals = [m[key] for m in all_run_cm_file if key in m]
+            avg_cm_file[key] = sum(vals) / len(vals) if vals else 0.0
 
     with open(result_file, "w") as f:
         json.dump({
@@ -1308,6 +1345,7 @@ def main():
             "per_category_std": agg.per_category_std,
             "num_runs": agg.num_runs,
             "retrieval_metrics": avg_rm_file,
+            "cost_metrics": avg_cm_file,
             "runs": [
                 {
                     "seed": r.seed,
@@ -1315,6 +1353,7 @@ def main():
                     "wall_time_seconds": r.wall_time_seconds,
                     "token_usage": r.token_usage,
                     "retrieval_metrics": getattr(r, "retrieval_metrics", {}),
+                    "cost_metrics": getattr(r, "cost_metrics", {}),
                     "categories": {
                         cat: {
                             "score": cr.score, "correct": cr.correct, "total": cr.total,

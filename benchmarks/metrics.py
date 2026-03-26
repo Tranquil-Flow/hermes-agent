@@ -45,6 +45,10 @@ __all__ = [
     # aggregate helpers
     "mean_metric",
     "compute_metric_suite",
+    # cost-efficiency metrics
+    "tokens_per_correct",
+    "cost_efficiency_ratio",
+    "compute_cost_metrics",
 ]
 
 
@@ -644,6 +648,49 @@ def compute_metric_suite(
         "token_f1":          token_f1(predicted_answer, gold_answer),
         "token_precision":   token_precision(predicted_answer, gold_answer),
         "token_recall":      token_recall(predicted_answer, gold_answer),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Cost-Efficiency Metrics
+# ---------------------------------------------------------------------------
+
+def tokens_per_correct(total_tokens: int, correct: int) -> float:
+    """Tokens spent per correct answer. Lower is more efficient."""
+    return total_tokens / max(correct, 1)
+
+
+def cost_efficiency_ratio(score: float, tokens_per_query: float) -> float:
+    """Score normalized by token cost. Higher is more efficient.
+
+    Defined as: score / log2(tokens_per_query + 1)
+    Using log because doubling tokens should not halve efficiency —
+    there are diminishing returns to token spending.
+    """
+    return score / max(math.log2(tokens_per_query + 1), 0.001)
+
+
+def compute_cost_metrics(total_tokens: int, total_queries: int,
+                         correct: int, total: int) -> dict:
+    """Compute all cost-efficiency metrics.
+
+    Returns dict with:
+      tokens_per_query: average tokens returned per recall
+      tokens_per_correct: tokens spent per correct answer
+      cost_efficiency: score / log2(tokens_per_query)
+      score: correct / total
+    """
+    score = correct / max(total, 1)
+    tpq = total_tokens / max(total_queries, 1)
+    return {
+        'tokens_per_query': tpq,
+        'tokens_per_correct': tokens_per_correct(total_tokens, correct),
+        'cost_efficiency': cost_efficiency_ratio(score, tpq),
+        'score': score,
+        'total_tokens': total_tokens,
+        'total_queries': total_queries,
+        'correct': correct,
+        'total': total,
     }
 
 

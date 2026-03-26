@@ -234,6 +234,43 @@ def mode_dashboard(result_path: str | None = None) -> None:
     print(summary_dashboard(data))
 
 
+def _mode_optimize(args) -> None:
+    """Delegate to benchmarks.optimize with the given strategy and args."""
+    import benchmarks.optimize as opt_mod
+
+    # Build param space
+    param_space = opt_mod._build_param_space(getattr(args, 'optimize_params', None))
+
+    suite = args.suite or 'a'
+    runs  = args.runs or 1
+    judge = args.judge_model or 'heuristic'
+    emb   = args.embedding or 'auto'
+    trials = args.trials
+
+    evaluate_fn = opt_mod.make_evaluator(suite=suite, runs=runs,
+                                         judge_model=judge, embedding=emb)
+
+    import time
+    strategy = args.optimize
+    t0 = time.time()
+    if strategy == 'grid':
+        results = opt_mod.grid_search(param_space, evaluate_fn, max_configs=trials)
+    elif strategy == 'bayesian':
+        n_init = max(3, trials // 6)
+        results = opt_mod.bayesian_optimize(param_space, evaluate_fn,
+                                            n_trials=trials, n_initial=n_init)
+    else:
+        results = opt_mod.random_search(param_space, evaluate_fn, n_trials=trials)
+    elapsed = time.time() - t0
+
+    print(f"\nOptimization complete in {elapsed:.1f}s")
+    opt_mod.print_top_results(results, n=10)
+    frontier = opt_mod.pareto_frontier(results)
+    opt_mod.print_pareto(frontier)
+    out_path = opt_mod.save_results(results, strategy, suite)
+    print(f"Results saved to {out_path}")
+
+
 def mode_ablation(spec: str, passthrough: list[str]) -> None:
     """Delegate a parameter sweep to compare_configs."""
     import benchmarks.compare_configs as cc_mod
@@ -271,6 +308,9 @@ def main() -> None:
                             help="Print ASCII dashboard from latest results")
     mode_group.add_argument("--ablation", metavar="PARAM=v1,v2,...",
                             help="Parameter sweep (delegates to compare_configs)")
+    mode_group.add_argument("--optimize", metavar="STRATEGY",
+                            choices=["random", "grid", "bayesian"],
+                            help="Parameter optimization strategy (random/grid/bayesian)")
 
     # Pass-through args for runner.main() (standard benchmark modes)
     parser.add_argument("--backend",    default=None,
@@ -295,6 +335,10 @@ def main() -> None:
                         help="Output results as JSON")
     parser.add_argument("--result-file", default=None,
                         help="Path to result JSON for --report / --dashboard")
+    parser.add_argument("--trials", type=int, default=30,
+                        help="Number of trials for --optimize (default: 30)")
+    parser.add_argument("--optimize-params", default=None,
+                        help="Comma-separated param names to optimize (default: all)")
 
     args, unknown = parser.parse_known_args()
 
@@ -313,7 +357,10 @@ def main() -> None:
 
     # ---- Dispatch ----
 
-    if args.compare:
+    if args.optimize:
+        _mode_optimize(args)
+
+    elif args.compare:
         mode_compare(args.compare[0], args.compare[1])
 
     elif args.report:

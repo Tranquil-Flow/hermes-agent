@@ -1,0 +1,101 @@
+{
+  "strategy": "grid",
+  "suite": "a",
+  "timestamp": "20260326_223018",
+  "num_trials": 4,
+  "best_score": 0.96,
+  "best_params": {
+    "d": 0.3,
+    "resolution_boost_factor": 1.0
+  },
+  "trials": [
+    {
+      "params": {
+        "d": 0.3,
+        "resolution_boost_factor": 1.0
+      },
+      "results": {
+        "score": 0.96,
+        "tokens_per_query": 30.0,
+        "wall_time": 0.32326459884643555,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9555555555555556,
+          "importance_filtering": 0.95,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9555555555555556
+        },
+        "params": {
+          "d": 0.3,
+          "resolution_boost_factor": 1.0
+        }
+      }
+    },
+    {
+      "params": {
+        "d": 0.4,
+        "resolution_boost_factor": 1.5
+      },
+      "results": {
+        "score": 0.95,
+        "tokens_per_query": 30.0,
+        "wall_time": 0.3049325942993164,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9555555555555556,
+          "importance_filtering": 0.875,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777
+        },
+        "params": {
+          "d": 0.4,
+          "resolution_boost_factor": 1.5
+        }
+      }
+    },
+    {
+      "params": {
+        "d": 0.5,
+        "resolution_boost_factor": 2.0
+      },
+      "results": {
+        "score": 0.935,
+        "tokens_per_query": 30.0,
+        "wall_time": 0.3265373706817627,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9555555555555556,
+          "importance_filtering": 0.8,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777
+        },
+        "params": {
+          "d": 0.5,
+          "resolution_boost_factor": 2.0
+        }
+      }
+    },
+    {
+      "params": {
+        "d": 0.7,
+        "resolution_boost_factor": 1.25
+      },
+      "results": {
+        "score": 0.9,
+        "tokens_per_query": 30.0,
+        "wall_time": 0.26473140716552734,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9555555555555556,
+          "importance_filtering": 0.8,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.8222222222222222
+        },
+        "params": {
+          "d": 0.7,
+          "resolution_boost_factor": 1.25
+        }
+      }
+    }
+  ]
+}

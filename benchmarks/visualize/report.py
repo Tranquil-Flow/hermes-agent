@@ -194,14 +194,50 @@ def generate_report(result_json: dict, output_path: str = None) -> str:
     lines.append(_category_table_md(per_cat, per_std, cats_data))
     lines.append("")
 
-    # ── Retrieval metrics ────────────────────────────────────
+    # ── Retrieval metrics ────────────────────────────────────────
     if ret_m:
         lines.append("## Retrieval Metrics")
         lines.append("")
         lines.append(_retrieval_table_md(ret_m))
         lines.append("")
 
-    # ── Weakest categories ───────────────────────────────────
+    # ── Cost Efficiency ──────────────────────────────────────────
+    # Aggregate cost_metrics from individual runs (most accurate)
+    cost_m = result_json.get("cost_metrics", {})
+    if not cost_m and runs:
+        # fall back to computing from per-run cost_metrics
+        run_cms = [r.get("cost_metrics", {}) for r in runs if r.get("cost_metrics")]
+        if run_cms:
+            cost_m = {}
+            for key in run_cms[0]:
+                vals = [m[key] for m in run_cms if key in m]
+                cost_m[key] = sum(vals) / len(vals) if vals else 0.0
+    if cost_m:
+        lines.append("## Cost Efficiency")
+        lines.append("")
+        lines.append("Token cost normalized by answer quality.")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("| --- | --- |")
+        tpq = cost_m.get("tokens_per_query")
+        tpc = cost_m.get("tokens_per_correct")
+        eff = cost_m.get("cost_efficiency")
+        score = cost_m.get("score")
+        if tpq is not None:
+            lines.append(f"| Tokens / Query | ~{tpq:.0f} |")
+        if tpc is not None:
+            lines.append(f"| Tokens / Correct Answer | ~{tpc:.0f} |")
+        if eff is not None:
+            lines.append(f"| Cost Efficiency (score / log2(tokens)) | {_fmt(eff)} |")
+        if score is not None:
+            lines.append(f"| Score (correct / total) | {_fmt(score)} ({_pct(score)}) |")
+        lines.append("")
+        lines.append("> **Note:** Efficiency = score / log2(tokens_per_query + 1). "
+                     "Higher is better. Doubling tokens does not halve efficiency "
+                     "due to logarithmic normalization.")
+        lines.append("")
+
+    # ── Weakest categories ───────────────────────────────────────
     if per_cat:
         sorted_cats = sorted(per_cat.items(), key=lambda x: x[1])
         bottom = sorted_cats[:3]

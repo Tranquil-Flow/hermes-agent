@@ -2,15 +2,15 @@
   "benchmark": "locomo",
   "dataset": "snap-research/locomo",
   "reference": "Maharana et al. (2024) arXiv:2402.15929",
-  "total": 50,
-  "correct": 1,
-  "score": 0.02,
-  "wall_time_seconds": 201.74436402320862,
+  "total": 100,
+  "correct": 6,
+  "score": 0.06,
+  "wall_time_seconds": 532.1615889072418,
   "by_type": {
     "single_hop": {
-      "total": 19,
+      "total": 32,
       "correct": 1,
-      "score": 0.05263157894736842,
+      "score": 0.03125,
       "metrics": {
         "recall_at_1": 0.0,
         "recall_at_3": 0.0,
@@ -21,13 +21,13 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.006090871945888014,
-        "token_precision": 0.003301138484509145,
-        "token_recall": 0.04544052438789281
+        "token_f1": 0.0042475799230564226,
+        "token_precision": 0.002244278062212072,
+        "token_recall": 0.04632554945054945
       }
     },
     "multi_hop": {
-      "total": 24,
+      "total": 37,
       "correct": 0,
       "score": 0.0,
       "metrics": {
@@ -40,15 +40,15 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.0008771929824561404,
-        "token_precision": 0.000462962962962963,
-        "token_recall": 0.008333333333333333
+        "token_f1": 0.00040338846308995556,
+        "token_precision": 0.00020951183741881415,
+        "token_recall": 0.005405405405405406
       }
     },
     "temporal": {
-      "total": 7,
-      "correct": 0,
-      "score": 0.0,
+      "total": 13,
+      "correct": 1,
+      "score": 0.07692307692307693,
       "metrics": {
         "recall_at_1": 0.0,
         "recall_at_3": 0.0,
@@ -59,9 +59,28 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.016342159202900747,
-        "token_precision": 0.009055217831813577,
-        "token_recall": 0.09740259740259741
+        "token_f1": 0.013490141799237838,
+        "token_precision": 0.0071842638354531665,
+        "token_recall": 0.12460872460872462
+      }
+    },
+    "open_domain": {
+      "total": 18,
+      "correct": 4,
+      "score": 0.2222222222222222,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.029312919688545276,
+        "token_precision": 0.015888011851183863,
+        "token_recall": 0.21639024555691222
       }
     }
   },
@@ -75,9 +94,9 @@
     "ndcg_at_10": 0.0,
     "average_precision": 0.0,
     "exact_match": 0.0,
-    "token_f1": 0.005023486259422497,
-    "token_precision": 0.0027443853427895977,
-    "token_recall": 0.0349037629037629
+    "token_f1": 0.008538523284560406,
+    "token_precision": 0.004589484791574831,
+    "token_recall": 0.07197355422355423
   },
   "results": [
     {
@@ -86,7 +105,7 @@
       "correct": false,
       "question": "When did Caroline go to the LGBTQ support group?",
       "gold_answer": "7 May 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -109,7 +128,7 @@
       "correct": false,
       "question": "When did Melanie paint a sunrise?",
       "gold_answer": "2022",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -132,7 +151,7 @@
       "correct": false,
       "question": "What fields would Caroline be likely to pursue in her educaton?",
       "gold_answer": "Psychology, counseling certification",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -155,7 +174,7 @@
       "correct": false,
       "question": "What did Caroline research?",
       "gold_answer": "Adoption agencies",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -178,7 +197,7 @@
       "correct": false,
       "question": "What is Caroline's identity?",
       "gold_answer": "Transgender woman",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -201,7 +220,7 @@
       "correct": false,
       "question": "When did Melanie run a charity race?",
       "gold_answer": "The sunday before 25 May 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -224,7 +243,7 @@
       "correct": false,
       "question": "When is Melanie planning on going camping?",
       "gold_answer": "June 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -247,7 +266,7 @@
       "correct": false,
       "question": "What is Caroline's relationship status?",
       "gold_answer": "Single",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -270,7 +289,7 @@
       "correct": false,
       "question": "When did Caroline give a speech at a school?",
       "gold_answer": "The week before 9 June 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -293,7 +312,7 @@
       "correct": false,
       "question": "When did Caroline meet up with her friends, family, and mentors?",
       "gold_answer": "The week before 9 June 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -316,7 +335,7 @@
       "correct": false,
       "question": "How long has Caroline had her current group of friends for?",
       "gold_answer": "4 years",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -385,7 +404,7 @@
       "correct": false,
       "question": "What career path has Caroline decided to persue?",
       "gold_answer": "counseling or mental health for Transgender people",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -397,8 +416,8 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.01941747572815534,
-        "token_precision": 0.010416666666666666,
+        "token_f1": 0.014705882352941175,
+        "token_precision": 0.007751937984496124,
         "token_recall": 0.14285714285714285
       }
     },
@@ -408,7 +427,7 @@
       "correct": false,
       "question": "Would Caroline still want to pursue counseling as a career if she hadn't received support growing up?",
       "gold_answer": "Likely no",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -431,7 +450,7 @@
       "correct": false,
       "question": "What activities does Melanie partake in?",
       "gold_answer": "pottery, camping, painting, swimming",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Thanks, Melanie. Your support really means a lot. This journey has been amazing and I'm grateful I get to share it and help others with theirs. It's a real gift.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -454,7 +473,7 @@
       "correct": false,
       "question": "When did Melanie sign up for a pottery class?",
       "gold_answer": "2 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -477,7 +496,7 @@
       "correct": false,
       "question": "When is Caroline going to the transgender conference?",
       "gold_answer": "July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -500,7 +519,7 @@
       "correct": false,
       "question": "Where has Melanie camped?",
       "gold_answer": "beach, mountains, forest",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -523,7 +542,7 @@
       "correct": false,
       "question": "What do Melanie's kids like?",
       "gold_answer": "dinosaurs, nature",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -546,7 +565,7 @@
       "correct": false,
       "question": "When did Melanie go to the museum?",
       "gold_answer": "5 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -592,7 +611,7 @@
       "correct": false,
       "question": "Would Caroline likely have Dr. Seuss books on her bookshelf?",
       "gold_answer": "Yes, since she collects classic children's books",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -615,7 +634,7 @@
       "correct": false,
       "question": "What books has Melanie read?",
       "gold_answer": "\"Nothing is Impossible\", \"Charlotte's Web\"",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Thanks, Melanie. Your support really means a lot. This journey has been amazing and I'm grateful I get to share it and help others with theirs. It's a real gift.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -627,8 +646,8 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.020202020202020204,
-        "token_precision": 0.010638297872340425,
+        "token_f1": 0.018518518518518517,
+        "token_precision": 0.009708737864077669,
         "token_recall": 0.2
       }
     },
@@ -638,7 +657,7 @@
       "correct": false,
       "question": "What does Melanie do to destress?",
       "gold_answer": "Running, pottery",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -684,7 +703,7 @@
       "correct": false,
       "question": "When did Melanie read the book \"nothing is impossible\"?",
       "gold_answer": "2022",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -707,7 +726,7 @@
       "correct": false,
       "question": "Would Caroline pursue writing as a career option?",
       "gold_answer": "LIkely no; though she likes reading, she wants to be a counselor",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -719,8 +738,8 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.037383177570093455,
-        "token_precision": 0.020833333333333332,
+        "token_f1": 0.02857142857142857,
+        "token_precision": 0.015503875968992248,
         "token_recall": 0.18181818181818182
       }
     },
@@ -730,7 +749,7 @@
       "correct": false,
       "question": "When did Caroline go to the adoption meeting?",
       "gold_answer": "The friday before 15 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -742,9 +761,9 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.021052631578947368,
-        "token_precision": 0.011111111111111112,
-        "token_recall": 0.2
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
       }
     },
     {
@@ -753,7 +772,7 @@
       "correct": false,
       "question": "When did Melanie go to the pottery workshop?",
       "gold_answer": "The Friday before 15 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -776,7 +795,7 @@
       "correct": false,
       "question": "Would Melanie be considered a member of the LGBTQ community?",
       "gold_answer": "Likely no, she does not refer to herself as part of it",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -788,9 +807,9 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.056603773584905655,
-        "token_precision": 0.031914893617021274,
-        "token_recall": 0.25
+        "token_f1": 0.030534351145038167,
+        "token_precision": 0.01680672268907563,
+        "token_recall": 0.16666666666666666
       }
     },
     {
@@ -799,7 +818,7 @@
       "correct": false,
       "question": "When did Melanie go camping in June?",
       "gold_answer": "The week before 27 June 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -822,7 +841,7 @@
       "correct": false,
       "question": "What LGBTQ+ events has Caroline participated in?",
       "gold_answer": "Pride parade, school speech, support group",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -834,8 +853,8 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.0196078431372549,
-        "token_precision": 0.010416666666666666,
+        "token_f1": 0.01550387596899225,
+        "token_precision": 0.008130081300813009,
         "token_recall": 0.16666666666666666
       }
     },
@@ -845,7 +864,7 @@
       "correct": false,
       "question": "When did Caroline go to a pride parade during the summer?",
       "gold_answer": "The week before 3 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -868,7 +887,7 @@
       "correct": false,
       "question": "What events has Caroline participated in to help children?",
       "gold_answer": "Mentoring program, school speech",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -891,7 +910,7 @@
       "correct": false,
       "question": "When did Melanie go camping in July?",
       "gold_answer": "two weekends before 17 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -914,7 +933,7 @@
       "correct": false,
       "question": "When did Caroline join a mentorship program?",
       "gold_answer": "The weekend before 17 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -937,7 +956,7 @@
       "correct": false,
       "question": "What did Melanie paint recently?",
       "gold_answer": "sunset",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -960,7 +979,7 @@
       "correct": false,
       "question": "What activities has Melanie done with her family?",
       "gold_answer": "Pottery, painting, camping, museum, swimming, hiking",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Thanks, Melanie. Your support really means a lot. This journey has been amazing and I'm grateful I get to share it and help others with theirs. It's a real gift.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -995,8 +1014,8 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.03669724770642201,
-        "token_precision": 0.020833333333333332,
+        "token_f1": 0.029411764705882356,
+        "token_precision": 0.016260162601626018,
         "token_recall": 0.15384615384615385
       }
     },
@@ -1006,7 +1025,7 @@
       "correct": false,
       "question": "How many times has Melanie gone to the beach in 2023?",
       "gold_answer": "2",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1029,7 +1048,7 @@
       "correct": false,
       "question": "When did Caroline join a new activist group?",
       "gold_answer": "The Tuesday before 20 July 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1052,7 +1071,7 @@
       "correct": false,
       "question": "Would Melanie be more interested in going to a national park or a theme park?",
       "gold_answer": "National park; she likes the outdoors",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1098,7 +1117,7 @@
       "correct": false,
       "question": "When is Melanie's daughter's birthday?",
       "gold_answer": "13 August",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1121,7 +1140,7 @@
       "correct": false,
       "question": "When did Caroline attend a pride parade in August?",
       "gold_answer": "The Friday before 14 August 2023",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1144,7 +1163,7 @@
       "correct": false,
       "question": "Would Melanie be considered an ally to the transgender community?",
       "gold_answer": "Yes, she is supportive",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1156,8 +1175,8 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.02040816326530612,
-        "token_precision": 0.010638297872340425,
+        "token_f1": 0.016260162601626015,
+        "token_precision": 0.008403361344537815,
         "token_recall": 0.25
       }
     },
@@ -1167,7 +1186,7 @@
       "correct": true,
       "question": "Who supports Caroline when she has a negative experience?",
       "gold_answer": "Her mentors, family, and friends",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1179,8 +1198,8 @@
         "ndcg_at_10": 0.0,
         "average_precision": 0.0,
         "exact_match": 0.0,
-        "token_f1": 0.019801980198019802,
-        "token_precision": 0.010416666666666666,
+        "token_f1": 0.014925373134328356,
+        "token_precision": 0.007751937984496124,
         "token_recall": 0.2
       }
     },
@@ -1190,7 +1209,7 @@
       "correct": false,
       "question": "What types of pottery have Melanie and her kids made?",
       "gold_answer": "bowls, cup",
-      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
       "recall_count": 10,
       "metrics": {
         "recall_at_1": 0.0,
@@ -1213,6 +1232,121 @@
       "correct": false,
       "question": "When did Caroline and Melanie go to a pride fesetival together?",
       "gold_answer": "2022",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_50",
+      "question_type": "temporal",
+      "correct": false,
+      "question": "What would Caroline's political leaning likely be?",
+      "gold_answer": "Liberal",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_51",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What has Melanie painted?",
+      "gold_answer": "Horse, sunset, sunrise",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_52",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What are Melanie's pets' names?",
+      "gold_answer": "Oliver, Luna, Bailey",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_53",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Caroline apply to adoption agencies?",
+      "gold_answer": "The week of 23 August 2023",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.014925373134328356,
+        "token_precision": 0.007751937984496124,
+        "token_recall": 0.2
+      }
+    },
+    {
+      "question_id": "conv-26_54",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Caroline draw a self-portrait?",
+      "gold_answer": "The week before 23 August 2023",
       "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
       "recall_count": 10,
       "metrics": {
@@ -1228,6 +1362,1041 @@
         "token_f1": 0.0,
         "token_precision": 0.0,
         "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_55",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What subject have Caroline and Melanie both painted?",
+      "gold_answer": "Sunsets",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_56",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What symbols are important to Caroline?",
+      "gold_answer": "Rainbow flag, transgender symbol",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_57",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Caroline encounter people on a hike and have a negative experience?",
+      "gold_answer": "The week before 25 August 2023",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_58",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Melanie make a plate in pottery class?",
+      "gold_answer": "24 August 2023",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_59",
+      "question_type": "temporal",
+      "correct": false,
+      "question": "Would Caroline be considered religious?",
+      "gold_answer": "Somewhat, but not extremely religious",
+      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.014925373134328356,
+        "token_precision": 0.007751937984496124,
+        "token_recall": 0.2
+      }
+    },
+    {
+      "question_id": "conv-26_60",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What instruments does Melanie play?",
+      "gold_answer": "clarinet and violin",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.02,
+        "token_precision": 0.010309278350515464,
+        "token_recall": 0.3333333333333333
+      }
+    },
+    {
+      "question_id": "conv-26_61",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What musical artists/bands has Melanie seen?",
+      "gold_answer": "Summer Sounds, Matt Patterson",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_62",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Melanie go to the park?",
+      "gold_answer": "27 August 2023",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_63",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When is Caroline's youth center putting on a talent show?",
+      "gold_answer": "September 2023",
+      "recalled": "Caroline: Yeah, that's true! It's so freeing to just be yourself and live honestly. We can really accept who we are and be content.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_64",
+      "question_type": "temporal",
+      "correct": false,
+      "question": "Would Melanie likely enjoy the song \"The Four Seasons\" by Vivaldi?",
+      "gold_answer": "Yes; it's classical music",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.02040816326530612,
+        "token_precision": 0.010638297872340425,
+        "token_recall": 0.25
+      }
+    },
+    {
+      "question_id": "conv-26_65",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What are some changes Caroline has faced during her transition journey?",
+      "gold_answer": "Changes to her body, losing unsupportive friends",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.022857142857142854,
+        "token_precision": 0.011904761904761904,
+        "token_recall": 0.2857142857142857
+      }
+    },
+    {
+      "question_id": "conv-26_66",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What does Melanie do with her family on hikes?",
+      "gold_answer": "Roast marshmallows, tell stories",
+      "recalled": "Caroline: Thanks, Melanie. Your support really means a lot. This journey has been amazing and I'm grateful I get to share it and help others with theirs. It's a real gift.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_67",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Caroline go biking with friends?",
+      "gold_answer": "The weekend before 13 September 2023",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_68",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "How long has Melanie been practicing art?",
+      "gold_answer": "Since 2016",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_69",
+      "question_type": "temporal",
+      "correct": false,
+      "question": "What personality traits might Melanie say Caroline has?",
+      "gold_answer": "Thoughtful, authentic, driven",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_70",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What transgender-specific events has Caroline attended?",
+      "gold_answer": "Poetry reading, conference",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_71",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What book did Melanie read from Caroline's suggestion?",
+      "gold_answer": "\"Becoming Nicole\"",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_72",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Melanie's friend adopt a child?",
+      "gold_answer": "2022",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_73",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Melanie get hurt?",
+      "gold_answer": "September 2023",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_74",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Melanie's family go on a roadtrip?",
+      "gold_answer": "The weekend before 20 October 2023",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_75",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "How many children does Melanie have?",
+      "gold_answer": "3",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_76",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "When did Melanie go on a hike after the roadtrip?",
+      "gold_answer": "19 October 2023",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_77",
+      "question_type": "temporal",
+      "correct": false,
+      "question": "Would Melanie go on another roadtrip soon?",
+      "gold_answer": "Likely no; since this one went badly",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.018518518518518517,
+        "token_precision": 0.009900990099009901,
+        "token_recall": 0.14285714285714285
+      }
+    },
+    {
+      "question_id": "conv-26_78",
+      "question_type": "single_hop",
+      "correct": false,
+      "question": "What items has Melanie bought?",
+      "gold_answer": "Figurines, shoes",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_79",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Caroline pass the adoption interview?",
+      "gold_answer": "The Friday before 22 October 2023",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_80",
+      "question_type": "multi_hop",
+      "correct": false,
+      "question": "When did Melanie buy the figurines?",
+      "gold_answer": "21 October 2023",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_81",
+      "question_type": "temporal",
+      "correct": true,
+      "question": "Would Caroline want to move back to her home country soon?",
+      "gold_answer": "No; she's in the process of adopting children.",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.04615384615384615,
+        "token_precision": 0.024390243902439025,
+        "token_recall": 0.42857142857142855
+      }
+    },
+    {
+      "question_id": "conv-26_82",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What did the charity race raise awareness for?",
+      "gold_answer": "mental health",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_83",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What did Melanie realize after the charity race?",
+      "gold_answer": "self-care is important",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.018867924528301886,
+        "token_precision": 0.009708737864077669,
+        "token_recall": 0.3333333333333333
+      }
+    },
+    {
+      "question_id": "conv-26_84",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "How does Melanie prioritize self-care?",
+      "gold_answer": "by carving out some me-time each day for activities like running, reading, or playing the violin",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.014925373134328358,
+        "token_precision": 0.008403361344537815,
+        "token_recall": 0.06666666666666667
+      }
+    },
+    {
+      "question_id": "conv-26_85",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What are Caroline's plans for the summer?",
+      "gold_answer": "researching adoption agencies",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_86",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What type of individuals does the adoption agency Caroline is considering support?",
+      "gold_answer": "LGBTQ+ individuals",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_87",
+      "question_type": "open_domain",
+      "correct": true,
+      "question": "Why did Caroline choose the adoption agency?",
+      "gold_answer": "because of their inclusivity and support for LGBTQ+ individuals",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.07246376811594203,
+        "token_precision": 0.03875968992248062,
+        "token_recall": 0.5555555555555556
+      }
+    },
+    {
+      "question_id": "conv-26_88",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What is Caroline excited about in the adoption process?",
+      "gold_answer": "creating a family for kids who need one",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.04615384615384615,
+        "token_precision": 0.024390243902439025,
+        "token_recall": 0.42857142857142855
+      }
+    },
+    {
+      "question_id": "conv-26_89",
+      "question_type": "open_domain",
+      "correct": true,
+      "question": "What does Melanie think about Caroline's decision to adopt?",
+      "gold_answer": "she thinks Caroline is doing something amazing and will be an awesome mom",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.05673758865248227,
+        "token_precision": 0.031007751937984496,
+        "token_recall": 0.3333333333333333
+      }
+    },
+    {
+      "question_id": "conv-26_90",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "How long have Mel and her husband been married?",
+      "gold_answer": "Mel and her husband have been married for 5 years.",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.06896551724137931,
+        "token_precision": 0.03773584905660377,
+        "token_recall": 0.4
+      }
+    },
+    {
+      "question_id": "conv-26_91",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What does Caroline's necklace symbolize?",
+      "gold_answer": "love, faith, and strength",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.01639344262295082,
+        "token_precision": 0.00847457627118644,
+        "token_recall": 0.25
+      }
+    },
+    {
+      "question_id": "conv-26_92",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What country is Caroline's grandma from?",
+      "gold_answer": "Sweden",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_93",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What was grandma's gift to Caroline?",
+      "gold_answer": "necklace",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_94",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What is Melanie's hand-painted bowl a reminder of?",
+      "gold_answer": "art and self-expression",
+      "recalled": "Caroline: Thanks, Melanie. Your support really means a lot. This journey has been amazing and I'm grateful I get to share it and help others with theirs. It's a real gift.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.018867924528301886,
+        "token_precision": 0.009708737864077669,
+        "token_recall": 0.3333333333333333
+      }
+    },
+    {
+      "question_id": "conv-26_95",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What did Melanie and her family do while camping?",
+      "gold_answer": "explored nature, roasted marshmallows, and went on a hike",
+      "recalled": "Melanie: Glad you had support. Being yourself is great!",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.018018018018018018,
+        "token_precision": 0.009708737864077669,
+        "token_recall": 0.125
+      }
+    },
+    {
+      "question_id": "conv-26_96",
+      "question_type": "open_domain",
+      "correct": true,
+      "question": "What kind of counseling and mental health services is Caroline interested in pursuing?",
+      "gold_answer": "working with trans people, helping them accept themselves and supporting their mental health",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.07352941176470587,
+        "token_precision": 0.04065040650406504,
+        "token_recall": 0.38461538461538464
+      }
+    },
+    {
+      "question_id": "conv-26_97",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What workshop did Caroline attend recently?",
+      "gold_answer": "LGBTQ+ counseling workshop",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0,
+        "token_precision": 0.0,
+        "token_recall": 0.0
+      }
+    },
+    {
+      "question_id": "conv-26_98",
+      "question_type": "open_domain",
+      "correct": false,
+      "question": "What was discussed in the LGBTQ+ counseling workshop?",
+      "gold_answer": "therapeutic methods and how to best work with trans people",
+      "recalled": "Caroline: Thanks, Mel. Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it. It's empowering to make a positive difference in someone's life.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.04918032786885245,
+        "token_precision": 0.026785714285714284,
+        "token_recall": 0.3
+      }
+    },
+    {
+      "question_id": "conv-26_99",
+      "question_type": "open_domain",
+      "correct": true,
+      "question": "What motivated Caroline to pursue counseling?",
+      "gold_answer": "her own journey and the support she received, and how counseling improved her life",
+      "recalled": "Caroline: Glad you agree, Caroline. Appreciate the support of those close to me. Their encouragement made me who I am.",
+      "recall_count": 10,
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 0.0,
+        "recall_at_5": 0.0,
+        "recall_at_10": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_5": 0.0,
+        "ndcg_at_10": 0.0,
+        "average_precision": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.07352941176470587,
+        "token_precision": 0.04065040650406504,
+        "token_recall": 0.38461538461538464
       }
     }
   ]

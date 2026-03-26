@@ -325,6 +325,36 @@ def summary_dashboard(result_json: dict) -> str:
                     lines.append(f"  Avg tokens/query:  {avg}")
             lines.append("")
 
+    # Cost efficiency section — aggregate across all runs
+    all_cost_metrics = [r.get("cost_metrics", {}) for r in runs if r.get("cost_metrics")]
+    if all_cost_metrics:
+        avg_cm = {}
+        for key in all_cost_metrics[0]:
+            vals = [m[key] for m in all_cost_metrics if key in m]
+            avg_cm[key] = sum(vals) / len(vals) if vals else 0.0
+        lines.append(border_s)
+        lines.append(f"{_c(_BOLD)} [Cost Efficiency]{_c(_RESET)}")
+        tpq = avg_cm.get("tokens_per_query", 0)
+        tpc = avg_cm.get("tokens_per_correct", 0)
+        eff = avg_cm.get("cost_efficiency", 0)
+        lines.append(f"  Tokens/query:    ~{tpq:.0f}")
+        lines.append(f"  Tokens/correct:  ~{tpc:.0f}")
+        lines.append(f"  Efficiency:      {eff:.3f}  (score / log2(tokens))")
+        lines.append("")
+
+    # Also use top-level cost_metrics if runs list is empty
+    top_cm = result_json.get("cost_metrics", {})
+    if not all_cost_metrics and top_cm:
+        lines.append(border_s)
+        lines.append(f"{_c(_BOLD)} [Cost Efficiency]{_c(_RESET)}")
+        tpq = top_cm.get("tokens_per_query", 0)
+        tpc = top_cm.get("tokens_per_correct", 0)
+        eff = top_cm.get("cost_efficiency", 0)
+        lines.append(f"  Tokens/query:    ~{tpq:.0f}")
+        lines.append(f"  Tokens/correct:  ~{tpc:.0f}")
+        lines.append(f"  Efficiency:      {eff:.3f}  (score / log2(tokens))")
+        lines.append("")
+
     lines.append(border_h)
 
     return "\n".join(lines)

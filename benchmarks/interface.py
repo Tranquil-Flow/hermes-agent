@@ -118,6 +118,8 @@ class RunResult:
     wall_time_seconds: float = 0.0
     retrieval_metrics: Dict[str, float] = field(default_factory=dict)
     # retrieval_metrics: mean IR metrics across all categories in this run
+    cost_metrics: Dict[str, float] = field(default_factory=dict)
+    # cost_metrics: {tokens_per_query, tokens_per_correct, cost_efficiency, score}
 
 
 @dataclass
@@ -136,6 +138,8 @@ class AggregateResult:
     # per_category_retrieval_metrics: {category_name: {metric_name: mean_value}}
     mean_retrieval_metrics: Dict[str, float] = field(default_factory=dict)
     # mean_retrieval_metrics: {metric_name: mean_value} averaged across all categories
+    cost_metrics: Dict[str, float] = field(default_factory=dict)
+    # cost_metrics: mean cost-efficiency metrics across all runs
 
 
 @dataclass
