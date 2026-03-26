@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 DATASET_NAME = "hotpotqa/hotpot_qa"
 DATASET_CONFIG = "distractor"
 DATASET_SPLIT = "validation"
+FALLBACK_URL = "http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json"
 
 QUESTION_TYPES = ["bridge", "comparison"]
 DIFFICULTY_LEVELS = ["easy", "medium", "hard"]
@@ -198,24 +199,54 @@ def load_hotpotqa_dataset(
     )
 
     # Try primary name, fall back to legacy name
+    # Note: newer datasets versions dropped trust_remote_code; try without it first
     for ds_name in [DATASET_NAME, "hotpot_qa"]:
-        try:
-            ds = load_dataset(
-                ds_name,
-                DATASET_CONFIG,
-                split=DATASET_SPLIT,
-                streaming=True,
-                trust_remote_code=True,
-            )
+        for kwargs in [
+            dict(streaming=True),
+            dict(streaming=True, trust_remote_code=True),
+        ]:
+            try:
+                ds = load_dataset(
+                    ds_name,
+                    DATASET_CONFIG,
+                    split=DATASET_SPLIT,
+                    **kwargs,
+                )
+                break
+            except TypeError:
+                # trust_remote_code not supported in this version
+                continue
+            except Exception as exc:
+                logger.warning("Failed to load '%s': %s", ds_name, exc)
+                ds = None
+                break
+        if ds is not None:
             break
-        except Exception as exc:
-            logger.warning("Failed to load '%s': %s", ds_name, exc)
-            ds = None
 
     if ds is None:
-        raise RuntimeError(
-            "Could not load HotpotQA from HuggingFace. "
-            "Try --local to load from a local JSON file."
+        # Fallback: download the official JSON from CMU
+        logger.info("HuggingFace load failed. Downloading from official source: %s", FALLBACK_URL)
+        cache_dir = Path(hf_cache) if hf_cache else Path.home() / ".cache" / "huggingface" / "datasets" / "hotpotqa"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        local_path = cache_dir / "hotpot_dev_distractor_v1.json"
+
+        if not local_path.exists():
+            try:
+                import urllib.request
+                urllib.request.urlretrieve(FALLBACK_URL, local_path)
+                logger.info("Downloaded to %s", local_path)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Could not download HotpotQA from {FALLBACK_URL}: {exc}\n"
+                    "  Try --local to load from a local JSON file."
+                ) from exc
+        else:
+            logger.info("Using cached HotpotQA data at %s", local_path)
+
+        return load_hotpotqa_local(
+            local_path, sample=sample,
+            difficulty_filter=difficulty_filter,
+            question_type_filter=question_type_filter,
         )
 
     questions: list[HotpotQuestion] = []

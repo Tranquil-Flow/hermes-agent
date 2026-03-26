@@ -1,127 +1,1563 @@
 {
   "benchmark": "longmemeval",
   "dataset": "xiaowu0162/longmemeval-cleaned (longmemeval_oracle)",
-  "total": 3,
-  "correct": 3,
-  "score": 1.0,
-  "wall_time_seconds": 0.15196609497070312,
+  "total": 100,
+  "correct": 8,
+  "score": 0.08,
+  "wall_time_seconds": 8.60339069366455,
   "mean_metrics": {
-    "recall_at_1": 0.6666666666666666,
-    "recall_at_3": 1.0,
-    "recall_at_5": 1.0,
-    "recall_at_10": 1.0,
-    "mrr": 0.7777777777777778,
-    "ndcg_at_5": 0.8333333333333334,
-    "ndcg_at_10": 0.8333333333333334,
-    "average_precision": 1.4444444444444444,
+    "recall_at_1": 0.07,
+    "recall_at_3": 0.15,
+    "recall_at_5": 0.16,
+    "recall_at_10": 0.18,
+    "mrr": 0.10950000000000001,
+    "ndcg_at_5": 0.07723427924890026,
+    "ndcg_at_10": 0.119008565631519,
+    "average_precision": 0.294202380952381,
     "exact_match": 0.0,
-    "token_f1": 0.18095238095238095,
-    "token_precision": 0.09971509971509972,
-    "token_recall": 1.0
+    "token_f1": 0.005722440215490406,
+    "token_precision": 0.0029155270209838217,
+    "token_recall": 0.46814725096884524
   },
   "by_type": {
-    "multi-session": {
-      "total": 1,
-      "correct": 1,
-      "score": 1.0,
+    "temporal-reasoning": {
+      "total": 60,
+      "correct": 7,
+      "score": 0.11666666666666667,
       "mean_metrics": {
         "recall_at_1": 0.0,
-        "recall_at_3": 1.0,
-        "recall_at_5": 1.0,
-        "recall_at_10": 1.0,
-        "mrr": 0.3333333333333333,
-        "ndcg_at_5": 0.5,
-        "ndcg_at_10": 0.5,
-        "average_precision": 0.3333333333333333,
+        "recall_at_3": 0.03333333333333333,
+        "recall_at_5": 0.03333333333333333,
+        "recall_at_10": 0.05,
+        "mrr": 0.018333333333333333,
+        "ndcg_at_5": 0.013514222597492378,
+        "ndcg_at_10": 0.027214098665547647,
+        "average_precision": 0.08128968253968254,
         "exact_match": 0.0,
-        "token_f1": 0.19999999999999998,
-        "token_precision": 0.1111111111111111,
-        "token_recall": 1.0
+        "token_f1": 0.0056540596890042516,
+        "token_precision": 0.002862262754898847,
+        "token_recall": 0.4354265565875472
       }
     },
-    "single-session-user": {
-      "total": 1,
+    "multi-session": {
+      "total": 40,
       "correct": 1,
-      "score": 1.0,
+      "score": 0.025,
       "mean_metrics": {
-        "recall_at_1": 1.0,
-        "recall_at_3": 1.0,
-        "recall_at_5": 1.0,
-        "recall_at_10": 1.0,
-        "mrr": 1.0,
-        "ndcg_at_5": 1.0,
-        "ndcg_at_10": 1.0,
-        "average_precision": 2.0,
+        "recall_at_1": 0.175,
+        "recall_at_3": 0.325,
+        "recall_at_5": 0.35,
+        "recall_at_10": 0.375,
+        "mrr": 0.24625,
+        "ndcg_at_5": 0.17281436422601207,
+        "ndcg_at_10": 0.25670026608047597,
+        "average_precision": 0.6135714285714287,
         "exact_match": 0.0,
-        "token_f1": 0.14285714285714288,
-        "token_precision": 0.07692307692307693,
-        "token_recall": 1.0
-      }
-    },
-    "single-session-preference": {
-      "total": 1,
-      "correct": 1,
-      "score": 1.0,
-      "mean_metrics": {
-        "recall_at_1": 1.0,
-        "recall_at_3": 1.0,
-        "recall_at_5": 1.0,
-        "recall_at_10": 1.0,
-        "mrr": 1.0,
-        "ndcg_at_5": 1.0,
-        "ndcg_at_10": 1.0,
-        "average_precision": 2.0,
-        "exact_match": 0.0,
-        "token_f1": 0.19999999999999998,
-        "token_precision": 0.1111111111111111,
-        "token_recall": 1.0
+        "token_f1": 0.005825011005219634,
+        "token_precision": 0.002995423420111284,
+        "token_recall": 0.5172282925407925
       }
     }
   },
   "results": [
     {
-      "question_id": "test_001",
-      "question_type": "single-session-user",
+      "question_id": "gpt4_2655b836",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "What was the first issue I had with my new car after its first service?",
+      "gold_answer": "\"GPS system not functioning correctly\"",
+      "recalled": "Getting a car wax and detailing done before your trip is an excellent idea. It'll not only protect your car's paint job and interior but also give you a sense of pride and confidence on the road.\n\nFor",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0017421602787456446
+      }
+    },
+    {
+      "question_id": "gpt4_2487a7cb",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which event did I attend first, the 'Effective Time Management' workshop or the 'Data Analysis using Python' webinar?",
+      "gold_answer": "\"'Data Analysis using Python' webinar\"",
+      "recalled": "You're welcome! I'm glad I could help.\n\nTrying out both Tableau and Power BI's free trials is a great idea. It'll give you hands-on experience with their interfaces, customization options, and Python ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.013550135501355014
+      }
+    },
+    {
+      "question_id": "gpt4_76048e76",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which vehicle did I take care of first in February, the bike or the car?",
+      "gold_answer": "\"bike\"",
+      "recalled": "Congratulations on finding a better insurance rate!\n\nSaving $20 a month on car insurance is a great achievement, and it's even more impressive that you took the initiative to shop around and compare r",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_2312f94c",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which device did I got first, the Samsung Galaxy S22 or the Dell XPS 13?",
+      "gold_answer": "\"Samsung Galaxy S22\"",
+      "recalled": "I'm thrilled to hear that! You're going to have an amazing time in Hawaii! The islands are truly a paradise, and with your packing list and weather knowledge, you'll be ready for whatever adventure co",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.011741682974559686
+      }
+    },
+    {
+      "question_id": "0bb5a684",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days before the team meeting I was preparing for did I attend the workshop on 'Effective Communication in the Workplace'?",
+      "gold_answer": "\"7 days. 8 days (including the last day) is also acceptable.\"",
+      "recalled": "Excellent decision to explore digital templates!\n\nHere are some examples of digital templates you can use for note-taking during your team meeting on January 17th:\n\n**Microsoft OneNote Templates:**\n\n1",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.007692307692307693
+      }
+    },
+    {
+      "question_id": "08f4fc43",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days had passed between the Sunday mass at St. Mary's Church and the Ash Wednesday service at the cathedral?",
+      "gold_answer": "\"30 days. 31 days (including the last day) is also acceptable.\"",
+      "recalled": "Catholic Charities' microloans and grants are a vital part of their entrepreneurship training program, providing access to capital for entrepreneurs who may not have traditional funding options. Here'",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.004400440044004401
+      }
+    },
+    {
+      "question_id": "2c63a862",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days did it take for me to find a house I loved after starting to work with Rachel?",
+      "gold_answer": "\"14 days. 15 days (including the last day) is also acceptable.\"",
+      "recalled": "That's the right attitude! Submitting the offer with all the necessary documents will show the seller that you're a serious buyer who's prepared to move forward. The pre-approval letter and inspection",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.009523809523809525
+      }
+    },
+    {
+      "question_id": "gpt4_385a5000",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which seeds were started first, the tomatoes or the marigolds?",
+      "gold_answer": "\"Tomatoes\"",
+      "recalled": "Congratulations on getting your peas off to a great start! Supporting peas is essential to help them grow upwards and produce a bountiful harvest. Here are some tips to help you provide the best suppo",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0027397260273972603
+      }
+    },
+    {
+      "question_id": "2a1811e2",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days had passed between the Hindu festival of Holi and the Sunday mass at St. Mary's Church?",
+      "gold_answer": "\"21 days. 22 days (including the last day) is also acceptable.\"",
+      "recalled": "I'm happy to help you with those recipes! However, I noticed that you mentioned attending the Hindu festival of Holi at the local temple on February 26th. Would you like to know more about other Hindu",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0032310177705977385
+      }
+    },
+    {
+      "question_id": "bbf86515",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days before the 'Rack Fest' did I participate in the 'Turbocharged Tuesdays' event?",
+      "gold_answer": "\"4 days.\"",
+      "recalled": "I'm glad I can provide more targeted suggestions for you.\n\n**Performance shops in [nearby city]:**\n\nHere are a few shops in your area that specialize in performance upgrades for Mustangs:\n\n1. **[City]",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0018001800180018
+      }
+    },
+    {
+      "question_id": "gpt4_5dcc0aab",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which pair of shoes did I clean last month?",
+      "gold_answer": "\"white Adidas sneakers\"",
+      "recalled": "What's the best way to clean and maintain my new hiking boots to make them last longer?",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_0b2f1d21",
+      "question_type": "temporal-reasoning",
       "correct": true,
-      "question": "What is my favorite color?",
-      "gold_answer": "blue",
-      "recalled": "My favorite color is blue.",
+      "question": "Which event happened first, the purchase of the coffee maker or the malfunction of the stand mixer?",
+      "gold_answer": "\"The malfunction of the stand mixer\"",
+      "recalled": "The caramelized sugar crust is the crowning glory of a perfect Coffee Cr\u00e8me Br\u00fbl\u00e9e! Getting it just right can be a bit tricky, but don't worry, I've got some tips to help you achieve that perfect cara",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.007194244604316546
+      }
+    },
+    {
+      "question_id": "f0853d11",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days had passed between the 'Walk for Hunger' event and the 'Coastal Cleanup' event?",
+      "gold_answer": "\"14 days. 8 days (including the last day) is also acceptable.\"",
+      "recalled": "The American Lung Association's (ALA) Fight For Air Climb is an incredible event that supports a great cause.\n\n**History of the Event:**\nThe Fight For Air Climb was founded in 2007 by the American Lun",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0036429872495446266
+      }
+    },
+    {
+      "question_id": "gpt4_6ed717ea",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which item did I purchase first, the dog bed for Max or the training pads for Luna?",
+      "gold_answer": "\"Training pads for Luna\"",
+      "recalled": "That's a great choice! Kong Toys are an excellent option for dogs like Max who need mental stimulation and a challenge. Filling the Kong with treats or peanut butter will keep him engaged and occupied",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.005797101449275362
+      }
+    },
+    {
+      "question_id": "gpt4_70e84552",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which task did I complete first, fixing the fence or trimming the goats' hooves?",
+      "gold_answer": "\"Fixing the fence\"",
+      "recalled": "What a great idea! A farm store can be a fantastic way to connect with customers and showcase your farm's bounty. Here are some tips to help you design and stock your farm store:\n\n**Design:**\n\n1. **Lo",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "a3838d2b",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many charity events did I participate in before the 'Run for the Cure' event?",
+      "gold_answer": "4",
+      "recalled": "You're thinking like a true ride leader! Suggesting regular breaks is an excellent idea, especially for a group of beginner riders. Breaks will give everyone a chance to:\n\n* Rest and recover: Take a l",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.5,
+        "exact_match": 0.0,
+        "token_f1": 0.0030349013657056142
+      }
+    },
+    {
+      "question_id": "gpt4_93159ced",
+      "question_type": "temporal-reasoning",
+      "correct": true,
+      "question": "How long have I been working before I started my current job at NovaTech?",
+      "gold_answer": "\"4 years and 9 months\"",
+      "recalled": "I'll start by saying that I'm a software engineer, specifically a backend developer, and I've been in this field since I graduated with a degree in Computer Science from the University of California, ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.009685230024213076
+      }
+    },
+    {
+      "question_id": "gpt4_2d58bcd6",
+      "question_type": "temporal-reasoning",
+      "correct": true,
+      "question": "Which book did I finish reading first, 'The Hate U Give' or 'The Nightingale'?",
+      "gold_answer": "\"'The Hate U Give'\"",
+      "recalled": "I'm looking for some book recommendations. I've been trying to read more diversely and I just finished \"The Hate U Give\" by Angie Thomas, which I had to rush to finish for my book club meeting two wee",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.009273570324574962
+      }
+    },
+    {
+      "question_id": "gpt4_65aabe59",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which device did I set up first, the smart thermostat or the mesh network system?",
+      "gold_answer": "\"Smart thermostat\"",
+      "recalled": "With a budget of $800 to $1,200, you can build a solid desktop that can handle your internet connection and more.\n\n**CPU (Central Processing Unit):**\n\nFor a smooth internet experience, a mid-range CPU",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "982b5123",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many months ago did I book the Airbnb in San Francisco?",
+      "gold_answer": "\"Five months ago\"",
+      "recalled": "I'm planning a trip to San Francisco and was wondering if you could recommend some good neighborhoods to stay in. By the way, I've had a great experience with Airbnb in the past, like when I stayed in",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0025673940949935818
+      }
+    },
+    {
+      "question_id": "b9cfe692",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long did I take to finish 'The Seven Husbands of Evelyn Hugo' and 'The Nightingale' combined?",
+      "gold_answer": "\"5.5 weeks\"",
+      "recalled": "I'm looking for some new audiobook recommendations. I've been enjoying listening to them during my daily commute and I just finished \"The Seven Husbands of Evelyn Hugo\", which took me two and a half w",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.002932551319648094
+      }
+    },
+    {
+      "question_id": "gpt4_4edbafa2",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "What was the date on which I attended the first BBQ event in June?",
+      "gold_answer": "\"June 3rd\"",
+      "recalled": "Hosting a BBQ party sounds like a blast! Planning a successful BBQ party can be a bit overwhelming, but with some tips and tricks, you'll be sure to impress your guests. Here are some tips to help you",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "c8090214",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days before I bought the iPhone 13 Pro did I attend the Holiday Market?",
+      "gold_answer": "\"7 days. 8 days (including the last day) is also acceptable.\"",
+      "recalled": "A soundbar can greatly enhance your TV-watching experience. Here are some soundbar options with good sound quality and a budget of around $200-$300:\n\n**Soundbar Options:**\n\n1. **Yamaha YAS-209**: A co",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.003430531732418525
+      }
+    },
+    {
+      "question_id": "gpt4_483dd43c",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which show did I start watching first, 'The Crown' or 'Game of Thrones'?",
+      "gold_answer": "\"'Game of Thrones'\"",
+      "recalled": "A Spotify fan! It's great that you've discovered the \"Lo-Fi Beats\" playlist, which is perfect for focused work or study sessions. Lo-fi music has become increasingly popular for its calming and concen",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.005958291956305859
+      }
+    },
+    {
+      "question_id": "e4e14d04",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long had I been a member of 'Book Lovers Unite' when I attended the meetup?",
+      "gold_answer": "\"Two weeks\"",
+      "recalled": "You're welcome! I'm glad I could help. It sounds like you have a great plan in place for a thought-provoking and engaging discussion. By encouraging members to share their thoughts and experiences, yo",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "c9f37c46",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long had I been watching stand-up comedy specials regularly when I attended the open mic night at the local comedy club?",
+      "gold_answer": "\"2 months\"",
+      "recalled": "I've been trying to write jokes about my everyday experiences, but I'm struggling to make them funny. Last month, I finally worked up the courage to attend an open mic night at a local comedy club, an",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.001759014951627089
+      }
+    },
+    {
+      "question_id": "gpt4_2c50253f",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "What time do I wake up on Tuesdays and Thursdays?",
+      "gold_answer": "\"6:45 AM\"",
+      "recalled": "I'm thrilled to hear that! You've got a solid plan in place, and I'm confident that you'll make great progress. Remember, the key is consistency and patience. With regular practice, you'll start to no",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "dcfa8644",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days had passed since I bought my Adidas running shoes when I realized one of the shoelaces on my old Converse sneakers had broken?",
+      "gold_answer": "\"14 days. 15 days (including the last day) is also acceptable.\"",
+      "recalled": "I'm looking for some shoe cleaning tips. I've got a pair of sneakers that I wore to play basketball on February 1st and they got pretty dirty. By the way, speaking of shoes, I realized that one of the",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.005908419497784343
+      }
+    },
+    {
+      "question_id": "gpt4_b4a80587",
+      "question_type": "temporal-reasoning",
+      "correct": true,
+      "question": "Which event happened first, the road trip to the coast or the arrival of the new prime lens?",
+      "gold_answer": "\"The arrival of the new prime lens\"",
+      "recalled": "Matte papers are an excellent choice for reducing glare, especially if you plan to hang your print in a room with a lot of natural light. However, matte papers can also make the image appear slightly ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0029585798816568047
+      }
+    },
+    {
+      "question_id": "gpt4_9a159967",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which airline did I fly with the most in March and April?",
+      "gold_answer": "\"United Airlines\"",
+      "recalled": "Booking a connecting flight can seem a bit more complex than a non-stop flight, but don't worry, I'm here to guide you through the process.\n\n**Booking a Connecting Flight:**\n\n1. **Search for flights**",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0020470829068577278
+      }
+    },
+    {
+      "question_id": "cc6d1ec1",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long had I been bird watching when I attended the bird watching workshop?",
+      "gold_answer": "\"Two months\"",
+      "recalled": "That's the right attitude! It's great that you're enthusiastic about birding and eager to learn more. A guided walk with experienced birders is an excellent way to spot new species and gain valuable i",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_8c8961ae",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which trip did I take first, the one to Europe with family or the solo trip to Thailand?",
+      "gold_answer": "\"The solo trip to Thailand\"",
+      "recalled": "You're really getting into the spirit of Patagonia!\n\nThose are all excellent choices! The scenic drive to El Chalt\u00e9n is breathtaking, with stunning views of Mount Fitz Roy and the surrounding mountain",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0076481835564053535
+      }
+    },
+    {
+      "question_id": "gpt4_d9af6064",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which device did I set up first, the smart thermostat or the new router?",
+      "gold_answer": "\"new router\"",
+      "recalled": "I'm happy to help you with your cord organization project! It can be frustrating when packages don't arrive on time. Hopefully, your cable organizers will arrive soon and help you tame the cord chaos.",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.002369668246445498
+      }
+    },
+    {
+      "question_id": "gpt4_7de946e7",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which health issue did I deal with first, the persistent cough or the skin tag removal?",
+      "gold_answer": "\"Persistent cough\"",
+      "recalled": "You're going to have so much fun exploring new cuisines and cooking methods! Korean and Indian food are both amazing choices, and they offer a wide range of flavors and techniques to experiment with. ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "d01c6aa8",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How old was I when I moved to the United States?",
+      "gold_answer": "27",
+      "recalled": "Now that we've covered the vaccination requirements, let's move on to the medical examination process.\n\n**What to expect during the medical examination:**\n\nThe medical examination is a required step i",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "993da5e2",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long had I been using the new area rug when I rearranged my living room furniture?",
+      "gold_answer": "\"One week. Answers ranging from 7 days to 10 days are also acceptable.\"",
+      "recalled": "I think I'll go with the deep coral color for my throw pillows. It'll add a nice pop of color to the room and complement my new area rug nicely. Do you have any suggestions for some good online stores",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.019801980198019802
+      }
+    },
+    {
+      "question_id": "a3045048",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days before my best friend's birthday party did I order her gift?",
+      "gold_answer": "\"7 days. 8 days (including the last day) is also acceptable.\"",
+      "recalled": "I'm thinking of other gift ideas for my brother's birthday, besides a watch. Do you have any suggestions for a gift around $50-$70?",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.00603318250377074
+      }
+    },
+    {
+      "question_id": "gpt4_d31cdae3",
+      "question_type": "temporal-reasoning",
+      "correct": true,
+      "question": "Which trip did the narrator take first, the solo trip to Europe or the family road trip across the American Southwest?",
+      "gold_answer": "\"The family road trip across the American Southwest\"",
+      "recalled": "I'm trying to plan a trip to Arizona and I was wondering if you could recommend some must-see attractions and activities. By the way, I've been to the Grand Canyon before with my family on a road trip",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.022684310018903593
+      }
+    },
+    {
+      "question_id": "gpt4_cd90e484",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long did I use my new binoculars before I saw the American goldfinches returning to the area?",
+      "gold_answer": "\"Two weeks\"",
+      "recalled": "A spotting scope can be a fantastic addition to your birding gear, especially for observing birds at longer distances or in situations where a camera is not feasible. When it comes to spotting scopes,",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0024271844660194173
+      }
+    },
+    {
+      "question_id": "gpt4_88806d6e",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Who did I meet first, Mark and Sarah or Tom?",
+      "gold_answer": "\"Tom\"",
+      "recalled": "I was thinking of asking Mark and Sarah about the local history and culture of their hometown. They might have some interesting stories or recommendations for me to explore. Do you think that's a good",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_4cd9eba1",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many weeks have I been accepted into the exchange program when I started attending the pre-departure orientation sessions?",
+      "gold_answer": "\"one week\"",
+      "recalled": "UC Berkeley is known for its vibrant campus life, with a wide range of events and activities that cater to diverse interests.\n\n**Campus Events:**\n\n1. **Cal Performances**: A performing arts series tha",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.002457002457002457
+      }
+    },
+    {
+      "question_id": "gpt4_93f6379c",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which group did I join first, 'Page Turners' or 'Marketing Professionals'?",
+      "gold_answer": "\"Page Turners\"",
+      "recalled": "A content calendar is a powerful tool to help you plan, organize, and consistently publish high-quality content on LinkedIn (or any other platform). Here are some tips to create an effective content c",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.1,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "b29f3365",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long had I been taking guitar lessons when I bought the new guitar amp?",
+      "gold_answer": "\"Four weeks\"",
+      "recalled": "A soprano ukulele is a great choice! They're known for their bright and cheerful sound, and they're perfect for playing traditional Hawaiian-style ukulele music.\n\nIt's great that you're experimenting ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_2f56ae70",
+      "question_type": "temporal-reasoning",
+      "correct": true,
+      "question": "Which streaming service did I start using most recently?",
+      "gold_answer": "\"Disney+\"",
+      "recalled": "Since you started a free trial last month, it's highly likely that the documentary you're thinking of is a Disney+ exclusive.\n\nLet me check the availability of the documentaries I mentioned earlier:\n\n",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0025477707006369425
+      }
+    },
+    {
+      "question_id": "6613b389",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many months before my anniversary did Rachel get engaged?",
+      "gold_answer": "2",
+      "recalled": "I think I have a good idea of where to start. I'll try to keep it simple, sincere, and romantic. I might record some footage of special places we've been to, like our first date spot or where we got e",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.5,
+        "exact_match": 0.0,
+        "token_f1": 0.0017574692442882253
+      }
+    },
+    {
+      "question_id": "gpt4_78cf46a3",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which event happened first, the narrator losing their phone charger or the narrator receiving their new phone case?",
+      "gold_answer": "\"Receiving the new phone case\"",
+      "recalled": "It sounds like you had an amazing time on your beach trip! It's great that you have wonderful memories and photos to cherish. Backing up your photos to Google Drive is a great idea, and I'm sure you'l",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.00881057268722467
+      }
+    },
+    {
+      "question_id": "gpt4_0a05b494",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Who did I meet first, the woman selling jam at the farmer's market or the tourist from Australia?",
+      "gold_answer": "\"the woman selling jam at the farmer's market\"",
+      "recalled": "You're welcome! I'm glad I could help. Remember, expressing gratitude and showing appreciation is a powerful way to build strong relationships and foster a sense of community. By being specific, since",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.015552099533437013
+      }
+    },
+    {
+      "question_id": "gpt4_1a1dc16d",
+      "question_type": "temporal-reasoning",
+      "correct": true,
+      "question": "Which event happened first, the meeting with Rachel or the pride parade?",
+      "gold_answer": "\"The meeting with Rachel\"",
+      "recalled": "That's a great approach! You've clearly thought through the key points you want to discuss with Rachel, and you're seeking her guidance and expertise in several areas. By asking for her advice and inp",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.006259780907668233
+      }
+    },
+    {
+      "question_id": "gpt4_2f584639",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which gift did I buy first, the necklace for my sister or the photo album for my mom?",
+      "gold_answer": "\"the photo album for my mom\"",
+      "recalled": "A mix of classic and modern tracks will definitely keep the slideshow engaging and fun.\n\nNow, about the Father's Day gift... A new leather wallet from Coach is a great choice! Here are some ideas for ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.008797653958944282
+      }
+    },
+    {
+      "question_id": "gpt4_213fd887",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which event did I participate in first, the volleyball league or the charity 5K run to raise money for a local children's hospital?",
+      "gold_answer": "\"volleyball league\"",
+      "recalled": "I'd be happy to help you with that.\n\nFinding charity events like the 5K run you participated in can be a great way to stay active, give back to the community, and meet like-minded people. Here are som",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.004206098843322818
+      }
+    },
+    {
+      "question_id": "gpt4_5438fa52",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which event happened first, my attendance at a cultural festival or the start of my Spanish classes?",
+      "gold_answer": "\"Spanish classes\"",
+      "recalled": "The Bricha movement was a remarkable, yet little-known, chapter in the history of the Holocaust. I'd be happy to share more about this courageous and daring operation that helped thousands of Jewish s",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_c27434e8",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which project did I start first, the Ferrari model or the Japanese Zero fighter plane model?",
+      "gold_answer": "\"Japanese Zero fighter plane model\"",
+      "recalled": "Adding opening doors or movable parts can take your models to the next level of realism and interactivity. Here are some tips and recommendations to consider:\n\n**Adding Opening Doors or Movable Parts:",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0071428571428571435
+      }
+    },
+    {
+      "question_id": "gpt4_fe651585",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Who became a parent first, Rachel or Alex?",
+      "gold_answer": "\"Alex\"",
+      "recalled": "No worries at all! It can be easy to get mixed up in the conversation.\n\nI'm glad I could help share some valuable insights about your cousin Alex's experience with her agency. It's wonderful that they",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0022753128555176336
+      }
+    },
+    {
+      "question_id": "8c18457d",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days had passed between the day I bought a gift for my brother's graduation ceremony and the day I bought a birthday gift for my best friend?",
+      "gold_answer": "\"7 days. 8 days (including the last day) is also acceptable.\"",
+      "recalled": "What a great idea! A gift card to a popular coffee shop is a thoughtful and practical gift that allows your neighbor to treat themselves to a favorite drink or snack. It's a considerate way to show yo",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.017152658662092625
+      }
+    },
+    {
+      "question_id": "gpt4_70e84552_abs",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which task did I complete first, fixing the fence or purchasing three cows from Peter?",
+      "gold_answer": "\"The information provided is not enough. You mentioned fixing the fence but did not mention purchasing cows from Peter.\"",
+      "recalled": "What a great idea! A farm store can be a fantastic way to connect with customers and showcase your farm's bounty. Here are some tips to help you design and stock your farm store:\n\n**Design:**\n\n1. **Lo",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.004477611940298507
+      }
+    },
+    {
+      "question_id": "gpt4_93159ced_abs",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How long have I been working before I started my current job at Google?",
+      "gold_answer": "\"The information provided is not enough. From the information provided, You haven't started working at Google yet.\"",
+      "recalled": "You're welcome! I'm glad I could help.\n\nPricing is a crucial aspect of freelancing, and it's essential to approach it in a structured and thoughtful way. By considering your costs, researching the mar",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.01360544217687075
+      }
+    },
+    {
+      "question_id": "982b5123_abs",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "When did I book the Airbnb in Sacramento?",
+      "gold_answer": "\"The information provided is not enough. You only mentioned booking Airbnb in San Francisco.\"",
+      "recalled": "I'm glad you're excited about your upcoming trip to the Bay Area! Now, let's talk about preparing for road closures or unexpected detours during a road trip.\n\nI'm happy to provide you with some tips, ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0196078431372549
+      }
+    },
+    {
+      "question_id": "c8090214_abs",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "How many days before I bought my iPad did I attend the Holiday Market?",
+      "gold_answer": "\"The information provided is not enough. You mentioned getting the iPhone 13 Pro and attending the market, but you did not mention buying an iPad.\"",
+      "recalled": "You're welcome! I'm glad I could help. It's great that you're taking the time to consider your sister's style and preferences when choosing a gift. I'm sure she'll appreciate the thought and effort yo",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.02137404580152672
+      }
+    },
+    {
+      "question_id": "gpt4_c27434e8_abs",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Which project did I start first, the Ferrari model or the Porsche 991 Turbo S model?",
+      "gold_answer": "\"The information provided is not enough. You did not mention starting the Porsche 991 Turbo S model.\"",
+      "recalled": "Adding opening doors or movable parts can take your models to the next level of realism and interactivity. Here are some tips and recommendations to consider:\n\n**Adding Opening Doors or Movable Parts:",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.005673758865248227
+      }
+    },
+    {
+      "question_id": "gpt4_fe651585_abs",
+      "question_type": "temporal-reasoning",
+      "correct": false,
+      "question": "Who became a parent first, Tom or Alex?",
+      "gold_answer": "\"The information provided is not enough. You mentioned Alex becoming a parent in January, but you didn't mention anything about Tom.\"",
+      "recalled": "I'm glad you're excited! As a digital AI assistant, I don't have personal experiences or to-do lists, but I can certainly help you with yours!\n\nNow that we've decided on the Art Studio Party theme, he",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.013969732246798603
+      }
+    },
+    {
+      "question_id": "0a995998",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many items of clothing do I need to pick up or return from a store?",
+      "gold_answer": "3",
+      "recalled": "That's a great idea! Using a notes app on your phone is a simple and effective way to keep track of your pickups and returns. It's always accessible, and you can easily add or update notes as needed.\n",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.5,
+        "exact_match": 0.0,
+        "token_f1": 0.002066115702479339
+      }
+    },
+    {
+      "question_id": "6d550036",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many projects have I led or am currently leading?",
+      "gold_answer": "2",
+      "recalled": "Let's dive deeper into how influencers can leverage social identity to increase brand awareness and drive sales.\n\n**Using Social Identity to Increase Brand Awareness:**\n\n1. **Identify and target speci",
       "metrics": {
         "recall_at_1": 1.0,
         "recall_at_5": 1.0,
         "mrr": 1.0,
         "exact_match": 0.0,
-        "token_f1": 0.14285714285714288
+        "token_f1": 0.001863932898415657
       }
     },
     {
-      "question_id": "test_002",
-      "question_type": "single-session-preference",
-      "correct": true,
-      "question": "What kind of food do I like?",
-      "gold_answer": "pizza",
-      "recalled": "Pizza is a great choice!",
+      "question_id": "gpt4_59c863d7",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many model kits have I worked on or bought?",
+      "gold_answer": "\"I have worked on or bought five model kits. The scales of the models are: Revell F-15 Eagle (scale not mentioned), Tamiya 1\\/48 scale Spitfire Mk.V, 1\\/16 scale German Tiger I tank, 1\\/72 scale B-29 bomber, and 1\\/24 scale '69 Camaro.\"",
+      "recalled": "Creating a realistic wire bundle or wire wrap is a great way to add detail to your '69 Camaro model's engine compartment! Here are some tips to help you create a convincing wire bundle and attach it t",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.030563514804202482
+      }
+    },
+    {
+      "question_id": "b5ef892d",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many days did I spend on camping trips in the United States this year?",
+      "gold_answer": "\"8 days.\"",
+      "recalled": "**Casual, Affordable Eats in Aspen:**\n\nAspen has plenty of great spots for casual, affordable dining. Here are some local favorites:\n\n**1. Aspen Brewing Company:**\n\n* Delicious pub grub, including bur",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "e831120c",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many weeks did it take me to watch all the Marvel Cinematic Universe movies and the main Star Wars films?",
+      "gold_answer": "\"3.5 weeks\"",
+      "recalled": "You're not just a movie buff, but also a TV show enthusiast! I'll add the TV shows to your list:\n\n**Movie List**\n\n1. Star Wars: Episode IX - The Rise of Skywalker (2019)\n2. Star Wars: Episode VIII - T",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0024691358024691358
+      }
+    },
+    {
+      "question_id": "3a704032",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many plants did I acquire in the last month?",
+      "gold_answer": "3",
+      "recalled": "Neem oil is a fantastic, gentle, and effective way to control pests. It's a natural insecticide that can help disrupt the life cycle of many pests, including spider mites and springtails.\n\n**Misting y",
       "metrics": {
         "recall_at_1": 1.0,
         "recall_at_5": 1.0,
         "mrr": 1.0,
         "exact_match": 0.0,
-        "token_f1": 0.19999999999999998
+        "token_f1": 0.0024242424242424242
       }
     },
     {
-      "question_id": "test_003",
+      "question_id": "gpt4_d84a3211",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How much total money have I spent on bike-related expenses since the start of the year?",
+      "gold_answer": "\"$185\"",
+      "recalled": "I'm happy to help! However, I'm a large language model, I don't have the ability to retain information about your bike's maintenance history, including when you last lubricated your chain. I'm a new c",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "aae3761f",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many hours in total did I spend driving to my three road trip destinations combined?",
+      "gold_answer": "\"15 hours for getting to the three destinations (or 30 hours for the round trip)\"",
+      "recalled": "Dutch oven recipes are a great choice for camping, and they can be easily adapted for use with a portable grill. Here are some delicious Dutch oven recipes that can be prepared using a portable grill:",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.013351134846461948
+      }
+    },
+    {
+      "question_id": "gpt4_f2262a51",
       "question_type": "multi-session",
       "correct": true,
-      "question": "Where do I work?",
-      "gold_answer": "Acme Corp",
-      "recalled": "Nice location!",
+      "question": "How many different doctors did I visit?",
+      "gold_answer": "\"I visited three different doctors: a primary care physician, an ENT specialist, and a dermatologist.\"",
+      "recalled": "Excellent plan! It's great that you're taking proactive steps to address your health concerns. By following up with both Dr. Patel and your primary care physician, you'll be able to get a comprehensiv",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.017152658662092625
+      }
+    },
+    {
+      "question_id": "dd2973ad",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "What time did I go to bed on the day before I had a doctor's appointment?",
+      "gold_answer": "\"2 AM\"",
+      "recalled": "Meal prep is a great way to stick to your healthy eating goals! I'd be happy to share some tips on how to prep healthy meals in advance.\n\n**Tip 1: Plan Your Meals**\nBefore you start prepping, plan out",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0043859649122807015
+      }
+    },
+    {
+      "question_id": "c4a1ceb8",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many different types of citrus fruits have I used in my cocktail recipes?",
+      "gold_answer": "3",
+      "recalled": "That's a great selection of mixers and garnishes! I think I'll also add some flavored simple syrups, like strawberry and mint, to give guests even more options. By the way, I learned how to make flavo",
       "metrics": {
         "recall_at_1": 0.0,
         "recall_at_5": 1.0,
         "mrr": 0.3333333333333333,
         "exact_match": 0.0,
-        "token_f1": 0.19999999999999998
+        "token_f1": 0.002770083102493075
+      }
+    },
+    {
+      "question_id": "gpt4_a56e767c",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many movie festivals that I attended?",
+      "gold_answer": "\"I attended four movie festivals.\"",
+      "recalled": "What a great question! Film festivals play a vital role in promoting social change and raising awareness about important issues. They provide a platform for filmmakers to share their stories, spark co",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0011350737797956867
+      }
+    },
+    {
+      "question_id": "6cb6f249",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many days did I take social media breaks in total?",
+      "gold_answer": "\"17 days\"",
+      "recalled": "Habitica and HabitBull are both excellent choices for digital habit tracking.\n\nSetting up your habit tracker effectively is crucial to making it a sustainable habit. Here are some tips to help you set",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "46a3abf7",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many tanks do I currently have, including the one I set up for my friend's kid?",
+      "gold_answer": "3",
+      "recalled": "I've also been taking care of a small 1-gallon tank that I set up for a friend's kid, which has a few guppies and some plants. I was wondering if the temperature requirements are the same for these pl",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.5,
+        "exact_match": 0.0,
+        "token_f1": 0.0026845637583892616
+      }
+    },
+    {
+      "question_id": "36b9f61e",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "What is the total amount I spent on luxury items in the past few months?",
+      "gold_answer": "\"$2,500\"",
+      "recalled": "You can definitely roll over any unused \"treat yourself\" budget to the next month. This approach is called a \"flexible budgeting\" approach.\n\nHere's how it works:\n\n1. Set your \"treat yourself\" budget f",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "28dc39ac",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many hours have I spent playing games in total?",
+      "gold_answer": "\"140 hours\"",
+      "recalled": "What Remains of Edith Finch is a unique game, but there are several indie games that share a similar atmosphere and tone. Here are some recommendations:\n\n1. **Gone Home**: A first-person exploration g",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0025188916876574307
+      }
+    },
+    {
+      "question_id": "gpt4_2f8be40d",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many weddings have I attended in this year?",
+      "gold_answer": "\"I attended three weddings. The couples were Rachel and Mike, Emily and Sarah, and Jen and Tom.\"",
+      "recalled": "You're welcome! I'm glad I could help.\n\nNow, let's talk about creating a beautiful and romantic ambiance for your outdoor ceremony! The decorations and overall aesthetic can make a huge difference in ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.01334604385128694
+      }
+    },
+    {
+      "question_id": "2e6d26dc",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many babies were born to friends and family members in the last few months?",
+      "gold_answer": "5",
+      "recalled": "That's great! Creating a sign-up sheet with general guidelines is a wonderful way to ensure a varied and delicious spread. And don't forget to communicate with your guests about any dietary restrictio",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_15e38248",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many pieces of furniture did I buy, assemble, sell, or fix in the past few months?",
+      "gold_answer": "4",
+      "recalled": "Optimizing kitchen storage is a great way to improve the functionality and efficiency of your kitchen! I'd be happy to share some tips and suggestions to help you maximize storage in your kitchen:\n\n1.",
+      "metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0021008403361344537
+      }
+    },
+    {
+      "question_id": "88432d0a",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many times did I bake something in the past two weeks?",
+      "gold_answer": "4",
+      "recalled": "When using a slower rise, you'll want to adjust the yeast amount and possibly the salt content to ensure the best results.\n\n**Yeast amount:**\n\n1. **Reduce yeast amount**: With a slower rise, you'll wa",
+      "metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0028449502133712666
+      }
+    },
+    {
+      "question_id": "80ec1f4f",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many different museums or galleries did I visit in the month of February?",
+      "gold_answer": "2",
+      "recalled": "That's really interesting! I've always been fascinated by the intersection of art and science, and I'd love to learn more about it. By the way, speaking of science, I remember my recent visit to the N",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.1,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "d23cf73b",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many different cuisines have I learned to cook or tried out in the past few months?",
+      "gold_answer": "4",
+      "recalled": "Kimchi fried rice is a great choice! Kimchi pairs well with many Korean-inspired dishes, and here are some suggestions to complement your kimchi:\n\n1. **Bulgogi**: A classic Korean marinade-based dish ",
+      "metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "exact_match": 0.0,
+        "token_f1": 0.002857142857142857
+      }
+    },
+    {
+      "question_id": "gpt4_7fce9456",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many properties did I view before making an offer on the townhouse in the Brookside neighborhood?",
+      "gold_answer": "\"I viewed four properties before making an offer on the townhouse in the Brookside neighborhood. The reasons I didn't make an offer on them were: the kitchen of the bungalow needed serious renovation, the property in Cedar Creek was out of my budget, the noise from the highway was a deal-breaker for the 1-bedroom condo, and my offer on the 2-bedroom condo was rejected due to a higher bid.\"",
+      "recalled": "American Home Shield (AHS) is a well-established and reputable home warranty provider.\n\nAHS offers several plans to cater to different needs and budgets. Here's an overview of their plans and pricing:",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0499569336778639
+      }
+    },
+    {
+      "question_id": "d682f1a2",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many different types of food delivery services have I used recently?",
+      "gold_answer": "3",
+      "recalled": "Meal planning and grocery lists are essential skills for saving time, money, and reducing food waste. Here's a step-by-step guide on how to plan meals for the week and create a grocery list based on t",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.3333333333333333,
+        "exact_match": 0.0,
+        "token_f1": 0.00234192037470726
+      }
+    },
+    {
+      "question_id": "7024f17c",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many hours of jogging and yoga did I do last week?",
+      "gold_answer": "\"0.5 hours\"",
+      "recalled": "I'd be happy to help you create a schedule that fits your lifestyle and goals.\n\nTo get started, let's break down your current routine and identify the best times for strength training. Please answer t",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "gpt4_5501fe77",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "Which social media platform did I gain the most followers on over the past month?",
+      "gold_answer": "\"TikTok\"",
+      "recalled": "That's a fantastic idea! \ud83c\udf89 Asking about TV shows and movies is a great way to connect with your followers and start a conversation around a shared interest. Your questions are perfect examples of open",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.002457002457002457
+      }
+    },
+    {
+      "question_id": "gpt4_2ba83207",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "Which grocery store did I spend the most money at in the past month?",
+      "gold_answer": "\"Thrive Market\"",
+      "recalled": "Using pantry staples you already have at home can definitely help reduce the overall cost of your groceries. Take stock of what you already have in your pantry, fridge, and freezer, and see what you c",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "2318644b",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How much more did I spend on accommodations per night in Hawaii compared to Tokyo?",
+      "gold_answer": "\"$270\"",
+      "recalled": "Takeshita-dori Street is a fantastic destination after visiting the Meiji Shrine! It's a pedestrian shopping street in the heart of Harajuku, known for its vibrant atmosphere, unique shops, and delici",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "2ce6a0f2",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many different art-related events did I attend in the past month?",
+      "gold_answer": "4",
+      "recalled": "What a fantastic idea! Organizing a street art workshop for kids at the Children's Museum sounds like a great way to share your passion for street art with the next generation!\n\nConsidering your exper",
+      "metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0021810250817884407
+      }
+    },
+    {
+      "question_id": "gpt4_d12ceb0e",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "What is the average age of me, my parents, and my grandparents?",
+      "gold_answer": "59.6",
+      "recalled": "You're welcome! I'm thrilled to hear that you're committed to improving your data visualization skills. By focusing on Python and Tableau, you'll be well-equipped to tackle a wide range of data visual",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "00ca467f",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many doctor's appointments did I go to in March?",
+      "gold_answer": "2",
+      "recalled": "That's a great idea! Dr. Patel can definitely provide you with personalized guidance on stress management techniques that can help alleviate your heartburn and acid reflux symptoms. Relaxation exercis",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.5,
+        "exact_match": 0.0,
+        "token_f1": 0.0029850746268656717
+      }
+    },
+    {
+      "question_id": "b3c15d39",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many days did it take for me to receive the new remote shutter release after I ordered it?",
+      "gold_answer": "\"5 days. 6 days (including the last day) is also acceptable.\"",
+      "recalled": "You're welcome! I'm glad I could help.\n\nPricing your tripod competitively while highlighting its excellent condition and maintenance history is a great strategy. By doing so, you'll attract potential ",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.006593406593406593
+      }
+    },
+    {
+      "question_id": "gpt4_31ff4165",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many health-related devices do I use in a day?",
+      "gold_answer": "4",
+      "recalled": "Increasing the frequency of your nebulizer treatments and maintaining your machine regularly are great steps towards managing your congestion.\n\nRegarding oral decongestants and expectorants, there are",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.25,
+        "exact_match": 0.0,
+        "token_f1": 0.0024096385542168672
+      }
+    },
+    {
+      "question_id": "eeda8a6d",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many fish are there in total in both of my aquariums?",
+      "gold_answer": "17",
+      "recalled": "Upgrading your tank decorations is a great way to create a more stimulating environment for your fish and enhance the overall aesthetic of your tank. Arranging artificial coral and rocks to create a v",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "2788b940",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many fitness classes do I attend in a typical week?",
+      "gold_answer": "5",
+      "recalled": "I'm glad to hear that you're crushing it with meal prep on Sundays and getting pumped up with Hip Hop Abs on Saturdays at 10:00 AM!\n\nI've got some healthy snack recipes that are easy to make, deliciou",
+      "metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0024390243902439024
+      }
+    },
+    {
+      "question_id": "60bf93ed",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many days did it take for my laptop backpack to arrive after I bought it?",
+      "gold_answer": "\"5 days. 6 days (including the last day) is also acceptable.\"",
+      "recalled": "A high-end NVIDIA graphics card is a great choice for FPS games like Call of Duty and Halo! It's no surprise that you're seeing a huge difference in frame rates and overall performance.\n\nIt's also gre",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.01215066828675577
+      }
+    },
+    {
+      "question_id": "9d25d4e0",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many pieces of jewelry did I acquire in the last two months?",
+      "gold_answer": "3",
+      "recalled": "Getting your emerald earrings appraised or certified is a great idea, and it's always a good idea to know the value of your jewelry.\n\nNow, organizing your jewelry collection and taking inventory can b",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "129d1232",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How much money did I raise in total through all the charity events I participated in?",
+      "gold_answer": "\"$5,850\"",
+      "recalled": "There are many types of compost bins available, each with its own set of advantages and disadvantages. Let's explore some of the most popular options:\n\n**1. Outdoor Compost Bins:**\n\n* **Pros:**\n\t+ Can",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.0
+      }
+    },
+    {
+      "question_id": "60472f9c",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many projects have I been working on simultaneously, excluding my thesis?",
+      "gold_answer": "2",
+      "recalled": "You're welcome! It was my pleasure to help. I'm glad I could provide you with a good understanding of the preprocessing and image enhancement techniques for your diabetic retinopathy dataset.\n\nRemembe",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.3333333333333333,
+        "exact_match": 0.0,
+        "token_f1": 0.002079002079002079
+      }
+    },
+    {
+      "question_id": "gpt4_194be4b3",
+      "question_type": "multi-session",
+      "correct": false,
+      "question": "How many musical instruments do I currently own?",
+      "gold_answer": "\"I currently own 4 musical instruments. I've had the Fender Stratocaster electric guitar for 5 years, the Yamaha FG800 acoustic guitar for 8 years, the 5-piece Pearl Export drum set for an unspecified amount of time, and the Korg B1 piano for 3 years.\"",
+      "recalled": "A guitar humidifier is a great investment for any acoustic guitar player! Humidifiers help maintain a healthy humidity level in your guitar, which is essential for its tone, playability, and overall l",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 0.0,
+        "mrr": 0.0,
+        "exact_match": 0.0,
+        "token_f1": 0.04287245444801715
       }
     }
   ]

@@ -155,8 +155,8 @@ def main() -> None:
         help="Load from a local JSON file instead of HuggingFace",
     )
     parser.add_argument(
-        "--hf-cache", default="/workspace/Projects/.huggingface_cache",
-        help="HuggingFace cache directory (default: /workspace/Projects/.huggingface_cache)",
+    "--hf-cache", default=None,
+    help="HuggingFace cache directory (default: HF_DATASETS_CACHE or ~/.cache/huggingface)",
     )
     parser.add_argument(
         "--output", default="benchmarks/results/locomo.json",

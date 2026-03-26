@@ -30,13 +30,23 @@ logger = logging.getLogger(__name__)
 
 DATASET_NAME = "snap-research/locomo"
 DATASET_SPLIT = "test"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/snap-research/LoCoMo/main/data/locomo10.json"
 
 QUESTION_TYPES = [
     "single_hop",
     "multi_hop",
     "temporal",
     "open_domain",
+    "adversarial",
 ]
+
+CATEGORY_MAP = {
+    1: "single_hop",
+    2: "multi_hop",
+    3: "temporal",
+    4: "open_domain",
+    5: "adversarial",
+}
 
 # ── Data structures ──
 
@@ -46,20 +56,12 @@ class LoCoMoQuestion:
     """A single LoCoMo question with its full conversation context."""
 
     question_id: str
-    question_type: str   # single_hop | multi_hop | temporal | open_domain
+    question_type: str   # single_hop | multi_hop | temporal | open_domain | adversarial
     question: str
     answer: str
-    conversation: list[dict[str, Any]]  # list of {role, content} message dicts
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "LoCoMoQuestion":
-        return cls(
-            question_id=str(d.get("question_id", d.get("id", ""))),
-            question_type=d.get("question_type", "single_hop"),
-            question=d.get("question", d.get("query", "")),
-            answer=d.get("answer", d.get("gold_answer", "")),
-            conversation=d.get("conversation", d.get("context", [])),
-        )
+    evidence: list       # evidence references like ['D1:3']
+    conversation_id: str # sample_id from the source data
+    conversation_sessions: list  # list of sessions, each session is list of {speaker, dia_id, text}
 
 
 @dataclass
@@ -93,125 +95,55 @@ class LoCoMoSummary:
 # ── Dataset loading ──
 
 
-def _normalize_hf_row(row: dict[str, Any]) -> dict[str, Any]:
+def _extract_sessions(conversation: dict) -> list[list[dict]]:
     """
-    Normalize a raw HuggingFace LoCoMo row to the canonical internal format.
+    Extract ordered list of sessions from a conversation dict.
 
-    The actual LoCoMo schema on HuggingFace may differ from our internal
-    representation.  This function maps any known field variants to the
-    expected keys so that LoCoMoQuestion.from_dict() always works.
+    Sessions are keyed as session_1, session_2, etc.
+    Returns a list of sessions, each session is a list of turn dicts
+    with keys {speaker, dia_id, text}.
     """
-    # Possible conversation field names in the HF dataset
-    conversation = (
-        row.get("conversation")
-        or row.get("dialog")
-        or row.get("history")
-        or row.get("context")
-        or []
-    )
-
-    # Normalize message list: each entry should be {role, content}
-    normalized_msgs = []
-    for msg in conversation:
-        if isinstance(msg, dict):
-            role = msg.get("role") or msg.get("speaker", "user")
-            content = msg.get("content") or msg.get("text") or msg.get("utterance", "")
-            normalized_msgs.append({"role": role, "content": content})
-        elif isinstance(msg, str):
-            # Some datasets encode raw strings alternating user/assistant
-            idx = len(normalized_msgs)
-            role = "user" if idx % 2 == 0 else "assistant"
-            normalized_msgs.append({"role": role, "content": msg})
-
-    # Possible question-type field names
-    qtype = (
-        row.get("question_type")
-        or row.get("type")
-        or row.get("category")
-        or "single_hop"
-    )
-
-    return {
-        "question_id": str(row.get("question_id") or row.get("id") or row.get("qid") or ""),
-        "question_type": qtype,
-        "question": row.get("question") or row.get("query") or "",
-        "answer": row.get("answer") or row.get("gold_answer") or row.get("label") or "",
-        "conversation": normalized_msgs,
-    }
-
-
-def load_locomo_dataset(
-    hf_cache: str | None = None,
-    sample: int | None = None,
-    question_type_filter: str | None = None,
-) -> list[LoCoMoQuestion]:
-    """
-    Load LoCoMo questions from HuggingFace (snap-research/locomo).
-
-    The HuggingFace dataset may not be publicly available or may use a
-    different schema than documented.  This function fails gracefully with
-    an actionable error message if the dataset cannot be loaded.
-
-    Args:
-        hf_cache: Optional path to HuggingFace cache directory.
-        sample: If set, only return the first N questions.
-        question_type_filter: If set, only return questions of this type.
-
-    Returns:
-        List of LoCoMoQuestion objects.
-
-    Raises:
-        ImportError: If the `datasets` package is not installed.
-        RuntimeError: If the dataset cannot be downloaded or has an unexpected
-            schema, with instructions for using a local JSON file instead.
-    """
-    if hf_cache:
-        os.environ["HF_DATASETS_CACHE"] = hf_cache
-
-    try:
-        from datasets import load_dataset
-    except ImportError:
-        raise ImportError(
-            "datasets package required for LoCoMo. "
-            "Install with: pip install datasets"
-        )
-
-    logger.info(
-        "Loading LoCoMo from HuggingFace (%s, split=%s)...",
-        DATASET_NAME,
-        DATASET_SPLIT,
-    )
-
-    try:
-        ds = load_dataset(DATASET_NAME, split=DATASET_SPLIT, streaming=True)
-    except Exception as exc:
-        raise RuntimeError(
-            f"Failed to load LoCoMo from HuggingFace ({DATASET_NAME!r}): {exc}\n\n"
-            "The dataset may not be publicly available yet or the name may have changed.\n"
-            "Try loading from a local JSON file instead:\n"
-            "  python -m benchmarks.locomo.runner --local /path/to/locomo.json\n\n"
-            "You can download the data from:\n"
-            "  https://github.com/snap-research/LoCoMo\n"
-            "  https://arxiv.org/abs/2402.15929"
-        ) from exc
-
-    questions: list[LoCoMoQuestion] = []
-    for row in ds:
-        try:
-            normalized = _normalize_hf_row(row)
-        except Exception as exc:
-            logger.warning("Skipping malformed row: %s", exc)
-            continue
-
-        if question_type_filter and normalized["question_type"] != question_type_filter:
-            continue
-
-        questions.append(LoCoMoQuestion.from_dict(normalized))
-
-        if sample and len(questions) >= sample:
+    sessions = []
+    i = 1
+    while True:
+        key = f"session_{i}"
+        if key not in conversation:
             break
+        session_turns = conversation[key]
+        if isinstance(session_turns, list):
+            sessions.append(session_turns)
+        i += 1
+    return sessions
 
-    logger.info("Loaded %d questions from LoCoMo (HuggingFace)", len(questions))
+
+def _parse_conversation_object(conv_obj: dict) -> list[LoCoMoQuestion]:
+    """
+    Parse a single conversation object from the LoCoMo JSON into a list
+    of LoCoMoQuestion instances (one per QA pair).
+    """
+    sample_id = str(conv_obj.get("sample_id", ""))
+    conversation = conv_obj.get("conversation", {})
+    qa_list = conv_obj.get("qa", [])
+
+    sessions = _extract_sessions(conversation)
+
+    questions = []
+    for idx, qa in enumerate(qa_list):
+        category_int = qa.get("category", 1)
+        question_type = CATEGORY_MAP.get(category_int, "single_hop")
+        question_id = f"{sample_id}_{idx}"
+
+        q = LoCoMoQuestion(
+            question_id=question_id,
+            question_type=question_type,
+            question=str(qa.get("question", "")),
+            answer=str(qa.get("answer", "")),
+            evidence=qa.get("evidence", []),
+            conversation_id=sample_id,
+            conversation_sessions=sessions,
+        )
+        questions.append(q)
+
     return questions
 
 
@@ -221,11 +153,12 @@ def load_locomo_local(
     question_type_filter: str | None = None,
 ) -> list[LoCoMoQuestion]:
     """
-    Load LoCoMo questions from a local JSON file.
+    Load LoCoMo questions from a local JSON file (snap-research/LoCoMo format).
 
-    Accepts two JSON layouts:
-    - A list of question dicts (most common)
-    - A dict mapping question IDs to question dicts
+    The file should be a JSON list of conversation objects, each with:
+    - sample_id: str
+    - qa: list of {question, answer, evidence, category}
+    - conversation: dict with speaker_a, speaker_b, session_1, session_2, ...
 
     Args:
         path: Path to the JSON file.
@@ -247,7 +180,7 @@ def load_locomo_local(
         data = json.load(f)
 
     if isinstance(data, dict):
-        # Could be {"questions": [...]} or {"id1": {...}, "id2": {...}}
+        # Could be {"questions": [...]} or {"data": [...]}
         if "questions" in data:
             data = data["questions"]
         elif "data" in data:
@@ -258,16 +191,20 @@ def load_locomo_local(
     if not isinstance(data, list):
         raise ValueError(
             f"Unrecognized LoCoMo JSON structure in {path}. "
-            "Expected a list of question dicts or a dict with a 'questions' key."
+            "Expected a list of conversation objects."
         )
 
     questions: list[LoCoMoQuestion] = []
-    for item in data:
-        if not isinstance(item, dict):
+    for conv_obj in data:
+        if not isinstance(conv_obj, dict):
             continue
-        if question_type_filter and item.get("question_type") != question_type_filter:
-            continue
-        questions.append(LoCoMoQuestion.from_dict(item))
+        parsed = _parse_conversation_object(conv_obj)
+        for q in parsed:
+            if question_type_filter and q.question_type != question_type_filter:
+                continue
+            questions.append(q)
+            if sample and len(questions) >= sample:
+                break
         if sample and len(questions) >= sample:
             break
 
@@ -275,50 +212,141 @@ def load_locomo_local(
     return questions
 
 
+def load_locomo_dataset(
+    hf_cache: str | None = None,
+    sample: int | None = None,
+    question_type_filter: str | None = None,
+) -> list[LoCoMoQuestion]:
+    """
+    Load LoCoMo questions from HuggingFace (snap-research/locomo).
+
+    Falls back to downloading from the GitHub raw URL if HuggingFace fails.
+
+    Args:
+        hf_cache: Optional path to HuggingFace cache directory.
+        sample: If set, only return the first N questions.
+        question_type_filter: If set, only return questions of this type.
+
+    Returns:
+        List of LoCoMoQuestion objects.
+
+    Raises:
+        RuntimeError: If all loading methods fail.
+    """
+    if hf_cache:
+        os.environ["HF_DATASETS_CACHE"] = hf_cache
+
+    # Try HuggingFace first
+    try:
+        from datasets import load_dataset
+
+        logger.info(
+            "Loading LoCoMo from HuggingFace (%s, split=%s)...",
+            DATASET_NAME,
+            DATASET_SPLIT,
+        )
+        ds = load_dataset(DATASET_NAME, split=DATASET_SPLIT, streaming=True)
+        questions: list[LoCoMoQuestion] = []
+        for conv_obj in ds:
+            if not isinstance(conv_obj, dict):
+                continue
+            parsed = _parse_conversation_object(conv_obj)
+            for q in parsed:
+                if question_type_filter and q.question_type != question_type_filter:
+                    continue
+                questions.append(q)
+                if sample and len(questions) >= sample:
+                    break
+            if sample and len(questions) >= sample:
+                break
+        logger.info("Loaded %d questions from LoCoMo (HuggingFace)", len(questions))
+        return questions
+
+    except ImportError:
+        logger.warning("datasets package not available, trying GitHub download...")
+    except Exception as exc:
+        logger.warning("HuggingFace load failed: %s. Trying GitHub download...", exc)
+
+    # Fallback: download from GitHub raw URL
+    cache_dir = Path(hf_cache) if hf_cache else Path.home() / ".cache" / "huggingface" / "datasets" / "locomo"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    local_path = cache_dir / "locomo10.json"
+
+    if not local_path.exists():
+        logger.info("Downloading LoCoMo from GitHub: %s", GITHUB_RAW_URL)
+        try:
+            import urllib.request
+            urllib.request.urlretrieve(GITHUB_RAW_URL, local_path)
+            logger.info("Downloaded to %s", local_path)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to download LoCoMo from GitHub ({GITHUB_RAW_URL!r}): {exc}\n\n"
+                "Try loading from a local JSON file instead:\n"
+                "  python -m benchmarks.locomo.runner --local /path/to/locomo10.json\n\n"
+                "You can download the data from:\n"
+                "  https://github.com/snap-research/LoCoMo\n"
+                "  https://arxiv.org/abs/2402.15929"
+            ) from exc
+    else:
+        logger.info("Using cached LoCoMo data at %s", local_path)
+
+    return load_locomo_local(local_path, sample=sample, question_type_filter=question_type_filter)
+
+
 # ── Ingestion ──
 
 
 def ingest_conversation_into_store(
     store: Any,
-    conversation: list[dict[str, Any]],
+    conversation_sessions: list[list[dict]],
+    evidence_refs: list[str] | None = None,
 ) -> int:
     """
-    Ingest a conversation into a CognitiveMemoryStore.
+    Ingest conversation sessions into a CognitiveMemoryStore.
 
     Strategy:
-    - Each message's content is stored as a factual memory.
-    - User messages receive importance 0.6 (user-stated facts are often the
-      target of retrieval).
-    - Assistant messages receive importance 0.4 (assistant knowledge is
-      useful context but less often the direct answer).
-    - simulate_time(0.01) is called between messages to create temporal
-      ordering so the store can leverage recency signals.
+    - Each session's turns are stored as factual memories.
+    - Turns whose dia_id appears in evidence_refs get importance 0.8
+      (these are the turns that answer questions).
+    - Other turns get importance 0.5.
+    - simulate_time(1) is called between sessions to model temporal gaps.
 
     Args:
         store: A CognitiveBenchmarkAdapter (reset() should already be called).
-        conversation: List of {role, content} message dicts.
+        conversation_sessions: List of sessions, each a list of turn dicts
+            with keys {speaker, dia_id, text}.
+        evidence_refs: List of dia_id strings that are evidence for questions
+            (e.g. ['D1:3', 'D2:7']). Turns matching these get higher importance.
 
     Returns:
         Total number of memories stored.
     """
+    evidence_set: set[str] = set(evidence_refs) if evidence_refs else set()
     count = 0
 
-    for i, msg in enumerate(conversation):
-        role = msg.get("role", "user")
-        content = msg.get("content", "").strip()
+    for session_idx, session_turns in enumerate(conversation_sessions):
+        for turn in session_turns:
+            dia_id = turn.get("dia_id", "")
+            text = turn.get("text", "").strip()
+            speaker = turn.get("speaker", "")
 
-        if not content:
-            continue
+            if not text:
+                continue
 
-        # User turns are more likely to contain the facts being asked about
-        importance = 0.6 if role == "user" else 0.4
+            # Evidence turns are more important — they contain answer facts
+            if dia_id in evidence_set:
+                importance = 0.8
+            else:
+                importance = 0.5
 
-        store.store(content, category="factual", importance=importance)
-        count += 1
+            # Include speaker name in stored content for context
+            content = f"{speaker}: {text}" if speaker else text
+            store.store(content, category="factual", importance=importance)
+            count += 1
 
-        # Advance simulated time between messages to create temporal ordering
-        if i < len(conversation) - 1:
-            store.simulate_time(0.01)
+        # Advance simulated time between sessions to model temporal gaps
+        if session_idx < len(conversation_sessions) - 1:
+            store.simulate_time(1)
 
     return count
 
@@ -389,7 +417,7 @@ def run_locomo(
 
     For each question:
     1. Create a fresh CognitiveBenchmarkAdapter store.
-    2. Ingest the question's conversation.
+    2. Ingest the question's conversation sessions (with evidence hints).
     3. Evaluate the question.
 
     Then aggregate overall accuracy and per-question-type breakdowns.
@@ -421,7 +449,11 @@ def run_locomo(
         store = backend_cls(**backend_kwargs)
         store.reset()
 
-        n_stored = ingest_conversation_into_store(store, question.conversation)
+        n_stored = ingest_conversation_into_store(
+            store,
+            question.conversation_sessions,
+            evidence_refs=question.evidence,
+        )
 
         result = evaluate_question(store, question, judge, top_k=top_k)
         results.append(result)

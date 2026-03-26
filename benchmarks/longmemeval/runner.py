@@ -141,7 +141,7 @@ def main() -> None:
         help="Load from local JSON file instead of HuggingFace",
     )
     parser.add_argument(
-        "--hf-cache", default="/workspace/Projects/.huggingface_cache",
+        "--hf-cache", default=None,
         help="HuggingFace cache directory",
     )
     parser.add_argument(
