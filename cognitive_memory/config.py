@@ -45,6 +45,18 @@ class CognitiveMemoryConfig:
     links_per_memory: int = 5
     """Maximum outgoing links per memory."""
 
+    enable_keyword_links: bool = True
+    """If True, create weak keyword-overlap links at store() time to densify the graph for PPR walks."""
+
+    keyword_link_threshold: float = 0.15
+    """Minimum Jaccard similarity (shared tokens / union tokens) to create a keyword link."""
+
+    keyword_link_min_shared: int = 3
+    """Minimum number of shared tokens required to create a keyword link."""
+
+    keyword_link_max_recent: int = 50
+    """Maximum number of recent memories to check for keyword overlap (avoids O(n²))."""
+
     prune_threshold: float = 0.01
     """Activation below which to prune archived memories."""
 

@@ -252,6 +252,7 @@ def evaluate_question(
     question: LongMemQuestion,
     judge: Any,
     top_k: int = 10,
+    explore: bool = False,
 ) -> LongMemResult:
     """
     Evaluate a single LongMemEval question against the ingested store.
@@ -265,7 +266,10 @@ def evaluate_question(
     Returns:
         LongMemResult with scoring.
     """
-    results = store.recall(question.question, top_k=top_k)
+    if explore:
+        results = store.explore(question.question, top_k=top_k)
+    else:
+        results = store.recall(question.question, top_k=top_k)
     recalled = results[0] if results else ""
     context = " | ".join(results[:5]) if results else ""
 
@@ -298,6 +302,7 @@ def run_longmemeval(
     backend_kwargs: dict | None = None,
     top_k: int = 10,
     verbose: bool = False,
+    explore: bool = False,
 ) -> LongMemSummary:
     """
     Run LongMemEval evaluation on a list of questions.
@@ -328,7 +333,7 @@ def run_longmemeval(
 
         n_stored = ingest_sessions_into_store(store, question)
 
-        result = evaluate_question(store, question, judge, top_k=top_k)
+        result = evaluate_question(store, question, judge, top_k=top_k, explore=explore)
         results.append(result)
 
         if result.correct:
@@ -336,10 +341,11 @@ def run_longmemeval(
 
         if verbose:
             status = "✓" if result.correct else "✗"
+            mode = "explore" if explore else "recall"
             print(
                 f"  [{i+1}/{len(questions)}] {status} {question.question_type} "
                 f"q={question.question_id} stored={n_stored} "
-                f"recalled={result.recall_count}"
+                f"recalled={result.recall_count} mode={mode}"
             )
 
     # Aggregate by type

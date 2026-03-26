@@ -185,6 +185,9 @@ class CognitiveMemoryStore:
         # Create semantic links to existing memories (reuse same list)
         self._create_semantic_links(entry, existing_memories)
 
+        # Create keyword-overlap links to densify the graph for PPR walks
+        self._create_keyword_links(entry, existing_memories)
+
         logger.debug(
             f"Stored memory {mem_id[:8]}: cat={category}, imp={importance:.2f}, "
             f"scope={scope}"
@@ -1162,6 +1165,81 @@ class CognitiveMemoryStore:
                 existing.id, entry.id,
                 weight=sim * 0.5,
                 link_type="semantic",
+            )
+
+    def _create_keyword_links(
+        self,
+        entry: MemoryEntry,
+        existing_memories: Optional[List[MemoryEntry]] = None,
+    ) -> None:
+        """Create weak links between memories sharing significant keyword overlap.
+
+        Supplements semantic links for graph density. These links enable
+        PPR exploration to discover related memories that may not be
+        semantically similar but discuss the same topics.
+
+        Efficiency: only checks the most recent keyword_link_max_recent memories
+        to avoid O(n^2) behavior when storing large numbers of memories.
+        """
+        from cognitive_memory.keyword_scoring import tokenize
+
+        cfg = self._config
+        if not cfg.enable_keyword_links:
+            return
+
+        new_tokens = set(tokenize(entry.content))
+        if len(new_tokens) < 2:
+            return
+
+        if existing_memories is None:
+            existing_memories = self._backend.get_all_active()
+
+        # Limit to most recent N entries to avoid O(n^2) on large collections.
+        # Memories are returned in insertion order; take the tail.
+        candidates = [m for m in existing_memories if m.id != entry.id]
+        if len(candidates) > cfg.keyword_link_max_recent:
+            candidates = candidates[-cfg.keyword_link_max_recent:]
+
+        # Pre-fetch existing links from this entry to avoid duplicating semantic links.
+        # The backend create_link() uses ON CONFLICT DO UPDATE so duplicates are
+        # handled, but we skip creating keyword links where a semantic link exists
+        # to keep the link type semantically meaningful.
+        existing_link_targets = {
+            link.target_id for link in self._backend.get_links(entry.id)
+        }
+
+        for existing in candidates:
+            existing_tokens = set(tokenize(existing.content))
+            if len(existing_tokens) < 2:
+                continue
+
+            intersection = new_tokens & existing_tokens
+            if len(intersection) < cfg.keyword_link_min_shared:
+                continue
+
+            union = new_tokens | existing_tokens
+            jaccard = len(intersection) / len(union) if union else 0.0
+
+            if jaccard < cfg.keyword_link_threshold:
+                continue
+
+            # Skip if a semantic link already covers this pair (bidirectionally).
+            if existing.id in existing_link_targets:
+                continue
+
+            weight = jaccard * 0.3  # weak links, max ~0.3
+            self._backend.create_link(
+                source_id=entry.id,
+                target_id=existing.id,
+                weight=weight,
+                link_type="keyword",
+            )
+            # Bidirectional so PPR can walk in both directions.
+            self._backend.create_link(
+                source_id=existing.id,
+                target_id=entry.id,
+                weight=weight,
+                link_type="keyword",
             )
 
     # ─── Consolidation ───────────────────────────────────────────

@@ -394,6 +394,7 @@ def evaluate_question(
     question: HotpotQuestion,
     judge: Any,
     top_k: int = 10,
+    explore: bool = False,
 ) -> HotpotResult:
     """
     Evaluate a single HotpotQA question against the ingested store.
@@ -418,7 +419,10 @@ def evaluate_question(
     """
     from benchmarks.metrics import compute_metric_suite
 
-    retrieved = store.recall(question.question, top_k=top_k)
+    if explore:
+        retrieved = store.explore(question.question, top_k=top_k)
+    else:
+        retrieved = store.recall(question.question, top_k=top_k)
     predicted_answer = retrieved[0] if retrieved else ""
     context = " | ".join(retrieved) if retrieved else ""
 
@@ -471,6 +475,7 @@ def run_hotpotqa(
     backend_kwargs: dict | None = None,
     top_k: int = 10,
     verbose: bool = False,
+    explore: bool = False,
 ) -> HotpotSummary:
     """
     Run the full HotpotQA evaluation loop over a list of questions.
@@ -509,7 +514,7 @@ def run_hotpotqa(
 
         n_stored = ingest_context_into_store(store, question.context)
 
-        result = evaluate_question(store, question, judge, top_k=top_k)
+        result = evaluate_question(store, question, judge, top_k=top_k, explore=explore)
         results.append(result)
 
         if result.correct:
@@ -517,12 +522,13 @@ def run_hotpotqa(
 
         if verbose:
             status = "✓" if result.correct else "✗"
+            mode = "explore" if explore else "recall"
             print(
                 f"  [{i+1}/{len(questions)}] {status} "
                 f"type={question.question_type} diff={question.difficulty} "
                 f"id={question.question_id} "
                 f"stored={n_stored} recalled={result.recall_count} "
-                f"sf_recall={result.supporting_facts_recall:.2f}"
+                f"sf_recall={result.supporting_facts_recall:.2f} mode={mode}"
             )
 
     total = len(questions)

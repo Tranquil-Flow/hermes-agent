@@ -174,6 +174,10 @@ def main() -> None:
         "--top-k", type=int, default=10,
         help="Number of memories to recall per question (default: 10)",
     )
+    parser.add_argument(
+        "--explore", action="store_true",
+        help="Use explore() (PPR graph walk) instead of recall() for retrieval",
+    )
 
     args = parser.parse_args()
 
@@ -215,6 +219,7 @@ def main() -> None:
     print(f"  Backend: cognitive memory ({args.profile}, {args.embedding})")
     print(f"  Judge:   {args.judge_model}")
     print(f"  top_k:   {args.top_k}")
+    print(f"  Mode:    {'explore (PPR graph walk)' if args.explore else 'recall (default)'}")
     print()
 
     start = time.time()
@@ -224,6 +229,7 @@ def main() -> None:
         backend_kwargs=backend_kwargs,
         top_k=args.top_k,
         verbose=args.verbose,
+        explore=args.explore,
     )
     elapsed = time.time() - start
 
