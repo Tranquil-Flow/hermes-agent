@@ -136,6 +136,20 @@ class CognitiveMemoryConfig:
     """Score multiplier for actionable-knowledge categories (decision, correction,
     procedural, causal). Boosts signal over passive observations. Ori-Mnemos default."""
 
+    # --- Q-Value Reranking (ported from Ori-Mnemos qvalue.ts / rerank.ts) ---
+    enable_qvalue_reranking: bool = True
+    """Enable Phase B Q-value reranking in recall(). Blends learned Q-values with
+    activation scores. Grows influence as the system learns (cold-start protection)."""
+
+    qvalue_lambda_min: float = 0.05
+    """Minimum blend weight for Q-values (at cold start, 0 updates)."""
+
+    qvalue_lambda_max: float = 0.35
+    """Maximum blend weight for Q-values (reached at ~200 total updates)."""
+
+    qvalue_exploration_c: float = 0.2
+    """UCB exploration constant. Higher = more exploration of under-retrieved memories."""
+
     def __post_init__(self):
         if not self.db_path:
             hermes_home = os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))

@@ -35,6 +35,7 @@ from cognitive_memory.backends.base import MemoryEntry, MemoryLink, ScoredMemory
 from cognitive_memory.backends.builtin import BuiltinSQLiteBackend
 from cognitive_memory.embeddings import EmbeddingProvider, cosine_similarity
 from cognitive_memory.encoding import encode as encode_content
+from cognitive_memory.qvalue_store import QValueStore
 
 logger = logging.getLogger(__name__)
 
@@ -73,10 +74,18 @@ class CognitiveMemoryStore:
         self._use_virtual_clock: bool = False
         self._virtual_clock: float = time.time()
 
+        # Q-value store: use :memory: for in-memory SQLite backends
+        effective_db = db_path or self._config.db_path
+        qvalue_db = ":memory:" if effective_db == ":memory:" else effective_db
+        self._qvalue_store: Optional[QValueStore] = (
+            QValueStore(qvalue_db) if self._config.enable_qvalue_reranking else None
+        )
+
         logger.info(
             f"CognitiveMemoryStore initialized: "
             f"embedding={self._embedder.backend_name}, "
-            f"db={db_path or self._config.db_path}"
+            f"db={db_path or self._config.db_path}, "
+            f"qvalue_reranking={self._config.enable_qvalue_reranking}"
         )
 
     @property
@@ -262,6 +271,10 @@ class CognitiveMemoryStore:
                 item.components['bm25_score'] = bm25_sc
                 item.components['activation_score'] = act_score
                 item.score = rrf
+
+        # Phase B: Q-value reranking (before dampening)
+        if self._config.enable_qvalue_reranking and self._qvalue_store is not None:
+            self._apply_qvalue_reranking(scored)
 
         # Sort by score, apply dampening pipeline, then take top-K
         scored.sort(key=lambda s: s.score, reverse=True)
@@ -463,6 +476,94 @@ class CognitiveMemoryStore:
                 score += 0.25
 
         return min(score, 1.0)
+
+    def _apply_qvalue_reranking(self, scored: List[ScoredMemory]) -> None:
+        """Phase B: Blend activation scores with learned Q-values.
+
+        Uses a lambda that grows as the system learns (cold start protection).
+        Includes UCB-Tuned exploration bonus for under-retrieved memories.
+        Ported from Ori-Mnemos rerank.ts phaseB.
+        """
+        if not scored:
+            return
+
+        # Get Q-values for all candidates
+        q_values = self._qvalue_store.get_q_batch([s.entry.id for s in scored])
+        total_updates = self._qvalue_store.get_total_updates()
+
+        # Lambda grows from min to max as system learns
+        lam_min = self._config.qvalue_lambda_min
+        lam_max = self._config.qvalue_lambda_max
+        lam = lam_min + (lam_max - lam_min) * min(total_updates / 200.0, 1.0)
+
+        # Z-normalize activation scores
+        act_scores = [s.score for s in scored]
+        act_mean = sum(act_scores) / len(act_scores)
+        act_std = max((sum((x - act_mean)**2 for x in act_scores) / len(act_scores)) ** 0.5, 0.001)
+
+        # Z-normalize Q-values
+        q_list = [q_values.get(s.entry.id, 0.5) for s in scored]
+        q_mean = sum(q_list) / len(q_list)
+        q_std = max((sum((x - q_mean)**2 for x in q_list) / len(q_list)) ** 0.5, 0.001)
+
+        T = max(total_updates, 1)  # total time steps for UCB
+        c = self._config.qvalue_exploration_c
+
+        for item in scored:
+            q = q_values.get(item.entry.id, 0.5)
+
+            # Z-normalize
+            act_norm = (item.score - act_mean) / act_std
+            q_norm = (q - q_mean) / q_std
+
+            # Blend
+            blended = (1 - lam) * act_norm + lam * q_norm
+
+            # UCB-Tuned exploration bonus
+            n_row = self._qvalue_store._conn.execute(
+                "SELECT total_retrievals FROM memory_qvalues WHERE memory_id = ?",
+                (item.entry.id,)
+            ).fetchone()
+            n_retrievals = n_row[0] if n_row else 0
+
+            if n_retrievals == 0:
+                ucb_bonus = c * 2.5  # big bonus for never-retrieved
+            else:
+                ucb_bonus = c * math.sqrt(math.log(T + 1) / n_retrievals)
+
+            new_score = blended + ucb_bonus
+
+            # Cap: don't let Q-reranking inflate more than 3x original
+            original = item.score
+            if original > 0 and new_score > original * 3.0:
+                excess = new_score - original * 3.0
+                new_score = original * 3.0 + excess * 0.3
+
+            item.components['q_value'] = q
+            item.components['ucb_bonus'] = ucb_bonus
+            item.components['q_lambda'] = lam
+            item.components['activation_pre_qvalue'] = original
+            item.score = new_score
+
+        # Record retrievals for exposure tracking
+        for item in scored:
+            self._qvalue_store.record_retrieval(item.entry.id)
+
+        scored.sort(key=lambda s: s.score, reverse=True)
+
+    def reward_memory(self, memory_id: str, signal: float) -> None:
+        """Apply a reward signal to a memory's Q-value.
+        Call this after observing whether a retrieved memory was useful.
+
+        Standard signals:
+            +1.0  forward citation (user referenced this memory)
+            +0.5  update after retrieval (user edited this memory)
+            +0.6  downstream creation (user created new memory after)
+            +0.4  within-session re-recall (retrieved multiple times)
+            -0.15 dead end (retrieved in top-3 but nothing followed)
+        """
+        if self._qvalue_store:
+            self._qvalue_store.reward(memory_id, signal)
 
     def _apply_dampening(
         self, scored: List[ScoredMemory], query: str

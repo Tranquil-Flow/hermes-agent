@@ -124,3 +124,24 @@ class CognitiveBenchmarkAdapter(BenchmarkableStore):
 
     def reset(self) -> None:
         self._store.reset()
+        # Also reset Q-value store so benchmark runs are independent
+        if self._store._qvalue_store:
+            self._store._qvalue_store.reset()
+
+    def reward_memory(self, memory_id: str, signal: float) -> None:
+        """Apply a reward signal to a memory's Q-value.
+        Delegates to the underlying CognitiveMemoryStore.
+        """
+        self._store.reward_memory(memory_id, signal)
+
+    def recall_with_ids(
+        self,
+        query: str,
+        top_k: int = 10,
+        scope: Optional[str] = None,
+    ) -> List[tuple]:
+        """Like recall() but returns (content, memory_id) tuples.
+        Used by Q-learning benchmark to apply rewards to specific memories.
+        """
+        results = self._store.recall(query=query, scope=scope, top_k=top_k)
+        return [(r.entry.content, r.entry.id) for r in results]

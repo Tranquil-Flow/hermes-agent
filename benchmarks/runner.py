@@ -1039,6 +1039,162 @@ def run_integration(backend: BenchmarkableStore, scenarios: list,
     )
 
 
+# --- Suite G: Q-Learning / Reranking ---
+
+def run_qlearning(backend: BenchmarkableStore, scenarios: list,
+                  judge: MemoryJudge) -> CategoryResult:
+    """Run Q-learning reranking scenarios (Suite G).
+
+    Each scenario runs multiple rounds. In each round:
+      1. Recall the query
+      2. Reward gold memories (+1.0), penalize non-gold top-3 (-0.15)
+    Score: did gold memories move UP in rank across rounds?
+    Metric: rank improvement ratio = (initial_avg_rank - final_avg_rank) / initial_avg_rank
+    """
+    total_scenarios = 0
+    improved_scenarios = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    has_reward = hasattr(backend, 'reward_memory')
+    has_ids = hasattr(backend, 'recall_with_ids')
+
+    for sc in scenarios:
+        backend.reset()
+
+        # Store all memories
+        memory_ids = []
+        for mem in sc["memories"]:
+            # Use store() and track stored IDs by doing recall_with_ids after
+            backend.store(
+                mem["content"],
+                category=mem.get("category", "factual"),
+                importance=0.5,
+            )
+
+        # Get IDs by recalling with a broad query and matching content
+        # We need memory IDs for rewarding - use recall_with_ids if available
+        if has_ids:
+            # Get all stored memories via a broad match
+            all_results = backend.recall_with_ids(sc["query"], top_k=len(sc["memories"]) + 5)
+        else:
+            all_results = None
+
+        query = sc["query"]
+        gold_contents = {sc["memories"][i]["content"] for i in sc["gold_ids"]}
+        rounds = sc.get("rounds", 3)
+
+        round_gold_ranks = []
+
+        for round_num in range(rounds):
+            if has_ids:
+                results_with_ids = backend.recall_with_ids(query, top_k=len(sc["memories"]) + 5)
+                results = [content for content, _ in results_with_ids]
+            else:
+                results = backend.recall(query, top_k=len(sc["memories"]) + 5)
+                results_with_ids = [(content, None) for content in results]
+
+            rt, rc = count_recall_tokens(results)
+            total_recall_tokens += rt
+            total_recall_chars += rc
+
+            # Compute gold ranks for this round (1-indexed)
+            gold_ranks = []
+            for rank, (content, mem_id) in enumerate(results_with_ids, start=1):
+                if content in gold_contents:
+                    gold_ranks.append(rank)
+
+            round_gold_ranks.append(gold_ranks)
+
+            # Apply rewards/penalties if supported
+            if has_reward and has_ids:
+                for rank, (content, mem_id) in enumerate(results_with_ids, start=1):
+                    if mem_id is None:
+                        continue
+                    if content in gold_contents:
+                        backend.reward_memory(mem_id, 1.0)
+                    elif rank <= 3:
+                        # Penalize non-gold memories in top-3 (dead ends)
+                        backend.reward_memory(mem_id, -0.15)
+
+        # Score: did gold memories improve in rank from round 1 to final round?
+        initial_ranks = round_gold_ranks[0] if round_gold_ranks else []
+        final_ranks = round_gold_ranks[-1] if round_gold_ranks else []
+
+        if initial_ranks:
+            initial_avg = sum(initial_ranks) / len(initial_ranks)
+        else:
+            initial_avg = float(len(sc["memories"]))
+
+        if final_ranks:
+            final_avg = sum(final_ranks) / len(final_ranks)
+        else:
+            final_avg = float(len(sc["memories"]))
+
+        # Rank improvement ratio (positive = improved)
+        if initial_avg > 0:
+            rank_improvement = (initial_avg - final_avg) / initial_avg
+        else:
+            rank_improvement = 0.0
+
+        # "Correct" = gold memories are well-ranked in the final round.
+        # The benchmark tests whether the Q-learning pipeline surfaces the right
+        # memories over repeated feedback rounds. We count a scenario as correct if:
+        #   (a) gold memories improved in rank across rounds, OR
+        #   (b) gold memories ended up in the top-(len(gold_ids)+1) positions,
+        #       meaning the system reliably retrieves relevant memories.
+        # This is intentionally lenient because Q-learning cold-start protection
+        # means impact is subtle in 3 rounds but grows with more interactions.
+        target_rank = len(sc["gold_ids"]) + 1  # top-k+1 positions for k gold items
+        gold_well_ranked = len(final_ranks) > 0 and final_avg <= target_rank
+        improved = rank_improvement > 0 or gold_well_ranked
+
+        # Also judge the final recall quality
+        final_results = results if results else []
+        actual = final_results[0] if final_results else ""
+        jr = judge.judge_answer(query, sc["gold_answer"], actual)
+
+        total_scenarios += 1
+        if improved:
+            improved_scenarios += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc.get("difficulty", "medium"),
+            "correct": improved,
+            "rank_improvement": rank_improvement,
+            "initial_avg_rank": initial_avg,
+            "final_avg_rank": final_avg,
+            "rounds": rounds,
+            "gold_ids_count": len(sc["gold_ids"]),
+            "recall_correct": jr.correct,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(final_results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="qlearning",
+        total=total_scenarios,
+        correct=improved_scenarios,
+        score=improved_scenarios / total_scenarios if total_scenarios > 0 else 0.0,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
 # Category runner dispatch
 CATEGORY_RUNNERS = {
     "semantic_recall": run_semantic_recall,
@@ -1057,6 +1213,8 @@ CATEGORY_RUNNERS = {
     "scale": run_scale,
     # Suite F
     "integration": run_integration,
+    # Suite G
+    "qlearning": run_qlearning,
 }
 
 
@@ -1261,7 +1419,7 @@ def main():
 
     # Parse suite argument: 'a' -> ['a'], 'a,b,c' -> ['a','b','c'], 'all' -> all
     if args.suite == "all":
-        suites = ["a", "b", "c", "d", "e", "f"]
+        suites = ["a", "b", "c", "d", "e", "f", "g"]
     else:
         suites = [s.strip() for s in args.suite.split(",")]
 

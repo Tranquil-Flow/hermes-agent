@@ -53,6 +53,16 @@ class BenchmarkableStore(ABC):
         """Clear all stored memories. Called between benchmark runs."""
         ...
 
+    def reward_memory(self, memory_id: str, signal: float) -> None:
+        """Apply a reward signal to a retrieved memory's Q-value (optional).
+        Default no-op for backends that don't support Q-value learning.
+
+        Args:
+            memory_id: ID of the memory to reward
+            signal: Reward value (positive = useful, negative = not useful)
+        """
+        pass  # default no-op
+
 
 # --- Result dataclasses ---
 
