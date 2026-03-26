@@ -217,6 +217,139 @@ def _handle_consolidate(args: Dict[str, Any], **kwargs) -> str:
     }, ensure_ascii=False)
 
 
+# ── cognitive_explore ─────────────────────────────────────────────────────
+
+_EXPLORE_SCHEMA = {
+    "name": "cognitive_explore",
+    "description": (
+        "Multi-hop memory exploration using Personalized PageRank graph walking. "
+        "Unlike cognitive_recall which finds directly matching memories, explore "
+        "follows link connections to discover related memories that a single query "
+        "might miss. Use this for complex questions that require combining information "
+        "from multiple memories, or when recall returns incomplete answers."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Natural-language query describing what to explore.",
+            },
+            "scope": {
+                "type": "string",
+                "description": (
+                    "Optional scope filter: 'global', 'project:<name>', or 'topic:<name>'. "
+                    "Omit to search all memories."
+                ),
+            },
+            "top_k": {
+                "type": "integer",
+                "description": "Maximum number of memories to return (default 20).",
+            },
+        },
+        "required": ["query"],
+    },
+}
+
+
+def _handle_explore(args: Dict[str, Any], **kwargs) -> str:
+    store = _cognitive_store
+    if store is None:
+        return json.dumps({"error": "Cognitive memory store not initialized."})
+
+    query = args.get("query", "").strip()
+    if not query:
+        return json.dumps({"error": "query is required."})
+
+    scope = args.get("scope") or None
+    top_k = args.get("top_k") or 20
+
+    try:
+        result = store.explore(query, scope=scope, top_k=top_k)
+    except Exception as e:
+        logger.exception("cognitive_explore error")
+        return json.dumps({"error": f"Explore failed: {e}"})
+
+    memories = []
+    for sm in result.results:
+        e = sm.entry
+        memories.append({
+            "id": e.id[:8],
+            "content": e.content,
+            "category": e.category,
+            "layer": e.layer,
+            "importance": round(e.importance, 3),
+            "score": round(sm.score, 4),
+            "scope": e.scope,
+            "ppr_discovery": sm.components.get("ppr_discovery", False),
+        })
+
+    return json.dumps({
+        "memories": memories,
+        "count": len(memories),
+        "candidates_visited": result.total_candidates_visited,
+        "rounds": result.rounds,
+    }, ensure_ascii=False)
+
+
+# ── cognitive_reward ─────────────────────────────────────────────────────
+
+_REWARD_SCHEMA = {
+    "name": "cognitive_reward",
+    "description": (
+        "Give feedback on whether a retrieved memory was useful. This trains "
+        "the Q-value reranking system — memories that receive positive rewards "
+        "will rank higher in future recalls, and penalized memories will sink. "
+        "Call this after using a memory to confirm it helped (+1.0), after "
+        "updating a memory (+0.5), or when a top-ranked memory was irrelevant (-0.15)."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "memory_id": {
+                "type": "string",
+                "description": "Memory ID (first 8 chars from recall/explore results).",
+            },
+            "signal": {
+                "type": "number",
+                "description": (
+                    "Reward signal: +1.0 (cited/used), +0.5 (updated), "
+                    "+0.6 (created new content after), +0.4 (re-recalled), "
+                    "-0.15 (irrelevant/dead end). Range: -1.0 to +1.0."
+                ),
+            },
+        },
+        "required": ["memory_id", "signal"],
+    },
+}
+
+
+def _handle_reward(args: Dict[str, Any], **kwargs) -> str:
+    store = _cognitive_store
+    if store is None:
+        return json.dumps({"error": "Cognitive memory store not initialized."})
+
+    memory_id = args.get("memory_id", "").strip()
+    signal = args.get("signal", 0.0)
+
+    if not memory_id:
+        return json.dumps({"error": "memory_id is required."})
+
+    signal = max(-1.0, min(1.0, float(signal)))
+
+    try:
+        store.reward_memory(memory_id, signal)
+    except Exception as e:
+        logger.exception("cognitive_reward error")
+        return json.dumps({"error": f"Reward failed: {e}"})
+
+    return json.dumps({
+        "rewarded": True,
+        "memory_id": memory_id,
+        "signal": signal,
+    }, ensure_ascii=False)
+
+
 # ── Registration ──────────────────────────────────────────────────────────────
 
 registry.register(
@@ -244,4 +377,22 @@ registry.register(
     handler=_handle_consolidate,
     check_fn=_check_available,
     emoji="🔄",
+)
+
+registry.register(
+    name="cognitive_explore",
+    toolset="cognitive_memory",
+    schema=_EXPLORE_SCHEMA,
+    handler=_handle_explore,
+    check_fn=_check_available,
+    emoji="🔍",
+)
+
+registry.register(
+    name="cognitive_reward",
+    toolset="cognitive_memory",
+    schema=_REWARD_SCHEMA,
+    handler=_handle_reward,
+    check_fn=_check_available,
+    emoji="⭐",
 )
