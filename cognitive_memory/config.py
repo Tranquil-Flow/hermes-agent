@@ -83,6 +83,23 @@ class CognitiveMemoryConfig:
     contradiction_llm_model: Optional[str] = None
     """Model for LLM-assisted contradiction detection. None = use embedding-only."""
 
+    # --- RRF Fusion (BM25 keyword signal + score-weighted Reciprocal Rank Fusion) ---
+    enable_rrf_fusion: bool = False
+    """Enable BM25 keyword scoring + score-weighted RRF fusion in recall().
+    Fuses activation score and BM25 term-frequency signal to improve recall
+    precision. Disable to revert to raw activation-only scoring."""
+
+    rrf_k: int = 60
+    """RRF rank constant. Higher values reduce the impact of rank differences.
+    Standard value from the RRF literature (Cormack et al. 2009)."""
+
+    rrf_activation_weight: float = 0.85
+    """Weight applied to the activation (semantic/ACT-R) signal in RRF fusion."""
+
+    rrf_keyword_weight: float = 0.15
+    """Weight applied to the BM25 keyword signal in RRF fusion.
+    Lower values prevent BM25 from overriding temporal/importance signals."""
+
     # --- Dampening Pipeline (ported from Ori-Mnemos dampening.ts) ---
     enable_dampening: bool = True
     """Enable post-scoring dampening pipeline (gravity, hub, resolution boost).

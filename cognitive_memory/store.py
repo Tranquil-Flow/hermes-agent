@@ -225,6 +225,43 @@ class CognitiveMemoryStore:
                 components=components,
             ))
 
+        # --- BM25 keyword signal + RRF fusion ---
+        # Fuse activation score with BM25 keyword score via score-weighted
+        # Reciprocal Rank Fusion before dampening. This adds a complementary
+        # term-frequency signal to the embedding-based activation score.
+        if self._config.enable_rrf_fusion and scored:
+            from cognitive_memory.keyword_scoring import compute_bm25_scores
+            docs = [item.entry.content for item in scored]
+            bm25_scores = compute_bm25_scores(query, docs)
+
+            # Rank by activation (current order, before sort)
+            act_order = sorted(range(len(scored)), key=lambda i: scored[i].score, reverse=True)
+            act_rank = {idx: rank for rank, idx in enumerate(act_order)}
+
+            # Rank by BM25
+            bm25_order = sorted(range(len(scored)), key=lambda i: bm25_scores[i], reverse=True)
+            bm25_rank = {idx: rank for rank, idx in enumerate(bm25_order)}
+
+            k_rrf = self._config.rrf_k
+            w_act = self._config.rrf_activation_weight
+            w_kw = self._config.rrf_keyword_weight
+
+            for i, item in enumerate(scored):
+                act_score = item.score
+                bm25_sc = bm25_scores[i]
+                r_act = act_rank[i]
+                r_bm25 = bm25_rank[i]
+
+                # Score-weighted RRF: raw score * rank discount
+                rrf = (
+                    w_act * act_score / (k_rrf + r_act + 1)
+                    + w_kw * bm25_sc / (k_rrf + r_bm25 + 1)
+                )
+
+                item.components['bm25_score'] = bm25_sc
+                item.components['activation_score'] = act_score
+                item.score = rrf
+
         # Sort by score, apply dampening pipeline, then take top-K
         scored.sort(key=lambda s: s.score, reverse=True)
         scored = self._apply_dampening(scored, query)  # dampening pipeline (Ori-Mnemos)
