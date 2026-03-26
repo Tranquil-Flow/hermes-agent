@@ -1,0 +1,54 @@
+[
+  {
+    "question_id": "test_001",
+    "question_type": "single-session-user",
+    "question": "What is my favorite color?",
+    "answer": "blue",
+    "question_date": "2024-01-10",
+    "haystack_dates": ["2024-01-01"],
+    "haystack_session_ids": ["session_001"],
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "My favorite color is blue."},
+        {"role": "assistant", "content": "I noted that your favorite color is blue."}
+      ]
+    ],
+    "answer_session_ids": ["session_001"]
+  },
+  {
+    "question_id": "test_002",
+    "question_type": "single-session-preference",
+    "question": "What kind of food do I like?",
+    "answer": "pizza",
+    "question_date": "2024-01-10",
+    "haystack_dates": ["2024-01-02"],
+    "haystack_session_ids": ["session_002"],
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "I really love eating pizza."},
+        {"role": "assistant", "content": "Pizza is a great choice!"}
+      ]
+    ],
+    "answer_session_ids": ["session_002"]
+  },
+  {
+    "question_id": "test_003",
+    "question_type": "multi-session",
+    "question": "Where do I work?",
+    "answer": "Acme Corp",
+    "question_date": "2024-01-10",
+    "haystack_dates": ["2024-01-03", "2024-01-04"],
+    "haystack_session_ids": ["session_003", "session_004"],
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "I work at Acme Corp as a software engineer."},
+        {"role": "assistant", "content": "That sounds great!"}
+      ],
+      [
+        {"role": "user", "content": "My office is in downtown."},
+        {"role": "assistant", "content": "Nice location!"}
+      ]
+    ],
+    "answer_session_ids": ["session_003"]
+  }
+]

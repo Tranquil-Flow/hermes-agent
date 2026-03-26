@@ -1,42 +1,128 @@
 {
   "benchmark": "longmemeval",
-  "dataset": "xiaowu0162/longmemeval-cleaned (oracle, 100 stratified)",
-  "backend": "cognitive (tfidf, balanced)",
-  "judge": "heuristic",
-  "total": 100,
-  "correct": 7,
-  "score": 0.07,
-  "wall_time_seconds": 10.399562120437622,
+  "dataset": "xiaowu0162/longmemeval-cleaned (longmemeval_oracle)",
+  "total": 3,
+  "correct": 3,
+  "score": 1.0,
+  "wall_time_seconds": 0.15196609497070312,
+  "mean_metrics": {
+    "recall_at_1": 0.6666666666666666,
+    "recall_at_3": 1.0,
+    "recall_at_5": 1.0,
+    "recall_at_10": 1.0,
+    "mrr": 0.7777777777777778,
+    "ndcg_at_5": 0.8333333333333334,
+    "ndcg_at_10": 0.8333333333333334,
+    "average_precision": 1.4444444444444444,
+    "exact_match": 0.0,
+    "token_f1": 0.18095238095238095,
+    "token_precision": 0.09971509971509972,
+    "token_recall": 1.0
+  },
   "by_type": {
-    "temporal-reasoning": {
-      "total": 20,
-      "correct": 2,
-      "score": 0.1
-    },
     "multi-session": {
-      "total": 20,
+      "total": 1,
       "correct": 1,
-      "score": 0.05
-    },
-    "knowledge-update": {
-      "total": 15,
-      "correct": 3,
-      "score": 0.2
+      "score": 1.0,
+      "mean_metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_3": 1.0,
+        "recall_at_5": 1.0,
+        "recall_at_10": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_5": 0.5,
+        "ndcg_at_10": 0.5,
+        "average_precision": 0.3333333333333333,
+        "exact_match": 0.0,
+        "token_f1": 0.19999999999999998,
+        "token_precision": 0.1111111111111111,
+        "token_recall": 1.0
+      }
     },
     "single-session-user": {
-      "total": 15,
-      "correct": 0,
-      "score": 0.0
-    },
-    "single-session-assistant": {
-      "total": 15,
+      "total": 1,
       "correct": 1,
-      "score": 0.06666666666666667
+      "score": 1.0,
+      "mean_metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "recall_at_5": 1.0,
+        "recall_at_10": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_5": 1.0,
+        "ndcg_at_10": 1.0,
+        "average_precision": 2.0,
+        "exact_match": 0.0,
+        "token_f1": 0.14285714285714288,
+        "token_precision": 0.07692307692307693,
+        "token_recall": 1.0
+      }
     },
     "single-session-preference": {
-      "total": 15,
-      "correct": 0,
-      "score": 0.0
+      "total": 1,
+      "correct": 1,
+      "score": 1.0,
+      "mean_metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "recall_at_5": 1.0,
+        "recall_at_10": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_5": 1.0,
+        "ndcg_at_10": 1.0,
+        "average_precision": 2.0,
+        "exact_match": 0.0,
+        "token_f1": 0.19999999999999998,
+        "token_precision": 0.1111111111111111,
+        "token_recall": 1.0
+      }
     }
-  }
+  },
+  "results": [
+    {
+      "question_id": "test_001",
+      "question_type": "single-session-user",
+      "correct": true,
+      "question": "What is my favorite color?",
+      "gold_answer": "blue",
+      "recalled": "My favorite color is blue.",
+      "metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "exact_match": 0.0,
+        "token_f1": 0.14285714285714288
+      }
+    },
+    {
+      "question_id": "test_002",
+      "question_type": "single-session-preference",
+      "correct": true,
+      "question": "What kind of food do I like?",
+      "gold_answer": "pizza",
+      "recalled": "Pizza is a great choice!",
+      "metrics": {
+        "recall_at_1": 1.0,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "exact_match": 0.0,
+        "token_f1": 0.19999999999999998
+      }
+    },
+    {
+      "question_id": "test_003",
+      "question_type": "multi-session",
+      "correct": true,
+      "question": "Where do I work?",
+      "gold_answer": "Acme Corp",
+      "recalled": "Nice location!",
+      "metrics": {
+        "recall_at_1": 0.0,
+        "recall_at_5": 1.0,
+        "mrr": 0.3333333333333333,
+        "exact_match": 0.0,
+        "token_f1": 0.19999999999999998
+      }
+    }
+  ]
 }

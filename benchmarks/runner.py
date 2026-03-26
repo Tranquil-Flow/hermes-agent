@@ -18,6 +18,7 @@ from benchmarks.interface import (
 )
 from benchmarks.judge import MemoryJudge, HeuristicJudge
 from benchmarks.statistical import aggregate_results, compare_runs
+from benchmarks.metrics import compute_metric_suite, token_f1, exact_match, recall_at_k, mrr
 
 
 # --- Backend Registry ---
@@ -64,6 +65,29 @@ def count_recall_tokens(results: list) -> tuple:
     total_chars = sum(len(r) for r in results)
     total_tokens = sum(estimate_tokens(r) for r in results)
     return total_tokens, total_chars
+
+
+def compute_scenario_metrics(results: list, gold_answer: str, query: str = "") -> dict:
+    """Compute retrieval and answer metrics for a single scenario.
+
+    Args:
+        results: List of recalled memory strings (ranked by relevance)
+        gold_answer: The expected answer
+        query: The query used (for reference only)
+
+    Returns:
+        Dict with metric values
+    """
+    actual = results[0] if results else ""
+    # For retrieval metrics, the 'relevant' set is the gold answer
+    relevant = [gold_answer]
+
+    return compute_metric_suite(
+        retrieved=results,
+        relevant=relevant,
+        gold_answer=gold_answer,
+        predicted_answer=actual,
+    )
 
 
 # --- Fixture Loading ---
@@ -114,6 +138,8 @@ def run_semantic_recall(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     # Sub-scores by difficulty
     sub_scores = {}
@@ -121,6 +147,14 @@ def run_semantic_recall(backend: BenchmarkableStore, scenarios: list,
         subset = [d for d in details if d["difficulty"] == diff]
         if subset:
             sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="semantic_recall",
@@ -131,6 +165,7 @@ def run_semantic_recall(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -207,6 +242,16 @@ def run_contradictions(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="contradictions",
@@ -216,6 +261,7 @@ def run_contradictions(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -274,12 +320,22 @@ def run_temporal_decay(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     sub_scores = {}
     for diff in ["easy", "medium", "hard"]:
         subset = [d for d in details if d["difficulty"] == diff]
         if subset:
             sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="temporal_decay",
@@ -290,6 +346,7 @@ def run_temporal_decay(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -325,12 +382,22 @@ def run_cross_reference(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     sub_scores = {}
     for diff in ["easy", "medium", "hard"]:
         subset = [d for d in details if d["difficulty"] == diff]
         if subset:
             sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="cross_reference",
@@ -341,6 +408,7 @@ def run_cross_reference(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -381,12 +449,22 @@ def run_importance_filtering(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     sub_scores = {}
     for diff in ["easy", "medium", "hard"]:
         subset = [d for d in details if d["difficulty"] == diff]
         if subset:
             sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="importance_filtering",
@@ -397,6 +475,7 @@ def run_importance_filtering(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -454,6 +533,8 @@ def run_consolidation(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     # Sub-scores: core (frequently accessed) vs archive (never accessed)
     sub_scores = {}
@@ -461,6 +542,14 @@ def run_consolidation(backend: BenchmarkableStore, scenarios: list,
         subset = [d for d in details if d["expects_layer"] == layer]
         if subset:
             sub_scores[layer] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="consolidation",
@@ -471,6 +560,7 @@ def run_consolidation(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -525,6 +615,16 @@ def run_compression(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="compression",
@@ -534,6 +634,7 @@ def run_compression(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -592,6 +693,8 @@ def run_scopes(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     # Sub-scores: answer correctness vs leak prevention
     sub_scores = {
@@ -605,6 +708,14 @@ def run_scopes(backend: BenchmarkableStore, scenarios: list,
         ),
     }
 
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
     return CategoryResult(
         category="scopes",
         total=len(scenarios),
@@ -614,6 +725,7 @@ def run_scopes(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -680,6 +792,8 @@ def run_adversarial(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     # Sub-scores by adversarial type
     sub_scores = {}
@@ -693,6 +807,14 @@ def run_adversarial(backend: BenchmarkableStore, scenarios: list,
     if blockable:
         sub_scores["block_rate"] = sum(1 for d in blockable if d["blocked_ok"]) / len(blockable)
 
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
     return CategoryResult(
         category="adversarial",
         total=len(scenarios),
@@ -702,6 +824,7 @@ def run_adversarial(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -780,12 +903,22 @@ def run_scale(backend: BenchmarkableStore, scenarios: list,
             "actual": actual,
             "gold": sc["gold_answer"],
         })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     sub_scores = {}
     for diff in ["easy", "medium", "hard"]:
         subset = [d for d in details if d["difficulty"] == diff]
         if subset:
             sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="scale",
@@ -796,6 +929,7 @@ def run_scale(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -873,12 +1007,24 @@ def run_integration(backend: BenchmarkableStore, scenarios: list,
             "recalls": recall_results_log,
             "gold": sc["gold_answer"],
         })
+        # Use the last recall step's results list for metrics; fall back to top_result string
+        last_results = ([final_recall["top_result"]] if final_recall.get("top_result") else [])
+        scenario_metrics = compute_scenario_metrics(last_results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
 
     sub_scores = {}
     for diff in ["easy", "medium", "hard"]:
         subset = [d for d in details if d["difficulty"] == diff]
         if subset:
             sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    # Aggregate retrieval metrics
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
 
     return CategoryResult(
         category="integration",
@@ -889,6 +1035,7 @@ def run_integration(backend: BenchmarkableStore, scenarios: list,
         details=details,
         recall_tokens=total_recall_tokens,
         recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
     )
 
 
@@ -971,7 +1118,20 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
     total_recall_chars = sum(c.recall_chars for c in results_by_cat.values())
     num_queries = total_items
 
-    return RunResult(
+    # Aggregate retrieval metrics across categories
+    all_cat_metrics = {}
+    metric_counts = {}
+    for cat_name, cat_result in results_by_cat.items():
+        for metric_name, value in cat_result.retrieval_metrics.items():
+            if metric_name not in all_cat_metrics:
+                all_cat_metrics[metric_name] = 0.0
+                metric_counts[metric_name] = 0
+            all_cat_metrics[metric_name] += value
+            metric_counts[metric_name] += 1
+
+    avg_metrics = {k: v / metric_counts[k] for k, v in all_cat_metrics.items()}
+
+    run_result = RunResult(
         seed=seed,
         results_by_category=results_by_cat,
         overall_score=overall,
@@ -983,6 +1143,8 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
         },
         wall_time_seconds=elapsed,
     )
+    run_result.retrieval_metrics = avg_metrics
+    return run_result
 
 
 def run_benchmark(config: BenchmarkConfig) -> tuple:
@@ -1025,6 +1187,20 @@ def print_results(agg: AggregateResult, config: BenchmarkConfig,
         print(f"  Token cost (avg per run):")
         print(f"    Recall tokens/query:  ~{avg_tokens}")
         print(f"    Total recall tokens:  ~{total_tokens} ({total_queries} queries)")
+    # Retrieval metrics summary
+    if runs:
+        all_run_metrics = [r.retrieval_metrics for r in runs if hasattr(r, "retrieval_metrics") and r.retrieval_metrics]
+        if all_run_metrics:
+            avg_rm = {}
+            for key in all_run_metrics[0]:
+                values = [m[key] for m in all_run_metrics if key in m]
+                avg_rm[key] = sum(values) / len(values) if values else 0.0
+            print(f"{'─'*60}")
+            print(f"  Retrieval Metrics (averaged):")
+            print(f"    Recall@1:  {avg_rm.get('recall_at_1', 0):.3f}")
+            print(f"    Recall@5:  {avg_rm.get('recall_at_5', 0):.3f}")
+            print(f"    MRR:       {avg_rm.get('mrr', 0):.3f}")
+            print(f"    Token F1:  {avg_rm.get('token_f1', 0):.3f}")
     print(f"{'='*60}\n")
 
 
@@ -1088,6 +1264,13 @@ def main():
     agg, runs = run_benchmark(config)
 
     if args.json:
+        # Compute avg retrieval metrics across runs for JSON output
+        all_run_rm = [r.retrieval_metrics for r in runs if hasattr(r, "retrieval_metrics") and r.retrieval_metrics]
+        avg_retrieval_metrics_json = {}
+        if all_run_rm:
+            for key in all_run_rm[0]:
+                vals = [m[key] for m in all_run_rm if key in m]
+                avg_retrieval_metrics_json[key] = sum(vals) / len(vals) if vals else 0.0
         results_dict = {
             "backend": config.backend_name,
             "mean_score": agg.mean_score,
@@ -1095,6 +1278,7 @@ def main():
             "ci_95": [agg.ci_95_lower, agg.ci_95_upper],
             "per_category": agg.per_category_mean,
             "num_runs": agg.num_runs,
+            "retrieval_metrics": avg_retrieval_metrics_json,
         }
         print(json.dumps(results_dict, indent=2))
     else:
@@ -1104,6 +1288,14 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     result_file = output_dir / f"{config.backend_name}.json"
+    # Compute avg retrieval metrics for file output (may already be done above)
+    all_run_rm_file = [r.retrieval_metrics for r in runs if hasattr(r, "retrieval_metrics") and r.retrieval_metrics]
+    avg_rm_file = {}
+    if all_run_rm_file:
+        for key in all_run_rm_file[0]:
+            vals = [m[key] for m in all_run_rm_file if key in m]
+            avg_rm_file[key] = sum(vals) / len(vals) if vals else 0.0
+
     with open(result_file, "w") as f:
         json.dump({
             "backend": config.backend_name,
@@ -1115,16 +1307,19 @@ def main():
             "per_category_mean": agg.per_category_mean,
             "per_category_std": agg.per_category_std,
             "num_runs": agg.num_runs,
+            "retrieval_metrics": avg_rm_file,
             "runs": [
                 {
                     "seed": r.seed,
                     "overall_score": r.overall_score,
                     "wall_time_seconds": r.wall_time_seconds,
                     "token_usage": r.token_usage,
+                    "retrieval_metrics": getattr(r, "retrieval_metrics", {}),
                     "categories": {
                         cat: {
                             "score": cr.score, "correct": cr.correct, "total": cr.total,
                             "recall_tokens": cr.recall_tokens, "recall_chars": cr.recall_chars,
+                            "retrieval_metrics": cr.retrieval_metrics,
                         }
                         for cat, cr in r.results_by_category.items()
                     },

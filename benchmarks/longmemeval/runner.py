@@ -33,7 +33,7 @@ from benchmarks.longmemeval.adapter import (
 )
 
 
-def print_summary(summary: LongMemSummary, elapsed: float) -> None:
+def print_summary(summary: LongMemSummary, elapsed: float, stratified: bool = False) -> None:
     """Print a formatted results table."""
     print(f"\n{'='*60}")
     print(f"  LONGMEMEVAL RESULTS")
@@ -49,12 +49,39 @@ def print_summary(summary: LongMemSummary, elapsed: float) -> None:
         print(
             f"  {qtype:<30} {stats['total']:>5} {stats['score']:>8.3f}"
         )
+
+    # Print overall retrieval metrics
+    if summary.mean_metrics:
+        m = summary.mean_metrics
+        print(f"{'─'*60}")
+        print(f"  Retrieval Metrics:")
+        print(f"    Recall@1:   {m.get('recall_at_1', 0.0):.3f}")
+        print(f"    Recall@5:   {m.get('recall_at_5', 0.0):.3f}")
+        print(f"    MRR:        {m.get('mrr', 0.0):.3f}")
+        print(f"    Token F1:   {m.get('token_f1', 0.0):.3f}")
+
+    # Print per-type metrics breakdown if --stratified
+    if stratified and summary.by_type:
+        print(f"{'─'*60}")
+        print(f"  Per-Type Retrieval Metrics:")
+        print(f"  {'Question Type':<30} {'R@1':>6} {'R@5':>6} {'MRR':>6} {'TF1':>6}")
+        print(f"  {'─'*30} {'─'*6} {'─'*6} {'─'*6} {'─'*6}")
+        for qtype, stats in sorted(summary.by_type.items(), key=lambda x: -x[1]["score"]):
+            tm = stats.get("mean_metrics", {})
+            r1 = tm.get("recall_at_1", 0.0)
+            r5 = tm.get("recall_at_5", 0.0)
+            m_mrr = tm.get("mrr", 0.0)
+            tf1 = tm.get("token_f1", 0.0)
+            print(f"  {qtype:<30} {r1:>6.3f} {r5:>6.3f} {m_mrr:>6.3f} {tf1:>6.3f}")
+
     print(f"{'='*60}\n")
 
 
 def save_results(summary: LongMemSummary, output_path: Path, elapsed: float) -> None:
     """Save results to a JSON file."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    _METRIC_SUBSET = {"recall_at_1", "recall_at_5", "mrr", "token_f1", "exact_match"}
 
     data = {
         "benchmark": "longmemeval",
@@ -63,6 +90,7 @@ def save_results(summary: LongMemSummary, output_path: Path, elapsed: float) -> 
         "correct": summary.correct,
         "score": summary.score,
         "wall_time_seconds": elapsed,
+        "mean_metrics": summary.mean_metrics,
         "by_type": summary.by_type,
         "results": [
             {
@@ -72,6 +100,7 @@ def save_results(summary: LongMemSummary, output_path: Path, elapsed: float) -> 
                 "question": r.question,
                 "gold_answer": r.gold_answer,
                 "recalled": r.recalled[:200] if r.recalled else "",
+                "metrics": {k: v for k, v in r.metrics.items() if k in _METRIC_SUBSET},
             }
             for r in summary.results
         ],
@@ -126,6 +155,10 @@ def main() -> None:
     parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Print per-question results",
+    )
+    parser.add_argument(
+        "--stratified", action="store_true",
+        help="Print per-type retrieval metrics breakdown in summary",
     )
     parser.add_argument(
         "--top-k", type=int, default=10,
@@ -184,11 +217,12 @@ def main() -> None:
             "total": summary.total,
             "correct": summary.correct,
             "score": summary.score,
+            "mean_metrics": summary.mean_metrics,
             "by_type": summary.by_type,
         }
         print(json.dumps(result_dict, indent=2))
     else:
-        print_summary(summary, elapsed)
+        print_summary(summary, elapsed, stratified=args.stratified)
 
     output_path = Path(args.output)
     save_results(summary, output_path, elapsed)

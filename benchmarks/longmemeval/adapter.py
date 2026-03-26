@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from benchmarks.metrics import compute_metric_suite, token_f1
+
 logger = logging.getLogger(__name__)
 
 # ── Constants ──
@@ -78,6 +80,7 @@ class LongMemResult:
     context: str         # all recalled memories joined
     correct: bool
     recall_count: int    # number of facts recalled
+    metrics: dict = field(default_factory=dict)  # per-question metrics
 
 
 @dataclass
@@ -89,6 +92,7 @@ class LongMemSummary:
     score: float
     by_type: dict[str, dict[str, Any]] = field(default_factory=dict)
     results: list[LongMemResult] = field(default_factory=list)
+    mean_metrics: dict = field(default_factory=dict)
 
 
 # ── Dataset loading ──
@@ -267,6 +271,13 @@ def evaluate_question(
 
     jr = judge.judge_answer(question.question, question.answer, context)
 
+    metrics = compute_metric_suite(
+        retrieved=results[:top_k],
+        relevant=[question.answer],
+        gold_answer=question.answer,
+        predicted_answer=context,
+    )
+
     return LongMemResult(
         question_id=question.question_id,
         question_type=question.question_type,
@@ -276,6 +287,7 @@ def evaluate_question(
         context=context,
         correct=jr.correct,
         recall_count=len(results),
+        metrics=metrics,
     )
 
 
@@ -336,11 +348,26 @@ def run_longmemeval(
         subset = [r for r in results if r.question_type == qtype]
         if subset:
             type_correct = sum(1 for r in subset if r.correct)
+            type_metrics_list = [r.metrics for r in subset if r.metrics]
+            type_mean_metrics: dict[str, float] = {}
+            if type_metrics_list:
+                for key in type_metrics_list[0]:
+                    vals = [m[key] for m in type_metrics_list if key in m]
+                    type_mean_metrics[key] = sum(vals) / len(vals) if vals else 0.0
             by_type[qtype] = {
                 "total": len(subset),
                 "correct": type_correct,
                 "score": type_correct / len(subset),
+                "mean_metrics": type_mean_metrics,
             }
+
+    # Aggregate metrics across all results
+    all_metrics = [r.metrics for r in results if r.metrics]
+    mean_metrics: dict[str, float] = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            mean_metrics[key] = sum(values) / len(values) if values else 0.0
 
     total = len(questions)
     overall_score = correct / total if total > 0 else 0.0
@@ -351,4 +378,5 @@ def run_longmemeval(
         score=overall_score,
         by_type=by_type,
         results=results,
+        mean_metrics=mean_metrics,
     )

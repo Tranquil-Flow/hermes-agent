@@ -1,8 +1,8 @@
 """
 Common interfaces for the benchmark framework.
 
-All memory backends (baseline, builtin cognitive, engram) must implement
-BenchmarkableStore so the benchmark runner can swap them transparently.
+All memory backends must implement BenchmarkableStore so the benchmark runner
+can swap them transparently.
 """
 
 from abc import ABC, abstractmethod
@@ -58,11 +58,34 @@ class BenchmarkableStore(ABC):
 
 @dataclass
 class JudgeResult:
-    """Result from the LLM judge evaluating a single answer."""
+    """Result from the LLM judge evaluating a single answer.
+
+    Fields:
+        correct:      Binary verdict — True if the answer is correct.
+        raw_response: Raw text returned by the judge (LLM output or
+                      heuristic explanation string).
+        question_type: Optional category tag set by the benchmark runner.
+        tokens_used:  LLM tokens consumed for this judgment (0 for
+                      heuristic judge).
+        scores:       Multi-dimensional rubric scores, each in [0.0, 1.0].
+                      Keys produced by MemoryJudge (structured) and
+                      HeuristicJudge:
+                        - "relevance"            : retrieved facts on-topic
+                        - "factual_accuracy"     : facts match gold answer
+                        - "completeness"         : all gold parts covered
+                        - "temporal_correctness" : correct version retrieved
+        confidence:   Judge's confidence in the verdict, in [0.0, 1.0].
+                      Derived from mean rubric score for heuristic judge;
+                      set explicitly by the LLM structured judge.
+        latency_ms:   Wall-clock time (ms) consumed by this judgment.
+    """
     correct: bool
     raw_response: str = ""
     question_type: str = ""
     tokens_used: int = 0
+    scores: Dict[str, float] = field(default_factory=dict)
+    confidence: float = 0.0
+    latency_ms: float = 0.0
 
 
 @dataclass
@@ -78,6 +101,9 @@ class CategoryResult:
     # per-question details for debugging
     recall_tokens: int = 0  # total tokens in recalled memories for this category
     recall_chars: int = 0   # total chars in recalled memories
+    retrieval_metrics: Dict[str, float] = field(default_factory=dict)
+    # retrieval_metrics: aggregated IR metrics for this category,
+    # e.g., {"recall_at_5": 0.82, "mrr": 0.74, "ndcg_at_5": 0.79, ...}
 
 
 @dataclass
@@ -90,6 +116,8 @@ class RunResult:
     # token_usage: {"recall_tokens": N, "recall_chars": N, "judge_tokens": N,
     #               "embed_calls": N, "store_calls": N, "recall_calls": N}
     wall_time_seconds: float = 0.0
+    retrieval_metrics: Dict[str, float] = field(default_factory=dict)
+    # retrieval_metrics: mean IR metrics across all categories in this run
 
 
 @dataclass
@@ -104,6 +132,10 @@ class AggregateResult:
     per_category_std: Dict[str, float] = field(default_factory=dict)
     total_tokens: int = 0
     total_cost_usd: float = 0.0
+    per_category_retrieval_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    # per_category_retrieval_metrics: {category_name: {metric_name: mean_value}}
+    mean_retrieval_metrics: Dict[str, float] = field(default_factory=dict)
+    # mean_retrieval_metrics: {metric_name: mean_value} averaged across all categories
 
 
 @dataclass
