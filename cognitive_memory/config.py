@@ -83,6 +83,23 @@ class CognitiveMemoryConfig:
     contradiction_llm_model: Optional[str] = None
     """Model for LLM-assisted contradiction detection. None = use embedding-only."""
 
+    # --- Dampening Pipeline (ported from Ori-Mnemos dampening.ts) ---
+    enable_dampening: bool = True
+    """Enable post-scoring dampening pipeline (gravity, hub, resolution boost).
+    Validated by ablation testing in Ori-Mnemos. Disable to revert to raw scores."""
+
+    gravity_dampening_factor: float = 0.5
+    """Score multiplier for 'cosine ghosts' — high-similarity but zero term overlap.
+    0.5 = halve their score. Ori-Mnemos default."""
+
+    hub_dampening_max_penalty: float = 0.6
+    """Maximum fractional penalty for hub memories (those with unusually many links).
+    Applied as: penalty = 1.0 - hub_dampening_max_penalty * ratio. Ori-Mnemos default."""
+
+    resolution_boost_factor: float = 1.25
+    """Score multiplier for actionable-knowledge categories (decision, correction,
+    procedural, causal). Boosts signal over passive observations. Ori-Mnemos default."""
+
     def __post_init__(self):
         if not self.db_path:
             hermes_home = os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))

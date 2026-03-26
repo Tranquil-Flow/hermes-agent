@@ -225,8 +225,9 @@ class CognitiveMemoryStore:
                 components=components,
             ))
 
-        # Sort by score, take top-K
+        # Sort by score, apply dampening pipeline, then take top-K
         scored.sort(key=lambda s: s.score, reverse=True)
+        scored = self._apply_dampening(scored, query)  # dampening pipeline (Ori-Mnemos)
         results = scored[:top_k]
 
         # Update access stats for recalled memories
@@ -424,6 +425,101 @@ class CognitiveMemoryStore:
                 score += 0.25
 
         return min(score, 1.0)
+
+    def _apply_dampening(
+        self, scored: List[ScoredMemory], query: str
+    ) -> List[ScoredMemory]:
+        """
+        Post-scoring dampening pipeline ported from Ori-Mnemos (dampening.ts).
+
+        Runs three sequential adjustments validated by ablation testing:
+          1. Gravity dampening  — penalises cosine ghosts (high similarity, zero
+             term overlap with the query).
+          2. Hub dampening      — penalises memories with an unusually high number
+             of outgoing links (hub nodes match everything, reduce their influence).
+          3. Resolution boost   — promotes memories whose category encodes
+             actionable knowledge (decision, correction, procedural, causal).
+
+        Only executes when self._config.enable_dampening is True.
+        All penalty/boost factors are driven by config so they can be tuned
+        without touching code.
+
+        Args:
+            scored: Sorted list of ScoredMemory (highest score first).
+            query:  The original recall query string.
+
+        Returns:
+            Re-sorted list after dampening adjustments.
+        """
+        cfg = self._config
+        if not cfg.enable_dampening or not scored:
+            return scored
+
+        # ── 1. GRAVITY DAMPENING ────────────────────────────────────────────
+        # Halve the score of memories that have high cosine similarity to the
+        # query embedding but zero actual term overlap. These are "cosine
+        # ghosts" — semantically adjacent embeddings that don't share any
+        # concrete vocabulary with the query.
+        STOP_WORDS = {
+            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'with', 'and',
+            'or', 'for', 'in', 'on', 'at', 'to', 'of', 'it', 'its', 'by',
+            'as', 'that', 'this', 'from', 'has', 'have', 'be', 'been',
+            'what', 'how', 'where', 'when', 'which', 'who', 'do', 'does',
+            'did', 'not', 'but', 'so', 'if',
+        }
+        query_terms = set(query.lower().split()) - STOP_WORDS
+
+        max_score = scored[0].score if scored else 0.0
+        if max_score > 0 and query_terms:
+            for item in scored:
+                if item.score > 0.3 * max_score:
+                    memory_terms = set(item.entry.content.lower().split()) - STOP_WORDS
+                    if not query_terms & memory_terms:  # zero term overlap
+                        pre = item.score
+                        item.score *= cfg.gravity_dampening_factor
+                        item.components['gravity_dampening'] = item.score - pre  # negative
+
+        # ── 2. HUB DAMPENING ────────────────────────────────────────────────
+        # Memories with an unusually high number of outgoing links (hubs) tend
+        # to appear in recall for almost any query. Penalise them proportionally
+        # to how far above the 90th-percentile their degree is.
+        all_links = self._backend.get_all_links()
+        link_counts: Dict[str, int] = {}
+        for item in scored:
+            link_counts[item.entry.id] = 0
+        for link in all_links:
+            if link.source_id in link_counts:
+                link_counts[link.source_id] = link_counts.get(link.source_id, 0) + 1
+
+        if link_counts:
+            counts = sorted(link_counts.values())
+            p90_idx = int(len(counts) * 0.9)
+            p90 = counts[p90_idx] if p90_idx < len(counts) else counts[-1]
+            max_count = counts[-1] if counts else 0
+
+            if p90 > 0 and max_count > p90:
+                for item in scored:
+                    degree = link_counts.get(item.entry.id, 0)
+                    if degree > p90:
+                        ratio = (degree - p90) / (max_count - p90)
+                        penalty = 1.0 - cfg.hub_dampening_max_penalty * ratio
+                        penalty = max(0.2, penalty)
+                        item.score *= penalty
+                        item.components['hub_dampening'] = penalty
+
+        # ── 3. RESOLUTION BOOST ─────────────────────────────────────────────
+        # Boost memories whose category encodes actionable knowledge. These
+        # categories represent the outcome of reasoning or experience and are
+        # more useful than passive observations with the same raw score.
+        BOOST_CATEGORIES = {'decision', 'correction', 'procedural', 'causal'}
+        for item in scored:
+            if item.entry.category in BOOST_CATEGORIES:
+                item.score *= cfg.resolution_boost_factor
+                item.components['resolution_boost'] = cfg.resolution_boost_factor
+
+        # Re-sort after adjustments
+        scored.sort(key=lambda s: s.score, reverse=True)
+        return scored
 
     def _build_link_map_and_embeddings(
         self, memories: List[MemoryEntry]
