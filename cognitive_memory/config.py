@@ -26,7 +26,7 @@ class CognitiveMemoryConfig:
     """Weight of importance score in activation. Optimized from grid search:
     w=0.4 scores 83.0% vs w=0.2 at 79.5% on Suite A. Plateaus above 0.4."""
 
-    hebbian_learning_rate: float = 0.05
+    hebbian_learning_rate: float = 0.12
     """How fast co-activation strengthens Hebbian links. η in ΔW = η × aᵢ × aⱼ."""
 
     # --- Thresholds ---
@@ -140,7 +140,7 @@ class CognitiveMemoryConfig:
     """Score multiplier for 'cosine ghosts' — high-similarity but zero term overlap.
     0.5 = halve their score. Ori-Mnemos default."""
 
-    hub_dampening_max_penalty: float = 0.6
+    hub_dampening_max_penalty: float = 0.3
     """Maximum fractional penalty for hub memories (those with unusually many links).
     Applied as: penalty = 1.0 - hub_dampening_max_penalty * ratio. Ori-Mnemos default."""
 
