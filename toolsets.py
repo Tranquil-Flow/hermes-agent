@@ -183,6 +183,20 @@ TOOLSETS = {
         "tools": ["clarify"],
         "includes": []
     },
+
+    "structured_memory": {
+        "description": "Typed structured fact store with FTS5 search, scope lifecycle, and automatic gauge-based pressure management (C/D/V/?/\u2713/~ notation)",
+        "tools": [
+            "mcp_memory_write",
+            "mcp_memory_search",
+            "mcp_memory_reflect",
+            "mcp_memory_export",
+            "mcp_memory_purge",
+            "mcp_memory_optimize",
+            "mcp_memory_gauge",
+        ],
+        "includes": []
+    },
     
     "code_execution": {
         "description": "Run Python scripts that call tools programmatically (reduces LLM round trips)",

@@ -159,6 +159,7 @@ def _discover_tools():
         "tools.honcho_tools",
         "tools.homeassistant_tool",
         "tools.cognitive_memory_tool",
+        "tools.structured_memory_tool",
     ]
     import importlib
     for mod_name in _modules:

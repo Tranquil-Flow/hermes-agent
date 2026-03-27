@@ -2369,6 +2369,17 @@ class AIAgent:
         if tool_guidance:
             prompt_parts.append(" ".join(tool_guidance))
 
+        # Structured memory: inject gauge + hot facts into system prompt.
+        # Only when the toolset is active. Zero cost if DB is empty.
+        if "mcp_memory_write" in self.valid_tool_names:
+            try:
+                from tools.structured_memory_tool import get_structured_memory_injection
+                sm_block = get_structured_memory_injection(session_id=self._session_id)
+                if sm_block:
+                    prompt_parts.append(sm_block)
+            except Exception:
+                pass
+
         # Honcho CLI awareness: tell Hermes about its own management commands
         # so it can refer the user to them rather than reinventing answers.
         if self._honcho and self._honcho_session_key:
@@ -5673,6 +5684,19 @@ class AIAgent:
         
         # Track user turns for memory flush and periodic nudge logic
         self._user_turn_count += 1
+
+        # Structured memory: advance turn counter and trigger scope auto-cooling.
+        # Runs silently — never blocks the agent loop.
+        if "mcp_memory_write" in self.valid_tool_names:
+            try:
+                from tools.structured_memory_tool import tick_structured_memory
+                tick_structured_memory(
+                    turn=self._user_turn_count,
+                    message_text=user_message or "",
+                    session_id=self._session_id,
+                )
+            except Exception:
+                pass
 
         # Preserve the original user message (no nudge injection).
         # Honcho should receive the actual user input, not system nudges.
