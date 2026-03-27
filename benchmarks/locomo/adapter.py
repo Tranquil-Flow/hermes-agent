@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from benchmarks.metrics import compute_metric_suite
+from cognitive_memory.ingestion import ingest_raw, ingest_chunked, ingest_summarized
 
 logger = logging.getLogger(__name__)
 
@@ -296,10 +297,35 @@ def load_locomo_dataset(
 # ── Ingestion ──
 
 
+def _normalize_locomo_turns(session_turns: list[dict], evidence_set: set[str]) -> list[dict]:
+    """Normalize LoCoMo turn format to ingestion module format.
+
+    LoCoMo turns have {speaker, dia_id, text}; ingestion expects {role, content, speaker}.
+    """
+    normalized = []
+    for turn in session_turns:
+        text = turn.get("text", "").strip()
+        if not text:
+            continue
+        speaker = turn.get("speaker", "")
+        dia_id = turn.get("dia_id", "")
+        # LoCoMo doesn't distinguish user/assistant roles — treat all as "user"
+        normalized.append({
+            "role": "user",
+            "content": text,
+            "speaker": speaker,
+            "dia_id": dia_id,
+            "_is_evidence": dia_id in evidence_set,
+        })
+    return normalized
+
+
 def ingest_conversation_into_store(
     store: Any,
     conversation_sessions: list[list[dict]],
     evidence_refs: list[str] | None = None,
+    ingest_strategy: str = "raw",
+    llm_fn=None,
 ) -> int:
     """
     Ingest conversation sessions into a CognitiveMemoryStore.
@@ -317,6 +343,8 @@ def ingest_conversation_into_store(
             with keys {speaker, dia_id, text}.
         evidence_refs: List of dia_id strings that are evidence for questions
             (e.g. ['D1:3', 'D2:7']). Turns matching these get higher importance.
+        ingest_strategy: One of 'raw', 'chunk', 'summarize'.
+        llm_fn: Optional callable(prompt) -> str for 'summarize' strategy.
 
     Returns:
         Total number of memories stored.
@@ -324,6 +352,29 @@ def ingest_conversation_into_store(
     evidence_set: set[str] = set(evidence_refs) if evidence_refs else set()
     count = 0
 
+    if ingest_strategy in ("chunk", "summarize"):
+        for session_idx, session_turns in enumerate(conversation_sessions):
+            # Normalize LoCoMo turns (text -> content) for the ingestion module
+            turns = _normalize_locomo_turns(session_turns, evidence_set)
+
+            def importance_fn(role, content, _turns=turns):
+                # Find the matching turn to check evidence flag
+                for t in _turns:
+                    if t["content"] == content:
+                        return 0.8 if t["_is_evidence"] else 0.5
+                return 0.5
+
+            if ingest_strategy == "chunk":
+                count += ingest_chunked(turns, store, importance_fn=importance_fn)
+            else:
+                count += ingest_summarized(turns, store, llm_fn=llm_fn)
+
+            if session_idx < len(conversation_sessions) - 1:
+                store.simulate_time(1)
+
+        return count
+
+    # Default: raw strategy (original behavior, preserve speaker prefix)
     for session_idx, session_turns in enumerate(conversation_sessions):
         for turn in session_turns:
             dia_id = turn.get("dia_id", "")
@@ -416,6 +467,8 @@ def run_locomo(
     top_k: int = 10,
     verbose: bool = False,
     explore: bool = False,
+    ingest_strategy: str = "raw",
+    llm_fn=None,
 ) -> LoCoMoSummary:
     """
     Run LoCoMo evaluation on a list of questions.
@@ -458,6 +511,8 @@ def run_locomo(
             store,
             question.conversation_sessions,
             evidence_refs=question.evidence,
+            ingest_strategy=ingest_strategy,
+            llm_fn=llm_fn,
         )
 
         result = evaluate_question(store, question, judge, top_k=top_k, explore=explore)

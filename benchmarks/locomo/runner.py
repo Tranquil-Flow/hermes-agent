@@ -178,6 +178,10 @@ def main() -> None:
         "--explore", action="store_true",
         help="Use explore() (PPR graph walk) instead of recall() for retrieval",
     )
+    parser.add_argument(
+        "--ingest", default="raw", choices=["raw", "chunk", "summarize"],
+        help="Ingestion strategy: raw (default), chunk (semantic grouping), summarize (LLM facts)",
+    )
 
     args = parser.parse_args()
 
@@ -220,6 +224,7 @@ def main() -> None:
     print(f"  Judge:   {args.judge_model}")
     print(f"  top_k:   {args.top_k}")
     print(f"  Mode:    {'explore (PPR graph walk)' if args.explore else 'recall (default)'}")
+    print(f"  Ingest:  {args.ingest}")
     print()
 
     start = time.time()
@@ -230,6 +235,7 @@ def main() -> None:
         top_k=args.top_k,
         verbose=args.verbose,
         explore=args.explore,
+        ingest_strategy=args.ingest,
     )
     elapsed = time.time() - start
 

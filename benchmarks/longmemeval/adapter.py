@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from benchmarks.metrics import compute_metric_suite, token_f1
+from cognitive_memory.ingestion import ingest_raw, ingest_chunked, ingest_summarized
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,8 @@ def load_longmemeval_local(
 def ingest_sessions_into_store(
     store: Any,
     question: LongMemQuestion,
+    ingest_strategy: str = "raw",
+    llm_fn=None,
 ) -> int:
     """
     Ingest all haystack sessions for a question into a CognitiveMemoryStore.
@@ -203,11 +206,12 @@ def ingest_sessions_into_store(
     Args:
         store: A CognitiveBenchmarkAdapter (reset() should already be called).
         question: The question whose haystack we're ingesting.
+        ingest_strategy: One of 'raw', 'chunk', 'summarize'.
+        llm_fn: Optional callable(prompt) -> str for 'summarize' strategy.
 
     Returns:
         Total number of memories stored.
     """
-    count = 0
     answer_session_ids = set(question.answer_session_ids)
 
     # Process sessions oldest first (haystack_dates is in chronological order)
@@ -216,6 +220,32 @@ def ingest_sessions_into_store(
         question.haystack_sessions,
     ))
 
+    if ingest_strategy in ("chunk", "summarize"):
+        # Flatten all sessions into a single turns list with gaps simulated after each session
+        count = 0
+        for i, (session_id, session_msgs) in enumerate(sessions):
+            is_answer_session = session_id in answer_session_ids
+
+            def importance_fn(role, content, _is_ans=is_answer_session):
+                if _is_ans:
+                    return 0.8 if role == "user" else 0.6
+                return 0.5 if role == "user" else 0.3
+
+            # Turns are already in LongMemEval format: {role, content}
+            turns = [msg for msg in session_msgs if msg.get("content", "").strip()]
+
+            if ingest_strategy == "chunk":
+                count += ingest_chunked(turns, store, importance_fn=importance_fn)
+            else:
+                count += ingest_summarized(turns, store, llm_fn=llm_fn)
+
+            if i < len(sessions) - 1:
+                store.simulate_time(1)
+
+        return count
+
+    # Default: raw strategy (original behavior)
+    count = 0
     for i, (session_id, session_msgs) in enumerate(sessions):
         is_answer_session = session_id in answer_session_ids
 
@@ -232,8 +262,6 @@ def ingest_sessions_into_store(
             else:
                 importance = 0.5 if role == "user" else 0.3
 
-            # Prefix with role context to help the store understand origin
-            # For assistant turns, the content contains facts the assistant stated.
             store.store(content, category="factual", importance=importance)
             count += 1
 
@@ -303,6 +331,8 @@ def run_longmemeval(
     top_k: int = 10,
     verbose: bool = False,
     explore: bool = False,
+    ingest_strategy: str = "raw",
+    llm_fn=None,
 ) -> LongMemSummary:
     """
     Run LongMemEval evaluation on a list of questions.
@@ -331,7 +361,7 @@ def run_longmemeval(
         store = backend_cls(**backend_kwargs)
         store.reset()
 
-        n_stored = ingest_sessions_into_store(store, question)
+        n_stored = ingest_sessions_into_store(store, question, ingest_strategy=ingest_strategy, llm_fn=llm_fn)
 
         result = evaluate_question(store, question, judge, top_k=top_k, explore=explore)
         results.append(result)
