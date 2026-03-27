@@ -19,7 +19,7 @@ class CognitiveMemoryConfig:
     """ACT-R decay parameter in tᵢ^(-d). Lower = slower decay. Optimized from
     grid search: d=0.3 scores 85.0% vs d=0.5 at 79.5% on Suite A."""
 
-    w_semantic: float = 0.55
+    w_semantic: float = 0.5
     """Weight of cosine similarity (query vs memory embedding) in activation score."""
 
     w_importance: float = 0.4
@@ -63,7 +63,7 @@ class CognitiveMemoryConfig:
     scope_multiplier: float = 1.5
     """Boost multiplier for memories matching the current query scope."""
 
-    top_k: int = 10
+    top_k: int = 8
     """Number of memories returned per recall query."""
 
     # --- Consolidation ---
@@ -122,7 +122,7 @@ class CognitiveMemoryConfig:
     """Ebbinghaus strength accumulation rate.  strength = 1 + rate * log1p(count).
     Higher = stronger resistance to decay for frequently reinforced links."""
 
-    hebbian_homeostasis_target: float = 0.5
+    hebbian_homeostasis_target: float = 0.7
     """Turrigiano homeostasis target mean weight per node.
     After strengthening, any node whose outgoing updated-link mean exceeds
     this value is scaled DOWN to prevent hub absorption.  Default: 0.5."""
@@ -136,7 +136,7 @@ class CognitiveMemoryConfig:
     """Enable post-scoring dampening pipeline (gravity, hub, resolution boost).
     Validated by ablation testing in Ori-Mnemos. Disable to revert to raw scores."""
 
-    gravity_dampening_factor: float = 0.5
+    gravity_dampening_factor: float = 0.6
     """Score multiplier for 'cosine ghosts' — high-similarity but zero term overlap.
     0.5 = halve their score. Ori-Mnemos default."""
 

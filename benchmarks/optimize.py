@@ -131,7 +131,7 @@ def make_evaluator(suite: str = 'a', runs: int = 1,
             parameters={
                 'profile': 'balanced',
                 'embedding_model': embedding,
-                'suites': [s.strip() for s in suite.split(',')],
+                'suites': ['a', 'b', 'c', 'd', 'e', 'f', 'g'] if suite == 'all' else [s.strip() for s in suite.split(',')],
                 **params,
             },
         )

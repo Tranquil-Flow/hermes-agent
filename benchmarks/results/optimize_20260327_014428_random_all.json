@@ -1,0 +1,450 @@
+{
+  "strategy": "random",
+  "suite": "all",
+  "timestamp": "20260327_014428",
+  "num_trials": 10,
+  "best_score": 0.9629629629629629,
+  "best_params": {
+    "gravity_dampening_factor": 0.6,
+    "hub_dampening_max_penalty": 0.3,
+    "resolution_boost_factor": 1.25,
+    "w_semantic": 0.5,
+    "w_importance": 0.4,
+    "hebbian_learning_rate": 0.14,
+    "hebbian_homeostasis_target": 0.7,
+    "d": 0.3,
+    "top_k": 8
+  },
+  "trials": [
+    {
+      "params": {
+        "gravity_dampening_factor": 0.6,
+        "hub_dampening_max_penalty": 0.3,
+        "resolution_boost_factor": 1.25,
+        "w_semantic": 0.5,
+        "w_importance": 0.4,
+        "hebbian_learning_rate": 0.14,
+        "hebbian_homeostasis_target": 0.7,
+        "d": 0.3,
+        "top_k": 8
+      },
+      "results": {
+        "score": 0.9629629629629629,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.5294134616851807,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.95,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777,
+          "compression": 0.9,
+          "consolidation": 1.0,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 1.0,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.6,
+          "hub_dampening_max_penalty": 0.3,
+          "resolution_boost_factor": 1.25,
+          "w_semantic": 0.5,
+          "w_importance": 0.4,
+          "hebbian_learning_rate": 0.14,
+          "hebbian_homeostasis_target": 0.7,
+          "d": 0.3,
+          "top_k": 8
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.7,
+        "hub_dampening_max_penalty": 0.5,
+        "resolution_boost_factor": 1.75,
+        "w_semantic": 0.6,
+        "w_importance": 0.5,
+        "hebbian_learning_rate": 0.1,
+        "hebbian_homeostasis_target": 0.4,
+        "d": 0.4,
+        "top_k": 10
+      },
+      "results": {
+        "score": 0.9595959595959596,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.255737781524658,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.95,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9555555555555556,
+          "compression": 0.9,
+          "consolidation": 1.0,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 1.0,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.7,
+          "hub_dampening_max_penalty": 0.5,
+          "resolution_boost_factor": 1.75,
+          "w_semantic": 0.6,
+          "w_importance": 0.5,
+          "hebbian_learning_rate": 0.1,
+          "hebbian_homeostasis_target": 0.4,
+          "d": 0.4,
+          "top_k": 10
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.7,
+        "hub_dampening_max_penalty": 0.7,
+        "resolution_boost_factor": 1.75,
+        "w_semantic": 0.7,
+        "w_importance": 0.4,
+        "hebbian_learning_rate": 0.02,
+        "hebbian_homeostasis_target": 0.4,
+        "d": 0.4,
+        "top_k": 4
+      },
+      "results": {
+        "score": 0.9494949494949495,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.4278366565704346,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.85,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777,
+          "compression": 0.9,
+          "consolidation": 1.0,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 1.0,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.7,
+          "hub_dampening_max_penalty": 0.7,
+          "resolution_boost_factor": 1.75,
+          "w_semantic": 0.7,
+          "w_importance": 0.4,
+          "hebbian_learning_rate": 0.02,
+          "hebbian_homeostasis_target": 0.4,
+          "d": 0.4,
+          "top_k": 4
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.4,
+        "hub_dampening_max_penalty": 0.7,
+        "resolution_boost_factor": 2.0,
+        "w_semantic": 0.6,
+        "w_importance": 0.2,
+        "hebbian_learning_rate": 0.2,
+        "hebbian_homeostasis_target": 0.6,
+        "d": 0.3,
+        "top_k": 4
+      },
+      "results": {
+        "score": 0.9393939393939394,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.2883191108703613,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.775,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777,
+          "compression": 0.9,
+          "consolidation": 1.0,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 1.0,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.4,
+          "hub_dampening_max_penalty": 0.7,
+          "resolution_boost_factor": 2.0,
+          "w_semantic": 0.6,
+          "w_importance": 0.2,
+          "hebbian_learning_rate": 0.2,
+          "hebbian_homeostasis_target": 0.6,
+          "d": 0.3,
+          "top_k": 4
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.3,
+        "hub_dampening_max_penalty": 0.8,
+        "resolution_boost_factor": 1.5,
+        "w_semantic": 0.9,
+        "w_importance": 0.4,
+        "hebbian_learning_rate": 0.11,
+        "hebbian_homeostasis_target": 0.8,
+        "d": 0.5,
+        "top_k": 10
+      },
+      "results": {
+        "score": 0.936026936026936,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.3052048683166504,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.8,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777,
+          "compression": 0.9,
+          "consolidation": 0.95,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 0.9090909090909091,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.3,
+          "hub_dampening_max_penalty": 0.8,
+          "resolution_boost_factor": 1.5,
+          "w_semantic": 0.9,
+          "w_importance": 0.4,
+          "hebbian_learning_rate": 0.11,
+          "hebbian_homeostasis_target": 0.8,
+          "d": 0.5,
+          "top_k": 10
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.3,
+        "hub_dampening_max_penalty": 0.4,
+        "resolution_boost_factor": 1.25,
+        "w_semantic": 0.7,
+        "w_importance": 0.2,
+        "hebbian_learning_rate": 0.08,
+        "hebbian_homeostasis_target": 0.4,
+        "d": 0.4,
+        "top_k": 14
+      },
+      "results": {
+        "score": 0.9292929292929293,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.3160817623138428,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.7,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777,
+          "compression": 0.9,
+          "consolidation": 1.0,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 1.0,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.3,
+          "hub_dampening_max_penalty": 0.4,
+          "resolution_boost_factor": 1.25,
+          "w_semantic": 0.7,
+          "w_importance": 0.2,
+          "hebbian_learning_rate": 0.08,
+          "hebbian_homeostasis_target": 0.4,
+          "d": 0.4,
+          "top_k": 14
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.2,
+        "hub_dampening_max_penalty": 0.4,
+        "resolution_boost_factor": 1.5,
+        "w_semantic": 0.3,
+        "w_importance": 0.2,
+        "hebbian_learning_rate": 0.13,
+        "hebbian_homeostasis_target": 0.6,
+        "d": 0.4,
+        "top_k": 10
+      },
+      "results": {
+        "score": 0.9225589225589226,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.28206729888916,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.65,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777,
+          "compression": 0.9,
+          "consolidation": 1.0,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 1.0,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.2,
+          "hub_dampening_max_penalty": 0.4,
+          "resolution_boost_factor": 1.5,
+          "w_semantic": 0.3,
+          "w_importance": 0.2,
+          "hebbian_learning_rate": 0.13,
+          "hebbian_homeostasis_target": 0.6,
+          "d": 0.4,
+          "top_k": 10
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.7,
+        "hub_dampening_max_penalty": 0.3,
+        "resolution_boost_factor": 1.75,
+        "w_semantic": 0.8,
+        "w_importance": 0.2,
+        "hebbian_learning_rate": 0.04,
+        "hebbian_homeostasis_target": 0.8,
+        "d": 0.5,
+        "top_k": 4
+      },
+      "results": {
+        "score": 0.8922558922558923,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.3903145790100098,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.5,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9555555555555556,
+          "compression": 0.9,
+          "consolidation": 0.95,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 0.9090909090909091,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.7,
+          "hub_dampening_max_penalty": 0.3,
+          "resolution_boost_factor": 1.75,
+          "w_semantic": 0.8,
+          "w_importance": 0.2,
+          "hebbian_learning_rate": 0.04,
+          "hebbian_homeostasis_target": 0.8,
+          "d": 0.5,
+          "top_k": 4
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.6,
+        "hub_dampening_max_penalty": 0.8,
+        "resolution_boost_factor": 1.75,
+        "w_semantic": 0.5,
+        "w_importance": 0.1,
+        "hebbian_learning_rate": 0.07,
+        "hebbian_homeostasis_target": 0.4,
+        "d": 0.4,
+        "top_k": 14
+      },
+      "results": {
+        "score": 0.8821548821548821,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.244251251220703,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.35,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.9777777777777777,
+          "compression": 0.9,
+          "consolidation": 1.0,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 1.0,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.6,
+          "hub_dampening_max_penalty": 0.8,
+          "resolution_boost_factor": 1.75,
+          "w_semantic": 0.5,
+          "w_importance": 0.1,
+          "hebbian_learning_rate": 0.07,
+          "hebbian_homeostasis_target": 0.4,
+          "d": 0.4,
+          "top_k": 14
+        }
+      }
+    },
+    {
+      "params": {
+        "gravity_dampening_factor": 0.6,
+        "hub_dampening_max_penalty": 0.7,
+        "resolution_boost_factor": 1.25,
+        "w_semantic": 0.8,
+        "w_importance": 0.2,
+        "hebbian_learning_rate": 0.08,
+        "hebbian_homeostasis_target": 0.8,
+        "d": 0.6,
+        "top_k": 10
+      },
+      "results": {
+        "score": 0.8754208754208754,
+        "tokens_per_query": 40.0,
+        "wall_time": 2.311713218688965,
+        "per_category": {
+          "contradictions": 0.9,
+          "cross_reference": 0.9333333333333333,
+          "importance_filtering": 0.475,
+          "semantic_recall": 1.0,
+          "temporal_decay": 0.8666666666666667,
+          "compression": 0.9,
+          "consolidation": 0.95,
+          "scopes": 1.0,
+          "adversarial": 0.8666666666666667,
+          "scale": 1.0,
+          "integration": 0.9090909090909091,
+          "qlearning": 1.0
+        },
+        "params": {
+          "gravity_dampening_factor": 0.6,
+          "hub_dampening_max_penalty": 0.7,
+          "resolution_boost_factor": 1.25,
+          "w_semantic": 0.8,
+          "w_importance": 0.2,
+          "hebbian_learning_rate": 0.08,
+          "hebbian_homeostasis_target": 0.8,
+          "d": 0.6,
+          "top_k": 10
+        }
+      }
+    }
+  ]
+}
