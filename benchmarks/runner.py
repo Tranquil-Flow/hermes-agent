@@ -48,6 +48,20 @@ try:
 except ImportError:
     pass  # cognitive_memory not available
 
+# Register structured memory backend
+try:
+    from tools.structured_memory.benchmark_adapter import StructuredMemoryBenchmarkAdapter
+    register_backend("structured", StructuredMemoryBenchmarkAdapter)
+except ImportError:
+    pass  # structured_memory not available
+
+# Register unified memory backend
+try:
+    from unified_memory.benchmark_adapter import UnifiedBenchmarkAdapter
+    register_backend("unified", UnifiedBenchmarkAdapter)
+except ImportError:
+    pass  # unified_memory not available
+
 
 # --- Token Estimation ---
 
