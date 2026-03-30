@@ -180,9 +180,6 @@ class UnifiedMemoryConfig:
     # Explore / PPR  (from CognitiveMemoryConfig)
     # ------------------------------------------------------------------
 
-    enable_explore: bool = True
-    """Enable explore() / explore_recursive() multi-hop retrieval via PPR."""
-
     ppr_alpha: float = 0.45
     """Teleport probability for Personalized PageRank."""
 
@@ -230,12 +227,19 @@ class UnifiedMemoryConfig:
     """(Phase 3) Protect bridge nodes (articulation points) from pruning."""
 
     # Phase 4 — reinforcement learning
-    enable_linucb: bool = False
+    enable_linucb: bool = True
     """(Phase 4) LinUCB contextual bandit for per-stage run/skip decisions.
-    Disabled by default — needs ~50 queries to exit exploration phase."""
+    Enabled by default — PipelineOptimizer runs all stages for the first 50
+    queries (ACQO exploration phase) before adapting."""
 
     enable_session_rewards: bool = True
     """(Phase 4) Auto-infer rewards from store-after-recall patterns."""
+
+    enable_ips: bool = True
+    """(Phase 4) IPS (Inverse Propensity Scoring) debiasing in recall().
+    Boosts under-retrieved facts and penalises over-retrieved ones to
+    counteract popularity bias.  Only activates when 5+ facts have been
+    accessed at least once."""
 
     # ------------------------------------------------------------------
     # Lifecycle

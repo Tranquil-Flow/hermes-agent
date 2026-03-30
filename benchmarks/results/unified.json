@@ -9,30 +9,30 @@
     0.971830985915493
   ],
   "per_category_mean": {
-    "scopes": 1.0,
-    "temporal_decay": 0.9777777777777777,
-    "consolidation": 1.0,
     "compression": 0.9,
+    "consolidation": 1.0,
+    "contradictions": 0.9499999999999998,
+    "cross_reference": 0.9333333333333332,
+    "temporal_decay": 0.9777777777777777,
+    "importance_filtering": 0.9499999999999998,
+    "integration": 1.0,
+    "scopes": 1.0,
     "scale": 1.0,
     "semantic_recall": 1.0,
-    "cross_reference": 0.9333333333333332,
-    "integration": 1.0,
-    "contradictions": 0.9499999999999998,
-    "adversarial": 1.0,
-    "importance_filtering": 0.9499999999999998
+    "adversarial": 1.0
   },
   "per_category_std": {
-    "scopes": 0.0,
-    "temporal_decay": 0.0,
-    "consolidation": 0.0,
     "compression": 0.0,
+    "consolidation": 0.0,
+    "contradictions": 1.3597399555105182e-16,
+    "cross_reference": 1.3597399555105182e-16,
+    "temporal_decay": 0.0,
+    "importance_filtering": 1.3597399555105182e-16,
+    "integration": 0.0,
+    "scopes": 0.0,
     "scale": 0.0,
     "semantic_recall": 0.0,
-    "cross_reference": 1.3597399555105182e-16,
-    "integration": 0.0,
-    "contradictions": 1.3597399555105182e-16,
-    "adversarial": 0.0,
-    "importance_filtering": 1.3597399555105182e-16
+    "adversarial": 0.0
   },
   "num_runs": 3,
   "retrieval_metrics": {
@@ -63,7 +63,7 @@
     {
       "seed": 42,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.869586706161499,
+      "wall_time_seconds": 15.991070985794067,
       "token_usage": {
         "recall_tokens": 10407,
         "recall_chars": 43024,
@@ -331,7 +331,7 @@
     {
       "seed": 43,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.6336965560913086,
+      "wall_time_seconds": 8.20805311203003,
       "token_usage": {
         "recall_tokens": 10407,
         "recall_chars": 43024,
@@ -599,7 +599,7 @@
     {
       "seed": 44,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.6002378463745117,
+      "wall_time_seconds": 11.065715074539185,
       "token_usage": {
         "recall_tokens": 10407,
         "recall_chars": 43024,

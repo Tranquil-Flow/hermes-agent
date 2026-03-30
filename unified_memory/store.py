@@ -38,7 +38,7 @@ from unified_memory import links as link_ops
 from unified_memory.links import cosine_similarity
 from unified_memory.retrieval import (
     score_candidates, fts5_search, apply_rrf_fusion,
-    apply_qvalue_reranking, apply_dampening,
+    apply_qvalue_reranking, apply_dampening, apply_ips_debiasing,
     check_contradictions, _get_access_times,
 )
 
@@ -373,6 +373,11 @@ class UnifiedMemoryStore:
         # Sort and apply dampening
         scored.sort(key=lambda s: s.score, reverse=True)
         scored = apply_dampening(self._conn, scored, query, self._config)
+
+        # IPS debiasing — counteract popularity bias after dampening
+        apply_ips_debiasing(scored, self._conn, self._config)
+        scored.sort(key=lambda s: s.score, reverse=True)
+
         results = scored[:top_k]
 
         # Update access stats

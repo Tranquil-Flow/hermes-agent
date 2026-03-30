@@ -426,6 +426,69 @@ def apply_dampening(
     return scored
 
 
+# ─── IPS Debiasing ────────────────────────────────────────────
+
+
+def apply_ips_debiasing(
+    scored: List[ScoredFact],
+    conn: sqlite3.Connection,
+    cfg: "UnifiedMemoryConfig",
+) -> None:
+    """Inverse Propensity Scoring (IPS) debiasing pass.
+
+    Counteracts popularity bias: facts that appear in results very often
+    receive a small penalty; facts that are rarely retrieved receive a
+    small boost.
+
+    The adjustment is proportional to the inverse of the fact's normalised
+    retrieval frequency (propensity):
+
+        propensity      = access_count / max_access_count
+        ips_adjustment  = (1.0 / max(propensity, 0.1)) * 0.05
+
+    Applied only when:
+    - cfg.enable_ips is True
+    - at least 5 facts in the scored list have access_count > 0
+
+    Over-retrieved facts (propensity > 0.8) receive a flat -0.02 penalty
+    instead of the formula-derived boost.
+    """
+    if not cfg.enable_ips or not scored:
+        return
+
+    # Fetch access_count for each fact from the DB (canonical source)
+    fact_ids = [item.fact.id for item in scored]
+    placeholders = ",".join("?" * len(fact_ids))
+    rows = conn.execute(
+        f"SELECT id, access_count FROM um_facts WHERE id IN ({placeholders})",
+        fact_ids,
+    ).fetchall()
+    access_map: Dict[str, int] = {r["id"]: (r["access_count"] or 0) for r in rows}
+
+    # Need at least 5 facts with any access history
+    accessed_facts = [v for v in access_map.values() if v > 0]
+    if len(accessed_facts) < 5:
+        return
+
+    max_access = max(accessed_facts)
+    if max_access == 0:
+        return
+
+    for item in scored:
+        count = access_map.get(item.fact.id, 0)
+        propensity = count / max_access  # 0.0 – 1.0
+
+        if propensity > 0.8:
+            # Over-retrieved: apply flat penalty
+            item.score -= 0.02
+            item.components["ips_adjustment"] = -0.02
+        else:
+            # Under-retrieved (or never retrieved): boost by IPS weight
+            ips_adjustment = (1.0 / max(propensity, 0.1)) * 0.05
+            item.score += ips_adjustment
+            item.components["ips_adjustment"] = ips_adjustment
+
+
 # ─── Adversarial Detection ────────────────────────────────────
 
 
