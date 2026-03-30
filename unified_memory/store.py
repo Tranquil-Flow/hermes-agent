@@ -77,6 +77,20 @@ class UnifiedMemoryStore:
         self._use_virtual_clock: bool = False
         self._virtual_clock: float = time.time()
 
+        # Pipeline optimizer (LinUCB)
+        self._pipeline_optimizer = None
+        if self._config.enable_linucb:
+            from unified_memory.bandit import PipelineOptimizer
+            self._pipeline_optimizer = PipelineOptimizer(
+                exploration_budget=50, alpha=1.0
+            )
+
+        # Session reward tracker
+        self._reward_tracker = None
+        if self._config.enable_session_rewards:
+            from unified_memory.bandit import SessionRewardTracker
+            self._reward_tracker = SessionRewardTracker()
+
         # Q-value store
         self._qvalue_store = None
         if self._config.enable_qvalue_reranking:
@@ -271,6 +285,12 @@ class UnifiedMemoryStore:
         if self._config.enable_pressure:
             self._gauge_check()
 
+        # Session reward tracking: credit recalled memories if store follows recall
+        if self._reward_tracker:
+            rewards = self._reward_tracker.on_store(now)
+            for rid, signal in rewards.items():
+                self.reward_memory(rid, signal)
+
         logger.debug(
             f"Stored fact {fact_id[:8]}: type={ft_enum.value}, target={target}, "
             f"cat={category}, imp={importance:.2f}, scope={scope}"
@@ -335,6 +355,13 @@ class UnifiedMemoryStore:
 
         # Update access stats
         self._update_access_stats(results, now)
+
+        # Session reward tracking: track recalled memories for re-recall signals
+        if self._reward_tracker:
+            result_ids = [r.fact.id for r in results]
+            rewards = self._reward_tracker.on_recall(result_ids, now)
+            for rid, signal in rewards.items():
+                self.reward_memory(rid, signal)
 
         # Strengthen Hebbian links for co-recalled facts
         co_recalled = [(r.fact.id, r.score) for r in results]
