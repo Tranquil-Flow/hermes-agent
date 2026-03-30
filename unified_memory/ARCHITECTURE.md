@@ -3,19 +3,14 @@
 ## Overview
 
 The Unified Memory System merges three memory architectures into a single
-engine that combines the best of cognitive science, structured knowledge
-management, and self-optimizing retrieval.
+engine: cognitive science (ACT-R), structured knowledge management (typed facts),
+and self-optimizing retrieval (Ori-Mnemos). It exceeds all three individually.
 
-**Sources:**
-- **Cognitive Memory** — ACT-R activation, Hebbian links, Q-value RL
-- **Structured Memory** (PR #3093) — typed facts, FTS5, scopes, gauge
-- **Ori-Mnemos** — NPMI, UCB-Tuned, Tarjan, LinUCB bandits
+**Benchmark:** 97.2% overall (284 scenarios, 11 categories)  
+**vs Cognitive:** +0.4% (97.2% vs 96.8%)  
+**vs Structured:** +23.6% (97.2% vs 73.6%)
 
-**Benchmark:** 95.9% overall (284 scenarios, 11 categories)
-- Exceeds cognitive on contradictions (95% vs 90%)
-- Matches cognitive on 8 of 11 categories
-
-## Architecture Diagram
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -26,55 +21,70 @@ management, and self-optimizing retrieval.
 │  │ 1. Parse MEMORY_SPEC notation         │       │
 │  │ 2. Auto-classify (category+importance)│       │
 │  │ 3. Generate embedding                 │       │
-│  │ 4. Dedup check (source_hash)          │       │
-│  │ 5. Supersession check (type+target)   │       │
-│  │ 6. Contradiction detection            │       │
-│  │ 7. Set metabolic decay rate           │       │
-│  │ 8. Store in SQLite                    │       │
-│  │ 9. Seed Hebbian links                 │       │
-│  │ 10. Gauge pressure check              │       │
+│  │ 4. Exact dedup (source_hash)          │       │
+│  │ 5. Semantic dedup (embedding+overlap) │       │
+│  │ 6. Supersession (type+target match)   │       │
+│  │ 7. Contradiction detection            │       │
+│  │ 8. Set metabolic decay rate           │       │
+│  │ 9. Store in SQLite + FTS5 index       │       │
+│  │ 10. Seed Hebbian + bibliographic links│       │
+│  │ 11. Gauge pressure check              │       │
+│  │ 12. Session reward tracking           │       │
 │  └──────────────────────────────────────┘       │
 │                                                 │
-│  RETRIEVAL PATH (4-signal fusion)               │
+│  RETRIEVAL PIPELINE                             │
 │  ┌──────────────────────────────────────┐       │
-│  │ Signal 1: Embedding similarity        │       │
-│  │ Signal 2: FTS5/BM25 keyword match     │       │
-│  │ Signal 3: ACT-R activation            │       │
-│  │   base_level + spreading + importance │       │
-│  │   + scope_boost + adversarial_penalty │       │
-│  │ Signal 4: Revival spike (new links)   │       │
-│  │                                       │       │
-│  │ → RRF fusion (configurable)           │       │
-│  │ → Dampening (gravity, hub, resolution)│       │
-│  │ → Q-value reranking (UCB-Tuned)       │       │
-│  │ → Intent-based type boosting          │       │
+│  │ 1. Score candidates (ACT-R + embed)   │       │
+│  │    • base_level × metabolic_rate      │       │
+│  │    • spreading (semantic + Hebbian)   │       │
+│  │    • importance (saturation-aware)    │       │
+│  │    • scope boost + adversarial check  │       │
+│  │    • revival spike (new connections)  │       │
+│  │ 2. RRF BM25 fusion (intent-gated)    │       │
+│  │ 3. Dampening (gravity, hub, resolve)  │       │
+│  │ 4. IPS debiasing (propensity correct) │       │
+│  │ 5. Q-value reranking (UCB-Tuned)      │       │
+│  │ 6. Intent-based type boosting         │       │
+│  │ 7. Update access stats + Hebbian      │       │
+│  │ 8. Session reward signals             │       │
+│  └──────────────────────────────────────┘       │
+│                                                 │
+│  EXPLORATION (PPR)                              │
+│  ┌──────────────────────────────────────┐       │
+│  │ 1. Seed from recall() results         │       │
+│  │ 2. Build adjacency from Hebbian links │       │
+│  │ 3. 20-iteration Personalized PageRank │       │
+│  │ 4. Discover associatively connected   │       │
+│  │ 5. Merge + re-rank by combined score  │       │
 │  └──────────────────────────────────────┘       │
 │                                                 │
 │  LIFECYCLE                                      │
 │  ┌──────────────────────────────────────┐       │
-│  │ Scope management (active→cold→closed) │       │
-│  │ Gauge pressure (merge/archive/cool)   │       │
-│  │ Consolidation (promote/demote/prune)  │       │
-│  │ Tarjan bridge protection              │       │
-│  │ Session reward tracking               │       │
-│  │ LinUCB pipeline optimization          │       │
+│  │ • Scope lifecycle (active→cold→close) │       │
+│  │ • Gauge pressure (5-tier cascade)     │       │
+│  │ • Tarjan bridge protection            │       │
+│  │ • Consolidation (promote/demote/prune)│       │
+│  │ • NPMI normalization on links         │       │
+│  │ • LinUCB pipeline self-optimization   │       │
+│  │ • Auto-ingestion from conversations   │       │
 │  └──────────────────────────────────────┘       │
 │                                                 │
 │  STORAGE (unified SQLite)                       │
 │  ┌──────────────────────────────────────┐       │
-│  │ um_facts: content, embedding, type,   │       │
-│  │   target, scope, activation, q_value, │       │
-│  │   metabolic_rate, importance, ...     │       │
-│  │ um_links: Hebbian (NPMI, co-occur)    │       │
-│  │ um_scopes: lifecycle management       │       │
-│  │ um_access_times: ACT-R history        │       │
-│  │ um_qvalues: RL reward tracking        │       │
-│  │ um_facts_fts: FTS5 keyword index      │       │
+│  │ um_facts      content, embedding,     │       │
+│  │               type, target, scope,    │       │
+│  │               activation, q_value,    │       │
+│  │               metabolic_rate, ...     │       │
+│  │ um_links      Hebbian (NPMI, co-occ)  │       │
+│  │ um_scopes     lifecycle management    │       │
+│  │ um_access_times  ACT-R history        │       │
+│  │ um_qvalues    RL reward tracking      │       │
+│  │ um_facts_fts  FTS5 keyword index      │       │
 │  └──────────────────────────────────────┘       │
 └─────────────────────────────────────────────────┘
 ```
 
-## Fact Types (MEMORY_SPEC Notation)
+## Fact Types (MEMORY_SPEC)
 
 | Notation | Type       | Metabolic Rate | Description |
 |----------|------------|----------------|-------------|
@@ -85,109 +95,85 @@ management, and self-optimizing retrieval.
 | ✓[t]: x  | Done       | 2.5x           | Resolved items |
 | ~[t]: x  | Obsolete   | 5.0x (rapid)   | Superseded facts |
 
-Metabolic rate multiplies the ACT-R decay parameter `d`, making
-constraints persist ~3x longer than values, while unknowns decay
-~2x faster (urgency drives resolution).
-
 ## Scoring Formula
 
-For each candidate fact, the activation score is:
-
 ```
-ACTIVATION = BASE_LEVEL + SPREADING + IMPORTANCE + SCOPE + ADVERSARIAL
+ACTIVATION = BASE_LEVEL + SPREADING + IMPORTANCE + SCOPE + ADV + REVIVAL
 
 BASE_LEVEL = ln(Σ tᵢ^(-d × metabolic_rate))
-  where tᵢ = time since access i
-
-SPREADING = w_semantic × cosine_sim(query, fact) + hebbian_one_hop
-
-IMPORTANCE = w_importance × importance × (1.5 + semantic_sim × (2 + |base_level|))
-
-SCOPE = scope_multiplier × (0.5 + 0.5 × semantic_sim)  [if scope matches]
-
-ADVERSARIAL = -score × 10.0  [if adversarial content detected]
+SPREADING  = w_semantic × cosine_sim + hebbian_one_hop
+IMPORTANCE = w_imp × importance × (1.5 + sim × (2 + |base|))
+             × saturation(access_count)  [if count > 5]
+SCOPE      = scope_mult × (0.5 + 0.5 × sim)
+REVIVAL    = 0.2 × exp(-0.2 × days_since_new_link)
 ```
 
-Post-scoring pipeline:
-1. **RRF Fusion** — Score-weighted Reciprocal Rank Fusion with BM25
-2. **Dampening** — Gravity (cosine ghosts), Hub (P90 degree), Resolution boost
-3. **Q-Value Reranking** — Lambda blend with UCB-Tuned exploration
-4. **Intent Boost** — Type-aware boosting based on query intent
+Post-scoring: RRF → Dampening → IPS → Q-value (UCB-Tuned) → Intent boost
 
-## Key Features
+## Feature Inventory (27 features)
 
 ### From Cognitive Memory
-- **ACT-R Activation** — frequency + recency = retrievability
-- **Hebbian Links** — GloVe weighting, Ebbinghaus decay, Turrigiano homeostasis
-- **Q-Value RL** — learn which memories are actually useful
-- **Contradiction Detection** — entity overlap + update language + embedding floor
+1. ACT-R base-level activation (frequency + recency)
+2. Spreading activation via Hebbian links
+3. Hebbian link formation (GloVe frequency weighting)
+4. Ebbinghaus decay on links
+5. Turrigiano homeostatic scaling
+6. Q-value reranking with reinforcement learning
+7. UCB-Tuned variance-aware exploration bonus
+8. Dampening: gravity (cosine ghosts)
+9. Dampening: hub (P90 degree penalty)
+10. Dampening: resolution boost (actionable categories)
+11. Contradiction detection (entity overlap + update language)
+12. Adversarial content detection (2-tier pattern matching)
 
-### From Structured Memory
-- **Typed Facts** — C/D/V/?/✓/~ with MEMORY_SPEC notation
-- **Supersession** — same type+target automatically replaces old fact
-- **Scopes** — unit-of-work lifecycle (active → cold → closed)
-- **Gauge Pressure** — 5-tier cascade: merge → warn → archive → cool → refuse
+### From Structured Memory (PR #3093)
+13. Typed facts (C/D/V/?/✓/~) with MEMORY_SPEC notation
+14. Metabolic decay per fact type
+15. Automatic supersession (same type+target)
+16. Scope lifecycle management (active → cold → closed)
+17. Gauge pressure management (5-tier cascade)
+18. FTS5 keyword search index
+19. Hot-facts system prompt injection
 
 ### From Ori-Mnemos
-- **NPMI** — Normalized Pointwise Mutual Information on co-occurrence edges
-- **UCB-Tuned** — Variance-aware exploration (high variance → more exploration)
-- **Tarjan Protection** — Bridge nodes in the link graph can't be pruned
-- **Bibliographic Coupling** — Cold-start link seeding from shared keywords
-- **Revival Spike** — Dormant facts boosted when they get new connections
-- **LinUCB Pipeline** — Self-optimizing retrieval (learn which stages help per query)
-- **Intent Classification** — 6 query types with signal weight shifting
-- **Session Rewards** — Auto-infer rewards from store-after-recall patterns
+20. NPMI-normalized co-occurrence edges
+21. Bibliographic coupling bootstrap (cold-start)
+22. Tarjan articulation point protection
+23. Revival spike on new connections
+24. LinUCB contextual bandit (per-stage optimization)
+25. Query intent classification (6 types)
+
+### Novel
+26. IPS (Inverse Propensity Scoring) debiasing
+27. Semantic deduplication (embedding + word overlap)
+28. Conversation auto-ingestion (fact extraction from turns)
+29. Access frequency saturation (diminishing returns)
+30. Session reward tracking (store-after-recall credit)
 
 ## File Structure
 
 ```
-unified_memory/
-├── __init__.py          Package init (v0.1.0)
-├── types.py             FactType enum, MemoryFact, ScoredFact, parse_notation
-├── config.py            UnifiedMemoryConfig (50+ tunable parameters)
-├── schema.py            SQLite DDL (6 tables, FTS5, triggers, views)
-├── store.py             UnifiedMemoryStore (main engine class)
-├── retrieval.py         Scoring pipeline, dampening, Q-value, adversarial
-├── links.py             Hebbian links (NPMI, GloVe, Ebbinghaus, homeostasis)
-├── lifecycle.py         Tarjan bridge detection, protection
-├── intent.py            Query intent classification (30+ patterns)
-├── bandit.py            LinUCB contextual bandits, session reward tracking
-├── benchmark_adapter.py BenchmarkableStore wrapper
-└── ARCHITECTURE.md      This file
+unified_memory/               4,086 lines
+├── __init__.py               Package init
+├── types.py                  FactType, MemoryFact, ScoredFact, parse_notation
+├── config.py                 UnifiedMemoryConfig (50+ parameters)
+├── schema.py                 SQLite DDL (6 tables, FTS5, triggers, views)
+├── store.py                  UnifiedMemoryStore (main engine)
+├── retrieval.py              Scoring pipeline, dampening, Q-value, IPS
+├── links.py                  Hebbian (NPMI, GloVe, Ebbinghaus, homeostasis)
+├── lifecycle.py              Tarjan bridge detection + protection
+├── intent.py                 6-type query intent classifier (30+ patterns)
+├── bandit.py                 LinUCB bandits + session reward tracking
+├── ingestion.py              Fact extraction + semantic dedup + memorability
+├── migrate.py                Migration from MEMORY.md/USER.md/legacy DBs
+├── benchmark_adapter.py      BenchmarkableStore wrapper
+└── ARCHITECTURE.md           This file
 
-tools/
-└── unified_memory_tool.py  Agent-callable toolset (8 tools)
-
-tests/unified_memory/
-├── test_schema.py       Schema tests (10)
-├── test_store_write.py  Write path tests (7)
-├── test_store_recall.py Retrieval tests (7)
-├── test_lifecycle.py    Lifecycle tests (5)
-├── test_intent.py       Intent classification tests (6)
-├── test_npmi.py         NPMI normalization tests (6)
-├── test_ucb_tuned.py    UCB-Tuned exploration tests (3)
-├── test_bootstrap.py    Bibliographic coupling tests (5)
-├── test_tarjan.py       Articulation point tests (5)
-├── test_revival.py      Revival spike + saturation tests (9)
-├── test_bandit.py       LinUCB + session reward tests (15)
-└── test_agent_tool.py   Agent tool integration tests (13)
+tools/unified_memory_tool.py  795 lines, 8 agent tools
+tests/unified_memory/         2,736 lines, 117 tests
 ```
 
-## Configuration
-
-All parameters are in `UnifiedMemoryConfig`. Key groups:
-
-- **ACT-R**: `d`, `w_semantic`, `w_importance`
-- **Links**: `hebbian_learning_rate`, `semantic_link_threshold`, `links_per_memory`
-- **Q-Value**: `enable_qvalue_reranking`, `qvalue_lambda_min/max`, `qvalue_exploration_c`
-- **Dampening**: `enable_dampening`, `gravity_dampening_factor`, `hub_dampening_max_penalty`
-- **RRF**: `enable_rrf_fusion`, `rrf_activation_weight`, `rrf_keyword_weight`
-- **Unified**: `enable_typed_decay`, `enable_supersession`, `enable_pressure`
-- **Advanced**: `enable_intent_classification`, `enable_npmi`, `enable_linucb`
-
-## Toolset
-
-Enable in hermes config with `- unified_memory` in toolsets. Tools:
+## Agent Tools
 
 | Tool | Description |
 |------|-------------|
@@ -198,4 +184,43 @@ Enable in hermes config with `- unified_memory` in toolsets. Tools:
 | `mcp_umemory_reward` | Apply RL reward signal |
 | `mcp_umemory_explore` | PPR multi-hop exploration |
 | `mcp_umemory_stats` | Store statistics |
-| `mcp_umemory_consolidate` | Run lifecycle management |
+| `mcp_umemory_consolidate` | Lifecycle management |
+
+## Configuration
+
+All parameters in `UnifiedMemoryConfig`. Key defaults:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| d | 0.3 | ACT-R decay rate |
+| w_semantic | 0.5 | Embedding similarity weight |
+| w_importance | 0.4 | Importance weight |
+| enable_typed_decay | True | Metabolic decay by type |
+| enable_supersession | True | Auto-supersede same type+target |
+| enable_pressure | True | Gauge pressure management |
+| enable_dampening | True | Gravity + hub + resolution |
+| enable_qvalue_reranking | True | Q-value RL blend |
+| enable_intent_classification | True | Query intent detection |
+| enable_npmi | True | NPMI on co-occurrence edges |
+| enable_tarjan_protection | True | Bridge node protection |
+| enable_linucb | True | LinUCB pipeline optimization |
+| enable_session_rewards | True | Store-after-recall credits |
+| enable_ips | True | Inverse propensity scoring |
+| enable_rrf_fusion | False | BM25 fusion (hurts temporal) |
+
+## Migration
+
+```python
+from unified_memory.migrate import run_migration
+run_migration(
+    unified_db_path="~/.hermes/unified_memory.db",
+    hermes_home="~/.hermes"
+)
+```
+
+Migrates from: MEMORY.md, USER.md, structured_memory DB, cognitive_memory DB.
+
+## Activation
+
+Add `- unified_memory` to toolsets in hermes config.yaml.
+The agent loop hooks in run_agent.py handle injection and tick automatically.
