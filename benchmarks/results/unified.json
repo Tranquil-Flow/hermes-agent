@@ -9,30 +9,30 @@
     0.9401408450704225
   ],
   "per_category_mean": {
-    "integration": 1.0,
-    "temporal_decay": 0.9555555555555556,
-    "scale": 0.875,
     "cross_reference": 0.9333333333333332,
+    "adversarial": 1.0,
     "compression": 0.8000000000000002,
-    "importance_filtering": 0.9,
-    "scopes": 0.9,
-    "semantic_recall": 1.0,
-    "contradictions": 0.85,
     "consolidation": 1.0,
-    "adversarial": 1.0
+    "scale": 0.875,
+    "contradictions": 0.85,
+    "scopes": 0.9,
+    "importance_filtering": 0.9,
+    "semantic_recall": 1.0,
+    "integration": 1.0,
+    "temporal_decay": 0.9555555555555556
   },
   "per_category_std": {
-    "integration": 0.0,
-    "temporal_decay": 0.0,
-    "scale": 0.0,
     "cross_reference": 1.3597399555105182e-16,
+    "adversarial": 0.0,
     "compression": 1.3597399555105182e-16,
-    "importance_filtering": 0.0,
-    "scopes": 0.0,
-    "semantic_recall": 0.0,
-    "contradictions": 0.0,
     "consolidation": 0.0,
-    "adversarial": 0.0
+    "scale": 0.0,
+    "contradictions": 0.0,
+    "scopes": 0.0,
+    "importance_filtering": 0.0,
+    "semantic_recall": 0.0,
+    "integration": 0.0,
+    "temporal_decay": 0.0
   },
   "num_runs": 3,
   "retrieval_metrics": {
@@ -63,7 +63,7 @@
     {
       "seed": 42,
       "overall_score": 0.9401408450704225,
-      "wall_time_seconds": 0.8566341400146484,
+      "wall_time_seconds": 0.8984339237213135,
       "token_usage": {
         "recall_tokens": 10045,
         "recall_chars": 41523,
@@ -331,7 +331,7 @@
     {
       "seed": 43,
       "overall_score": 0.9401408450704225,
-      "wall_time_seconds": 0.8360910415649414,
+      "wall_time_seconds": 0.8665046691894531,
       "token_usage": {
         "recall_tokens": 10046,
         "recall_chars": 41526,
@@ -599,7 +599,7 @@
     {
       "seed": 44,
       "overall_score": 0.9401408450704225,
-      "wall_time_seconds": 0.7658522129058838,
+      "wall_time_seconds": 0.7084376811981201,
       "token_usage": {
         "recall_tokens": 10046,
         "recall_chars": 41523,

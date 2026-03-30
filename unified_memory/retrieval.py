@@ -187,7 +187,12 @@ def apply_rrf_fusion(
     fts5_scores: Dict[str, float],
     cfg: UnifiedMemoryConfig,
 ) -> None:
-    """Apply Score-weighted Reciprocal Rank Fusion between activation and BM25."""
+    """Apply Score-weighted Reciprocal Rank Fusion between activation and BM25.
+
+    The BM25 signal is modulated by the fact's base_level activation to prevent
+    old facts with matching keywords from outranking recent ones. This makes
+    RRF time-aware without destroying keyword matching benefits.
+    """
     if not scored or not fts5_scores:
         return
 

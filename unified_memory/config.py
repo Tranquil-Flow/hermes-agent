@@ -119,11 +119,12 @@ class UnifiedMemoryConfig:
     rrf_k: int = 60
     """RRF rank constant."""
 
-    rrf_activation_weight: float = 0.85
-    """Weight applied to the activation signal in RRF fusion."""
+    rrf_activation_weight: float = 0.92
+    """Weight for activation-based score in RRF fusion."""
 
-    rrf_keyword_weight: float = 0.15
-    """Weight applied to the BM25 keyword signal in RRF fusion."""
+    rrf_keyword_weight: float = 0.08
+    """Weight for BM25 keyword score in RRF fusion. Lower than cognitive default
+    (0.15) because FTS5 OR-queries are broader and can disrupt temporal ordering."""
 
     # ------------------------------------------------------------------
     # Hebbian Upgrade  (from CognitiveMemoryConfig)
