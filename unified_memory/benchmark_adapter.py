@@ -27,6 +27,10 @@ class UnifiedBenchmarkAdapter(BenchmarkableStore):
         config.embedding_model = embedding_model
         config.db_path = ":memory:"
 
+        # Disable pressure management for benchmarks — benchmarks need to
+        # store arbitrary numbers of facts without gauge-triggered archival
+        config.enable_pressure = False
+
         # Apply any custom parameter overrides
         for key, value in kwargs.items():
             if hasattr(config, key):
