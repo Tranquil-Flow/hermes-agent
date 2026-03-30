@@ -2380,6 +2380,16 @@ class AIAgent:
             except Exception:
                 pass
 
+        # Unified memory: inject hot facts into system prompt
+        if "mcp_umemory_write" in self.valid_tool_names:
+            try:
+                from tools.unified_memory_tool import get_unified_memory_injection
+                um_block = get_unified_memory_injection(session_id=self._session_id)
+                if um_block:
+                    prompt_parts.append(um_block)
+            except Exception:
+                pass
+
         # Honcho CLI awareness: tell Hermes about its own management commands
         # so it can refer the user to them rather than reinventing answers.
         if self._honcho and self._honcho_session_key:
@@ -5691,6 +5701,18 @@ class AIAgent:
             try:
                 from tools.structured_memory_tool import tick_structured_memory
                 tick_structured_memory(
+                    turn=self._user_turn_count,
+                    message_text=user_message or "",
+                    session_id=self._session_id,
+                )
+            except Exception:
+                pass
+
+        # Unified memory: advance turn counter and trigger scope auto-cooling.
+        if "mcp_umemory_write" in self.valid_tool_names:
+            try:
+                from tools.unified_memory_tool import tick_unified_memory
+                tick_unified_memory(
                     turn=self._user_turn_count,
                     message_text=user_message or "",
                     session_id=self._session_id,
