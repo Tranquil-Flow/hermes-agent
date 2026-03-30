@@ -262,11 +262,177 @@ def strengthen_hebbian_links(
                 _upsert_link(conn, id_a, id_b, initial_weight, now, "hebbian")
                 updated[(id_a, id_b)] = initial_weight
 
+    # Update NPMI for all modified links
+    for (id_a, id_b) in updated:
+        npmi = compute_npmi(conn, id_a, id_b)
+        conn.execute(
+            "UPDATE um_links SET npmi=? WHERE source_id=? AND target_id=?",
+            (npmi, id_a, id_b)
+        )
+        # Also update reverse direction
+        npmi_rev = compute_npmi(conn, id_b, id_a)
+        conn.execute(
+            "UPDATE um_links SET npmi=? WHERE source_id=? AND target_id=?",
+            (npmi_rev, id_b, id_a)
+        )
+
     # Turrigiano homeostasis
     if enable_homeostasis and updated:
         _apply_homeostasis(conn, updated, homeostasis_target)
 
     conn.commit()
+
+
+def bootstrap_bibliographic_links(
+    conn: sqlite3.Connection,
+    fact_id: str,
+    fact_content: str,
+    now: float,
+    threshold: float = 0.3,
+) -> int:
+    """Bootstrap links for a new fact via bibliographic coupling.
+
+    For a newly stored fact, finds other facts that share keyword targets.
+    coupling(A, B) = |shared_keywords| / sqrt(|keywords_A| * |keywords_B|)
+
+    If coupling > threshold, creates a link with initial strength = coupling * 0.5.
+    Solves cold-start: new facts get links before any co-retrieval.
+
+    Keywords = content words after stop-word removal, length > 3.
+    """
+    def _extract_keywords(text: str) -> Set[str]:
+        return {
+            w.lower() for w in text.split()
+            if w.lower() not in _STOP_WORDS and len(w) > 3
+        }
+
+    fact_keywords = _extract_keywords(fact_content)
+    if not fact_keywords:
+        return 0
+
+    # Fetch all other active/cold facts
+    rows = conn.execute(
+        "SELECT id, content FROM um_facts "
+        "WHERE id != ? AND status IN ('active', 'cold')",
+        (fact_id,)
+    ).fetchall()
+
+    # Check existing links to avoid duplicates
+    existing_targets = {
+        r["target_id"] for r in conn.execute(
+            "SELECT target_id FROM um_links WHERE source_id = ?", (fact_id,)
+        ).fetchall()
+    }
+
+    created = 0
+    for r in rows:
+        other_id = r["id"]
+        if other_id in existing_targets:
+            continue
+
+        other_keywords = _extract_keywords(r["content"])
+        if not other_keywords:
+            continue
+
+        shared = fact_keywords & other_keywords
+        if not shared:
+            continue
+
+        denom = math.sqrt(len(fact_keywords) * len(other_keywords))
+        if denom == 0:
+            continue
+
+        coupling = len(shared) / denom
+        if coupling > threshold:
+            initial_strength = coupling * 0.5
+            _upsert_link(conn, fact_id, other_id, initial_strength, now, "bibliographic")
+            created += 1
+
+    if created:
+        conn.commit()
+
+    return created
+
+
+def compute_npmi(conn: sqlite3.Connection, source_id: str, target_id: str) -> float:
+    """Compute Normalized Pointwise Mutual Information for a link.
+
+    NPMI = PMI / -log(P(A,B)), bounded to [-1, 1].
+
+    Returns 0.0 if there is insufficient data to compute NPMI.
+    """
+    # Total retrievals = sum of all access_counts
+    total_row = conn.execute(
+        "SELECT COALESCE(SUM(access_count), 0) FROM um_facts"
+    ).fetchone()
+    total_retrievals = total_row[0] if total_row else 0
+
+    if total_retrievals == 0:
+        return 0.0
+
+    # Retrievals for A and B
+    row_a = conn.execute(
+        "SELECT access_count FROM um_facts WHERE id = ?", (source_id,)
+    ).fetchone()
+    row_b = conn.execute(
+        "SELECT access_count FROM um_facts WHERE id = ?", (target_id,)
+    ).fetchone()
+
+    count_a = row_a["access_count"] if row_a else 0
+    count_b = row_b["access_count"] if row_b else 0
+
+    if count_a == 0 or count_b == 0:
+        return 0.0
+
+    # Co-occurrence count from um_links
+    link_row = conn.execute(
+        "SELECT co_occurrence_count FROM um_links WHERE source_id=? AND target_id=?",
+        (source_id, target_id)
+    ).fetchone()
+    co_count = link_row["co_occurrence_count"] if link_row else 0
+
+    if co_count == 0:
+        return 0.0
+
+    # Probabilities
+    p_a = count_a / total_retrievals
+    p_b = count_b / total_retrievals
+    p_ab = co_count / total_retrievals
+
+    # PMI = log(P(A,B) / (P(A)*P(B)))
+    pmi = math.log(p_ab / (p_a * p_b))
+
+    # NPMI = PMI / -log(P(A,B))
+    denom = -math.log(p_ab)
+    if denom == 0.0:
+        return 0.0
+
+    npmi = pmi / denom
+
+    # Clamp to [-1, 1]
+    return max(-1.0, min(1.0, npmi))
+
+
+def update_all_npmi(conn: sqlite3.Connection) -> int:
+    """Recompute NPMI for all links. Called during consolidation.
+
+    Returns the number of links updated.
+    """
+    rows = conn.execute(
+        "SELECT source_id, target_id FROM um_links"
+    ).fetchall()
+
+    updated = 0
+    for row in rows:
+        npmi = compute_npmi(conn, row["source_id"], row["target_id"])
+        conn.execute(
+            "UPDATE um_links SET npmi=? WHERE source_id=? AND target_id=?",
+            (npmi, row["source_id"], row["target_id"])
+        )
+        updated += 1
+
+    conn.commit()
+    return updated
 
 
 def decay_all_links(conn: sqlite3.Connection, decay_rate: float = 0.05) -> int:

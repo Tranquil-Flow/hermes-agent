@@ -84,6 +84,9 @@ def score_candidates(
         effective_d = cfg.d * metabolic_rate
         base_level = _actr_base_level(access_times, now, effective_d)
 
+        # 1b. Revival spike: boost facts that recently gained new links
+        revival_spike = _compute_revival_spike(conn, c["id"], now)
+
         # 2. Spreading activation: semantic + Hebbian
         semantic_sim = 0.0
         if fact_embedding is not None and query_embedding is not None:
@@ -97,10 +100,18 @@ def score_candidates(
         spreading += hebbian_spread
 
         # 3. Importance boost — hybrid additive + relevance-gated
+        # Apply access saturation only at high access counts (diminishing returns)
+        # The floor of 0.5 ensures importance is never reduced by more than half
         importance = c.get("importance", 0.5)
+        access_count = c.get("access_count", 0) or 0
+        if access_count > 5:
+            saturation = 1.0 - 0.5 * math.exp(-access_count / 20.0)
+            effective_importance = importance * saturation
+        else:
+            effective_importance = importance
         base_magnitude = max(abs(base_level), 1.0)
-        importance_floor = cfg.w_importance * importance * 1.5
-        importance_relevance = cfg.w_importance * importance * semantic_sim * (2.0 + base_magnitude)
+        importance_floor = cfg.w_importance * effective_importance * 1.5
+        importance_relevance = cfg.w_importance * effective_importance * semantic_sim * (2.0 + base_magnitude)
         importance_boost = importance_floor + importance_relevance
 
         # 4. Scope boost
@@ -117,6 +128,7 @@ def score_candidates(
 
         components = {
             "base_level": base_level,
+            "revival_spike": revival_spike,
             "spreading": spreading,
             "importance_boost": importance_boost,
             "scope_boost": scope_boost,
@@ -269,7 +281,7 @@ def apply_qvalue_reranking(
 
         blended = (1 - lam) * act_norm + lam * q_norm
 
-        # UCB exploration bonus
+        # UCB-Tuned exploration bonus with variance estimation
         n_row = qvalue_store._conn.execute(
             "SELECT total_retrievals FROM memory_qvalues WHERE memory_id = ?",
             (item.fact.id,)
@@ -279,7 +291,23 @@ def apply_qvalue_reranking(
         if n_retrievals == 0:
             ucb_bonus = c * 2.5
         else:
-            ucb_bonus = c * math.sqrt(math.log(T + 1) / n_retrievals)
+            # Read reward_variance from um_qvalues (unified memory's own table)
+            var_row = None
+            try:
+                var_row = qvalue_store._conn.execute(
+                    "SELECT reward_variance FROM um_qvalues WHERE memory_id = ?",
+                    (item.fact.id,)
+                ).fetchone()
+            except Exception:
+                pass
+            if var_row is not None:
+                reward_variance = var_row[0] if var_row[0] is not None else 0.25
+            else:
+                reward_variance = 0.25
+
+            # UCB-Tuned: V = reward_variance + sqrt(2*ln(T) / n_retrievals)
+            V = reward_variance + math.sqrt(2.0 * math.log(T) / n_retrievals)
+            ucb_bonus = c * math.sqrt(math.log(T + 1) / n_retrievals * min(0.25, V))
 
         new_score = blended + ucb_bonus
 
@@ -494,6 +522,39 @@ def _get_access_times(conn: sqlite3.Connection, fact_id: str) -> List[float]:
         (fact_id,)
     ).fetchall()
     return [r["access_time"] for r in rows]
+
+
+def _compute_revival_spike(
+    conn: sqlite3.Connection,
+    fact_id: str,
+    now: float,
+    window_days: float = 14.0,
+    spike_amplitude: float = 0.2,
+    spike_decay: float = 0.2,
+) -> float:
+    """Compute a revival spike for a fact that recently gained new links.
+
+    If any link involving this fact was created/updated within the past
+    window_days days, apply:
+        revival_spike = spike_amplitude * exp(-spike_decay * days_since_new_link)
+
+    This boosts dormant facts that have recently been re-connected to the
+    knowledge graph via new associations.
+    """
+    window_secs = window_days * 86400.0
+    cutoff = now - window_secs
+
+    row = conn.execute(
+        "SELECT MAX(last_updated) as most_recent FROM um_links "
+        "WHERE (source_id = ? OR target_id = ?) AND last_updated >= ?",
+        (fact_id, fact_id, cutoff),
+    ).fetchone()
+
+    if row is None or row["most_recent"] is None:
+        return 0.0
+
+    days_since = (now - row["most_recent"]) / 86400.0
+    return spike_amplitude * math.exp(-spike_decay * days_since)
 
 
 def _get_scope_label(conn: sqlite3.Connection, scope_id: Optional[str]) -> Optional[str]:
