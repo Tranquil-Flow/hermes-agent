@@ -346,14 +346,31 @@ def apply_dampening(
         return scored
 
     # ── 1. GRAVITY DAMPENING ──
-    query_terms = {w.lower() for w in query.split()} - STOP_WORDS
+    # Strip punctuation and use prefix matching (deploy matches deployments)
+    def _clean_terms(text: str) -> set:
+        import string
+        words = text.lower().translate(str.maketrans('', '', string.punctuation)).split()
+        return {w for w in words if w not in STOP_WORDS and len(w) > 1}
+
+    def _has_overlap(terms_a: set, terms_b: set) -> bool:
+        """Check if any term in A matches a term in B (prefix or exact)."""
+        if terms_a & terms_b:
+            return True
+        # Check prefix matches (deploy matches deployments, etc.)
+        for a in terms_a:
+            for b in terms_b:
+                if len(a) >= 4 and (b.startswith(a) or a.startswith(b)):
+                    return True
+        return False
+
+    query_terms = _clean_terms(query)
     max_score = scored[0].score if scored else 0.0
 
     if max_score > 0 and query_terms:
         for item in scored:
             if item.score > 0.3 * max_score:
-                memory_terms = {w.lower() for w in item.fact.content.split()} - STOP_WORDS
-                if not query_terms & memory_terms:
+                memory_terms = _clean_terms(item.fact.content)
+                if not _has_overlap(query_terms, memory_terms):
                     pre = item.score
                     item.score *= cfg.gravity_dampening_factor
                     item.components['gravity_dampening'] = item.score - pre
