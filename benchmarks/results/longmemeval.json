@@ -2,9 +2,9 @@
   "benchmark": "longmemeval",
   "dataset": "xiaowu0162/longmemeval-cleaned (longmemeval_oracle)",
   "total": 100,
-  "correct": 7,
-  "score": 0.07,
-  "wall_time_seconds": 6.381171226501465,
+  "correct": 0,
+  "score": 0.0,
+  "wall_time_seconds": 251.77644896507263,
   "mean_metrics": {
     "recall_at_1": 0.13,
     "recall_at_3": 0.18,
@@ -22,8 +22,8 @@
   "by_type": {
     "temporal-reasoning": {
       "total": 60,
-      "correct": 5,
-      "score": 0.08333333333333333,
+      "correct": 0,
+      "score": 0.0,
       "mean_metrics": {
         "recall_at_1": 0.016666666666666666,
         "recall_at_3": 0.05,
@@ -41,8 +41,8 @@
     },
     "multi-session": {
       "total": 40,
-      "correct": 2,
-      "score": 0.05,
+      "correct": 0,
+      "score": 0.0,
       "mean_metrics": {
         "recall_at_1": 0.3,
         "recall_at_3": 0.375,
@@ -228,7 +228,7 @@
     {
       "question_id": "gpt4_0b2f1d21",
       "question_type": "temporal-reasoning",
-      "correct": true,
+      "correct": false,
       "question": "Which event happened first, the purchase of the coffee maker or the malfunction of the stand mixer?",
       "gold_answer": "\"The malfunction of the stand mixer\"",
       "recalled": "user: I'm also thinking of organizing a dinner party soon, and I want to make sure I have all the necessary kitchen utensils and appliances in good condition. Do you have any tips on how to maintain m",
@@ -378,7 +378,7 @@
     {
       "question_id": "gpt4_4edbafa2",
       "question_type": "temporal-reasoning",
-      "correct": true,
+      "correct": false,
       "question": "What was the date on which I attended the first BBQ event in June?",
       "gold_answer": "\"June 3rd\"",
       "recalled": "user: I've been meaning to try out some BBQ recipes with a Korean twist, like the one I made on the 10th of June. Do you have any recommendations for Korean-style BBQ sauces or marinades that I could ",
@@ -708,7 +708,7 @@
     {
       "question_id": "gpt4_2f56ae70",
       "question_type": "temporal-reasoning",
-      "correct": true,
+      "correct": false,
       "question": "Which streaming service did I start using most recently?",
       "gold_answer": "\"Disney+\"",
       "recalled": "user: Wait, I just thought of something. Since I started a free trial of Disney+ last month, it's possible that the documentary I'm thinking of was a Disney+ exclusive. Can you check if any of the doc",
@@ -768,7 +768,7 @@
     {
       "question_id": "gpt4_1a1dc16d",
       "question_type": "temporal-reasoning",
-      "correct": true,
+      "correct": false,
       "question": "Which event happened first, the meeting with Rachel or the pride parade?",
       "gold_answer": "\"The meeting with Rachel\"",
       "recalled": "assistant: That's a great plan! Discussing this with Rachel will definitely provide you with valuable insights and guidance. As your mentor, she can offer advice on how to approach the initiative, and",
@@ -828,7 +828,7 @@
     {
       "question_id": "gpt4_c27434e8",
       "question_type": "temporal-reasoning",
-      "correct": true,
+      "correct": false,
       "question": "Which project did I start first, the Ferrari model or the Japanese Zero fighter plane model?",
       "gold_answer": "\"Japanese Zero fighter plane model\"",
       "recalled": "user: I'm excited to explore the idea of adding more details to my models. For my Japanese Zero fighter plane, I think I'll start by adding a pilot figure and maybe some ground equipment like fuel dru",
@@ -993,7 +993,7 @@
     {
       "question_id": "gpt4_59c863d7",
       "question_type": "multi-session",
-      "correct": true,
+      "correct": false,
       "question": "How many model kits have I worked on or bought?",
       "gold_answer": "\"I have worked on or bought five model kits. The scales of the models are: Revell F-15 Eagle (scale not mentioned), Tamiya 1\\/48 scale Spitfire Mk.V, 1\\/16 scale German Tiger I tank, 1\\/72 scale B-29 bomber, and 1\\/24 scale '69 Camaro.\"",
       "recalled": "assistant: Adding wire details to your 1/24 scale '69 Camaro model will definitely elevate its realism! Soldering wire details together can be a bit challenging, but with the right techniques and tool",
@@ -1083,7 +1083,7 @@
     {
       "question_id": "gpt4_f2262a51",
       "question_type": "multi-session",
-      "correct": true,
+      "correct": false,
       "question": "How many different doctors did I visit?",
       "gold_answer": "\"I visited three different doctors: a primary care physician, an ENT specialist, and a dermatologist.\"",
       "recalled": "assistant: Excellent plan! It's great that you're taking proactive steps to address your health concerns. By following up with both Dr. Patel and your primary care physician, you'll be able to get a c",

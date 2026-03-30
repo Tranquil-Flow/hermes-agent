@@ -212,13 +212,16 @@ class UnifiedMemoryStore:
                 if old_row:
                     superseded_activation = old_row["activation"] * self._config.activation_transfer_ratio
 
-        # Contradiction check
-        check_contradictions(self._conn, content, embedding, self._config.contradiction_threshold)
-
         # Resolve scope
         scope_id = None
         if scope and scope.lower() not in ("global", "none", ""):
             scope_id = self._get_or_create_scope(scope, now)
+
+        # Contradiction check
+        check_contradictions(
+            self._conn, content, embedding, self._config.contradiction_threshold,
+            category=category, scope_id=scope_id,
+        )
 
         # Store embedding as BLOB
         embedding_blob = embedding.tobytes() if embedding is not None else None

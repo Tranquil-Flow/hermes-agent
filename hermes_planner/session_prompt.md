@@ -11,6 +11,14 @@ hermes binaries, no looking for bot tokens, no calling Discord APIs, no delegati
 message-sending to subagents. None of that works. Just write your final response and
 the cron system delivers it.
 
+## Session time budget
+
+You have a HARD LIMIT of 20 minutes of work per session. This is critical for performance:
+- Track how many projects you've touched. After completing work on 2 projects, STOP and write your final response — even if more active projects remain. The next session will pick them up.
+- Use subagents/delegate_task for heavy code work (compilation, large refactors) to keep your own context lean.
+- If a single task is taking more than 10 minutes, wrap up what you have, commit, and report progress. Don't let one task consume the entire session.
+- Quality > quantity. It's better to do excellent work on 1-2 projects than mediocre work across 5.
+
 ## Your job this session
 
 1. Load the project registry: `/workspace/Projects/.hermes-planner/registry.json`
@@ -21,6 +29,7 @@ the cron system delivers it.
    a. All tasks in the current milestone are done → mark milestone complete
    b. You hit a blocker that needs human judgment → mark project blocked in registry
    c. The project needs user data/input that isn't available → mark blocked in registry
+   d. You've completed work on 2 projects — stop and report, the next session continues
 
 ## Rules
 - NEVER work on projects with status=blocked, status=complete, or status=deploy-blocked. These must be skipped entirely regardless of rank.

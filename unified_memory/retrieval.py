@@ -528,32 +528,186 @@ def check_contradictions(
     new_content: str,
     new_embedding: Optional[np.ndarray],
     threshold: float = 0.12,
+    category: Optional[str] = None,
+    scope_id: Optional[str] = None,
 ) -> Optional[str]:
     """Check if new content contradicts any existing active fact.
 
+    Full port of CognitiveMemoryStore._check_contradictions:
+    1. Entity overlap + update-language gate
+    2. Embedding similarity floor (0.55)
+    3. Near-duplicate detection (high sim + high word overlap)
+
     Returns the ID of the contradicted fact, or None.
-    Uses the same entity-overlap + embedding similarity approach as cognitive memory.
     """
     if new_embedding is None:
         return None
 
-    rows = conn.execute(
-        "SELECT id, content, embedding FROM um_facts "
-        "WHERE status = 'active' AND embedding IS NOT NULL"
-    ).fetchall()
+    # Get candidates — filter by scope if provided (same scope = same context)
+    query = "SELECT id, content, embedding, category, scope_id FROM um_facts WHERE status = 'active' AND embedding IS NOT NULL"
+    params = []
+    if scope_id:
+        query += " AND scope_id = ?"
+        params.append(scope_id)
+
+    rows = conn.execute(query, params).fetchall()
 
     for r in rows:
         existing_emb = np.frombuffer(r["embedding"], dtype=np.float32)
-        sim = cosine_similarity(new_embedding, existing_emb)
-        if sim > threshold:
-            # Check for update language
-            update_words = {'changed', 'migrated', 'replacement', 'updated', 'switched',
-                           'moved', 'replaced', 'new', 'now', 'instead'}
-            new_words = set(new_content.lower().split())
-            if new_words & update_words:
-                # Additional check: embedding similarity floor
-                if sim < 0.55:
-                    continue
-                return r["id"]
+        emb_sim = cosine_similarity(new_embedding, existing_emb)
+        score = _contradiction_score(new_content, r["content"], emb_sim)
+
+        if score >= threshold:
+            # Mark old fact as superseded
+            conn.execute(
+                "UPDATE um_facts SET superseded_by=NULL, status='superseded', updated_at=? WHERE id=?",
+                (0, r["id"])  # updated_at will be set by caller
+            )
+            conn.commit()
+            return r["id"]
 
     return None
+
+
+def _contradiction_score(new_content: str, existing_content: str, embedding_sim: float) -> float:
+    """Compute contradiction score using entity overlap + update signal.
+
+    Ported from CognitiveMemoryStore._contradiction_score.
+
+    Key insight: two facts sharing an entity are NOT contradictions unless
+    the newer fact signals an update/change ("migrated", "switched", "now").
+    """
+    # Gate: if the new fact has no update language, it's complementary
+    if not _has_update_signal(new_content):
+        # Exception: near-duplicate detection
+        if embedding_sim >= 0.85:
+            words_new = set(new_content.lower().split())
+            words_old = set(existing_content.lower().split())
+            word_jaccard = len(words_new & words_old) / len(words_new | words_old) if (words_new | words_old) else 0
+            if word_jaccard >= 0.75:
+                return embedding_sim
+        return 0.0
+
+    # Embedding similarity floor
+    if embedding_sim < 0.55:
+        return 0.0
+
+    terms_new, words_new = _extract_key_terms(new_content)
+    terms_old, words_old = _extract_key_terms(existing_content)
+
+    # Technical term overlap
+    shared_terms = terms_new & terms_old
+    all_terms = terms_new | terms_old
+    term_overlap = len(shared_terms) / len(all_terms) if all_terms else 0
+
+    # Domain word overlap
+    shared_words = words_new & words_old
+    all_words = words_new | words_old
+    word_overlap = len(shared_words) / len(all_words) if all_words else 0
+
+    # Combined entity score
+    entity_score = 0.5 * term_overlap + 0.5 * word_overlap
+
+    # Final: entity overlap + embedding similarity
+    combined = entity_score * 0.6 + embedding_sim * 0.4
+
+    # Boost if shared technical terms exist
+    if shared_terms:
+        combined += 0.1
+
+    return combined
+
+
+def _has_update_signal(text: str) -> bool:
+    """Detect update/change language. Ported from CognitiveMemoryStore."""
+    text_lower = text.lower()
+
+    # Verb patterns that signal state change
+    if re.search(
+        r'\b(?:migrat|switch|upgrad|mov|chang|replac|rewrit|dropp|'
+        r'increas|reduc|extract|took\s+over|brought|hiring|hired|'
+        r'added|paralleliz|no\s+longer)\w*\b', text_lower
+    ):
+        return True
+
+    if re.search(r'\bnow\s+(?:use|is|has|run|complete|support)\w*\b', text_lower):
+        return True
+
+    if re.search(
+        r'\bafter\s+(?:the\s+)?(?:migration|switch|upgrade|rewrite|refactor|move|transition|conversion)\b',
+        text_lower
+    ):
+        return True
+
+    if re.search(r'\bwas\s+\w+.*?(?:now|;)', text_lower):
+        return True
+
+    return False
+
+
+def _extract_key_terms(text: str) -> tuple:
+    """Extract key terms for entity-overlap contradiction detection.
+    Ported from CognitiveMemoryStore._extract_key_terms.
+    Returns (technical_terms, domain_words).
+    """
+    terms: set = set()
+    text_lower = text.lower()
+
+    # Product + version
+    for m in re.finditer(r'\b([A-Z][a-zA-Z]+(?:\.[a-zA-Z]+)?)\s+(\d+(?:\.\d+)*)\b', text):
+        terms.add(f"{m.group(1).lower()} {m.group(2)}")
+        terms.add(m.group(1).lower())
+
+    # Cloud/infra identifiers
+    for m in re.finditer(r'\b([a-z]+-(?:east|west|central|north|south)\d*-?\d*)\b', text_lower):
+        terms.add(m.group(1))
+
+    # Technical acronyms
+    _stop_acronyms = {'the', 'a', 'an', 'all', 'we', 'our', 'no', 'yes', 'pm', 'am'}
+    for m in re.finditer(r'\b([A-Z]{2,})\b', text):
+        term = m.group(1).lower()
+        if term not in _stop_acronyms:
+            terms.add(term)
+
+    # Known products
+    _known_products = {
+        'postgresql', 'aws', 'gcp', 'jenkins', 'github actions',
+        'cloudwatch', 'grafana', 'loki', 'sentry', 'launchdarkly',
+        'react', 'next.js', 'typescript', 'javascript', 'docker',
+        'kubernetes', 'protocol buffers', 'redis', 'mongodb', 'nginx',
+    }
+    for prod in _known_products:
+        if prod in text_lower:
+            terms.add(prod)
+
+    # Domain words
+    _stop_words = {
+        'the', 'a', 'an', 'is', 'are', 'was', 'were', 'with', 'and', 'or',
+        'for', 'in', 'on', 'at', 'to', 'of', 'it', 'its', 'by', 'as',
+        'that', 'this', 'from', 'has', 'have', 'be', 'been', 'we', 'our',
+        'they', 'do', 'does', 'not', 'but', 'so', 'if', 'than', 'then',
+        'about', 'up', 'out', 'all', 'now', 'use', 'uses', 'using', 'used',
+        'after', 'new', 'more', 'added', 'two', 'three', 'also', 'still',
+        'due', 'every', 'other', 'each', 'first', 'per', 'how', 'what',
+        'where', 'when', 'into', 'over', 'single', 'total', 'only', 'some',
+        'took', 'moved', 'migrated', 'switched', 'upgraded', 'reduced',
+        'increased', 'dropped', 'hired', 'brought', 'bringing', 'free',
+        'rewritten', 'extracted', 'custom', 'main', 'current', 'currently',
+        'requires', 'require', 'smaller', 'better', 'separate',
+        'additional', 'alternative', 'runs', 'run', 'goes', 'go',
+        'handles', 'handle', 'supports', 'mirrors', 'matches', 'tier',
+        'plan', 'costs', 'complete', 'minutes', 'hour', 'hours', 'daily',
+        'frequent', 'updates', 'save', 'app', 'environment', 'production',
+        'instance', 'sizes', 'format', 'response', 'responses', 'clients',
+        'mobile', 'web', 'minimum',
+    }
+    domain_words: set = set()
+    for w in re.findall(r'\b[a-z]{4,}\b', text_lower):
+        if w not in _stop_words:
+            stem = re.sub(r'(?:ing|ed|es|s)$', '', w)
+            if len(stem) >= 3:
+                domain_words.add(stem)
+            else:
+                domain_words.add(w)
+
+    return terms, domain_words

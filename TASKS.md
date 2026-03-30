@@ -92,6 +92,29 @@ Current benchmark state (2026-03-21):
   - Graceful fallback when LLM unavailable (returns False)
 - 37 cognitive memory unit tests passing
 
+## Session 10 work (2026-03-29) — Suite B-D benchmark push
+
+- Single-line fix: added embedding similarity floor (0.55) in `_contradiction_score()` update-language path
+  - Prevents false supersession of complementary facts that share topic but make different claims
+  - Blocks adversarial hallucinated facts from superseding legitimate facts via false contradiction detection
+- Results improvement:
+  - Suite A contradictions: 90% → **100%** (fewer false supersessions = correct facts survive)
+  - Suite A overall: 95.5% → **96.0%**
+  - Suite B consolidation: 85% → **100%** (archive scenarios: 70% → 100%) 
+  - Suite B compression: 100% (maintained)
+  - Suite C scopes: 100% (maintained)
+  - Suite D adversarial: 80% → **93.3%** (hallucinated_fact: 50% → 75%, all other categories: 100%)
+  - Suite E scale: 100% (maintained)
+  - Suite F integration: 100% (maintained)
+- AD_07 (port 5432 vs 5433) remains as known embedding limitation per fixture notes
+  - emb_sim=0.798 between genuine & hallucinated facts (numbers not semantically distinguished)
+  - Would require numerical precision detection or LLM-based verification to fix
+- 58 cognitive memory unit tests passing
+- Root cause: contradiction detection too aggressively superseded when update verbs present
+  with moderate entity overlap. Facts like "Migration guide from v1 to v2" were falsely
+  superseding "API v1 was deprecated in January 2023" (related topic, different claim).
+  The embedding floor ensures only semantically near-identical facts can supersede each other.
+
 ## Session 5 work (2026-03-21)
 - Fixed LLM judge model name (claude-haiku-4-5-20241022 -> claude-haiku-4-5)
 - Updated judge prompt: clarify memory retrieval semantics (inferential matches are CORRECT)

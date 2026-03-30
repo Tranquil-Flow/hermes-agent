@@ -352,16 +352,19 @@ class DockerEnvironment(BaseEnvironment):
         self._container_id = result.stdout.strip()
         logger.info(f"Started container {container_name} ({self._container_id[:12]})")
 
-        # Install mitmproxy CA cert into the container's system trust store.
-        # This makes Chromium (Playwright), curl, wget, and apt trust TLS connections
-        # routed through the Aegis MITM proxy. Must run after container starts.
-        if _aegis_cert_mounted:
-            subprocess.run(
-                [self._docker_exe, "exec", self._container_id, "bash", "-c",
-                 "cp /certs/mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/aegis-proxy.crt"
-                 " && update-ca-certificates -f 2>/dev/null || true"],
-                capture_output=True, timeout=15,
-            )
+        # Aegis: install mitmproxy CA into the container system trust store
+        # so Chromium/Playwright trusts TLS through the MITM proxy (_aegis_cert_trust)
+        if os.getenv("AEGIS_ACTIVE") == "1":
+            from pathlib import Path as _Path
+            if (_Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem").exists():
+                import subprocess as _aegis_cert_sp
+                _aegis_cert_sp.run(
+                    [self._docker_exe, "exec", self._container_id, "bash", "-c",
+                     "cp /certs/mitmproxy-ca-cert.pem"
+                     " /usr/local/share/ca-certificates/aegis-proxy.crt"
+                     " && update-ca-certificates -f 2>/dev/null || true"],
+                    capture_output=True, timeout=15,
+                )
 
     @staticmethod
     def _storage_opt_supported() -> bool:

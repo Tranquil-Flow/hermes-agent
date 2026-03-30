@@ -26,16 +26,15 @@ import uuid
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Import from local structured_memory package (tools/structured_memory/)
+# Lazy import guard — hermes_memory may not be installed in all envoys
 # ---------------------------------------------------------------------------
 try:
-    from tools.structured_memory import db as _db
-    from tools.structured_memory import facts as _facts
-    from tools.structured_memory import gauge as _gauge
-    from tools.structured_memory import scopes as _scopes
-    from tools.structured_memory.db import get_sm_connection as _get_sm_connection
-    from tools.structured_memory.constants import ABBREV_DICT, GAUGE_WARN
-    from tools.structured_memory.facts import TYPE_DISPLAY, MemoryFullError
+    from hermes_memory.core import db as _db
+    from hermes_memory.core import facts as _facts
+    from hermes_memory.core import gauge as _gauge
+    from hermes_memory.core import scopes as _scopes
+    from hermes_memory.core.db import ABBREV_DICT, GAUGE_WARN
+    from hermes_memory.core.facts import TYPE_DISPLAY, MemoryFullError
 
     _HM_AVAILABLE = True
 except ImportError:
@@ -58,7 +57,7 @@ def _conn():
     if not _HM_AVAILABLE:
         raise RuntimeError("hermes_memory package is not installed.")
     if not getattr(_local, "conn", None):
-        _local.conn = _db.get_sm_connection(_DB_PATH)
+        _local.conn = _db.get_connection(_DB_PATH)
     return _local.conn
 
 
@@ -81,7 +80,7 @@ def _ensure_session(session_id: str) -> None:
     if not existing:
         c.execute(
             "INSERT INTO sessions (id, started_at, last_turn) VALUES (?,?,0)",
-            (session_id, _db.sm_now()),
+            (session_id, _db.now()),
         )
         c.commit()
 
@@ -158,7 +157,7 @@ def _handle_mcp_memory_write(args: dict, **kw) -> str:
         ]
         if result.get("truncated"):
             lines.append(
-                f"[truncated] content exceeded {_facts.MAX_FACT_CHARS} chars and was shortened. "
+                f"[truncated] content exceeded {_db.MAX_FACT_CHARS} chars and was shortened. "
                 "Consider splitting into multiple facts."
             )
         if result.get("conflict_resolved"):
@@ -348,7 +347,7 @@ def _handle_mcp_memory_optimize(args: dict, **kw) -> str:
         return "[MEMORY OPTIMIZE FAILED] hermes_memory package is not installed."
 
     try:
-        from tools.structured_memory.optimize import optimize
+        from hermes_memory.core.optimize import optimize
 
         c = _conn()
         session_id = args.get("session_id") or _resolve_session(kw)

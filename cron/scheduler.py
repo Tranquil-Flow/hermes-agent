@@ -524,6 +524,14 @@ def tick(verbose: bool = True) -> int:
         executed = 0
         for job in due_jobs:
             try:
+                # Send a start notification so the user knows the job kicked off
+                try:
+                    task_name = job.get("name", job["id"])
+                    start_msg = f"🌙 Starting job **{task_name}**…"
+                    _deliver_result(job, start_msg)
+                except Exception as se:
+                    logger.debug("Start notification failed for job %s: %s", job["id"], se)
+
                 success, output, final_response, error = run_job(job)
 
                 output_file = save_job_output(job["id"], output)

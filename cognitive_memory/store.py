@@ -999,6 +999,16 @@ class CognitiveMemoryStore:
                     return embedding_sim
             return 0.0
 
+        # Embedding similarity floor: even with update language, facts must be
+        # semantically close (same specific claim) to be contradictions.
+        # This prevents "Migration guide from v1 to v2" from superseding
+        # "API v1 was deprecated in January 2023" — related topic but
+        # different claims. Also blocks adversarial hallucinated facts
+        # (e.g., fake credentials) from superseding legitimate facts
+        # about the same broad domain.
+        if embedding_sim < 0.55:
+            return 0.0
+
         terms_new, words_new = self._extract_key_terms(new_content)
         terms_old, words_old = self._extract_key_terms(existing_content)
 
