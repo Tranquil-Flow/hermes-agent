@@ -9,30 +9,30 @@
     0.971830985915493
   ],
   "per_category_mean": {
-    "consolidation": 1.0,
     "scopes": 1.0,
+    "temporal_decay": 0.9777777777777777,
+    "consolidation": 1.0,
+    "compression": 0.9,
     "scale": 1.0,
     "semantic_recall": 1.0,
+    "cross_reference": 0.9333333333333332,
     "integration": 1.0,
-    "temporal_decay": 0.9777777777777777,
     "contradictions": 0.9499999999999998,
-    "compression": 0.9,
-    "importance_filtering": 0.9499999999999998,
     "adversarial": 1.0,
-    "cross_reference": 0.9333333333333332
+    "importance_filtering": 0.9499999999999998
   },
   "per_category_std": {
-    "consolidation": 0.0,
     "scopes": 0.0,
+    "temporal_decay": 0.0,
+    "consolidation": 0.0,
+    "compression": 0.0,
     "scale": 0.0,
     "semantic_recall": 0.0,
+    "cross_reference": 1.3597399555105182e-16,
     "integration": 0.0,
-    "temporal_decay": 0.0,
     "contradictions": 1.3597399555105182e-16,
-    "compression": 0.0,
-    "importance_filtering": 1.3597399555105182e-16,
     "adversarial": 0.0,
-    "cross_reference": 1.3597399555105182e-16
+    "importance_filtering": 1.3597399555105182e-16
   },
   "num_runs": 3,
   "retrieval_metrics": {
@@ -63,7 +63,7 @@
     {
       "seed": 42,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.6321234703063965,
+      "wall_time_seconds": 1.869586706161499,
       "token_usage": {
         "recall_tokens": 10407,
         "recall_chars": 43024,
@@ -331,7 +331,7 @@
     {
       "seed": 43,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.912146806716919,
+      "wall_time_seconds": 1.6336965560913086,
       "token_usage": {
         "recall_tokens": 10407,
         "recall_chars": 43024,
@@ -599,7 +599,7 @@
     {
       "seed": 44,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 2.1125638484954834,
+      "wall_time_seconds": 1.6002378463745117,
       "token_usage": {
         "recall_tokens": 10407,
         "recall_chars": 43024,

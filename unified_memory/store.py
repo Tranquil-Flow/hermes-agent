@@ -458,15 +458,28 @@ class UnifiedMemoryStore:
     def consolidate(self) -> Dict[str, int]:
         """Run consolidation cycle.
 
+        - Protect bridge nodes (Tarjan) from pruning
         - Promote working -> core (access_count >= 3)
         - Demote core -> archive (low activation)
         - Prune archived below threshold
         - Decay Hebbian links
+        - Update NPMI on all links
         - Run gauge pressure check
         """
         now = self._now()
         cfg = self._config
         report = {"promoted": 0, "demoted": 0, "pruned": 0, "links_pruned": 0}
+
+        # Tarjan bridge protection: pin structurally critical nodes
+        if cfg.enable_tarjan_protection:
+            try:
+                from unified_memory.lifecycle import find_articulation_points, protect_bridge_nodes
+                bridges = find_articulation_points(self._conn)
+                if bridges:
+                    protect_bridge_nodes(self._conn, bridges)
+                    report["bridges_protected"] = len(bridges)
+            except Exception:
+                pass
 
         # Promote working -> core
         result = self._conn.execute(
@@ -499,6 +512,14 @@ class UnifiedMemoryStore:
         # Decay all links
         report["links_pruned"] = link_ops.decay_all_links(self._conn, 1.0 - cfg.link_decay_rate)
 
+        # Update NPMI normalization on all links
+        if cfg.enable_npmi:
+            try:
+                updated = link_ops.update_all_npmi(self._conn)
+                report["npmi_updated"] = updated
+            except Exception:
+                pass
+
         # Gauge pressure check
         if cfg.enable_pressure:
             self._gauge_check()
@@ -517,9 +538,88 @@ class UnifiedMemoryStore:
         top_k: int = 20,
         scope: Optional[str] = None,
     ) -> List[ScoredFact]:
-        """Multi-hop exploration via PPR. Falls back to recall()."""
-        # For now, fall back to recall with larger top_k
-        return self.recall(query, scope=scope, top_k=top_k)
+        """Multi-hop exploration via Personalized PageRank.
+
+        Seeds PPR from recall() results, walks the Hebbian link graph
+        to discover associatively connected facts that pure similarity
+        would miss.
+
+        Falls back to recall() if the link graph is too sparse.
+        """
+        # Phase 1: seed from recall
+        seeds = self.recall(query, scope=scope, top_k=min(top_k, 10))
+        if not seeds or len(seeds) < 2:
+            return self.recall(query, scope=scope, top_k=top_k)
+
+        seed_ids = {s.fact.id: s.score for s in seeds}
+
+        # Build adjacency from links
+        all_links = link_ops.get_all_links(self._conn)
+        adj: Dict[str, Dict[str, float]] = {}
+        for link in all_links:
+            adj.setdefault(link.source_id, {})[link.target_id] = link.strength
+            adj.setdefault(link.target_id, {})[link.source_id] = link.strength
+
+        if len(adj) < 3:
+            return self.recall(query, scope=scope, top_k=top_k)
+
+        # Phase 2: Personalized PageRank
+        alpha = self._config.ppr_alpha  # teleport probability
+        all_nodes = set(adj.keys()) | set(seed_ids.keys())
+        scores: Dict[str, float] = {n: 0.0 for n in all_nodes}
+
+        # Initialize with seed scores (normalized)
+        total_seed = sum(max(s, 0.01) for s in seed_ids.values())
+        personalization = {n: max(seed_ids.get(n, 0.0), 0.01) / total_seed for n in all_nodes}
+
+        # PPR iteration
+        for _ in range(20):
+            new_scores: Dict[str, float] = {}
+            for node in all_nodes:
+                teleport = alpha * personalization.get(node, 0.0)
+                neighbor_contrib = 0.0
+                neighbors = adj.get(node, {})
+                if neighbors:
+                    total_weight = sum(neighbors.values())
+                    for neighbor, weight in neighbors.items():
+                        neighbor_contrib += (1 - alpha) * scores.get(neighbor, 0.0) * (weight / total_weight)
+                new_scores[node] = teleport + neighbor_contrib
+            scores = new_scores
+
+        # Combine PPR scores with original recall scores
+        combined = {}
+        for sf in seeds:
+            ppr_boost = scores.get(sf.fact.id, 0.0) * self._config.ppr_boost
+            combined[sf.fact.id] = sf.score + ppr_boost
+            sf.components['ppr_discovery'] = ppr_boost
+
+        # Discover facts found by PPR but not in original recall
+        recalled_ids = {sf.fact.id for sf in seeds}
+        discovered_ids = [
+            (nid, sc) for nid, sc in scores.items()
+            if nid not in recalled_ids and sc > 0.01
+        ]
+        discovered_ids.sort(key=lambda x: x[1], reverse=True)
+
+        # Fetch discovered facts from DB
+        for nid, ppr_score in discovered_ids[:top_k - len(seeds)]:
+            row = self._conn.execute(
+                "SELECT * FROM um_facts WHERE id = ? AND status IN ('active', 'cold')",
+                (nid,)
+            ).fetchone()
+            if row:
+                from unified_memory.retrieval import _row_to_fact, _get_access_times
+                access_times = _get_access_times(self._conn, nid)
+                fact = _row_to_fact(dict(row), None, access_times)
+                seeds.append(ScoredFact(
+                    fact=fact,
+                    score=ppr_score * self._config.ppr_boost,
+                    components={"ppr_discovery": ppr_score},
+                ))
+
+        # Re-sort by combined score
+        seeds.sort(key=lambda s: s.score, reverse=True)
+        return seeds[:top_k]
 
     def get_stats(self) -> Dict[str, Any]:
         """Return store statistics."""

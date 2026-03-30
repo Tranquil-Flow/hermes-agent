@@ -223,18 +223,19 @@ class UnifiedMemoryConfig:
     """(Phase 2) Classify query intent to adjust retrieval strategy."""
 
     # Phase 3 — graph analytics
-    enable_npmi: bool = False
-    """(Phase 3) Use NPMI co-occurrence weighting for Hebbian links."""
+    enable_npmi: bool = True
+    """(Phase 3) Normalize co-occurrence edges with NPMI during consolidation."""
 
-    enable_tarjan_protection: bool = False
-    """(Phase 3) Protect strongly-connected components from premature eviction."""
+    enable_tarjan_protection: bool = True
+    """(Phase 3) Protect bridge nodes (articulation points) from pruning."""
 
     # Phase 4 — reinforcement learning
     enable_linucb: bool = False
-    """(Phase 4) Use LinUCB contextual bandit for retrieval ranking."""
+    """(Phase 4) LinUCB contextual bandit for per-stage run/skip decisions.
+    Disabled by default — needs ~50 queries to exit exploration phase."""
 
-    enable_session_rewards: bool = False
-    """(Phase 4) Propagate session-end reward signals back through memory."""
+    enable_session_rewards: bool = True
+    """(Phase 4) Auto-infer rewards from store-after-recall patterns."""
 
     # ------------------------------------------------------------------
     # Lifecycle
