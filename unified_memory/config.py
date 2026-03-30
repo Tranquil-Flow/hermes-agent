@@ -114,7 +114,9 @@ class UnifiedMemoryConfig:
     # ------------------------------------------------------------------
 
     enable_rrf_fusion: bool = False
-    """Enable BM25 keyword scoring + score-weighted RRF fusion in recall()."""
+    """Enable BM25 keyword scoring + score-weighted RRF fusion in recall().
+    Automatically skipped for episodic/temporal queries to preserve recency ordering.
+    Disabled by default: helps compression/importance but hurts temporal/scale."""
 
     rrf_k: int = 60
     """RRF rank constant."""

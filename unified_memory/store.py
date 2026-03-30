@@ -344,10 +344,16 @@ class UnifiedMemoryStore:
             now, self._config, scope,
         )
 
-        # FTS5/BM25 fusion
+        # FTS5/BM25 fusion — only when query is keyword-oriented, not temporal
+        # Temporal queries ("how often", "when did", "how long") should rely
+        # purely on ACT-R activation so recency signal isn't disrupted
         if self._config.enable_rrf_fusion and scored:
-            fts5_scores = fts5_search(self._conn, query, scope_id)
-            apply_rrf_fusion(scored, fts5_scores, self._config)
+            from unified_memory.intent import classify_intent, QueryIntent
+            intent = classify_intent(query)
+            # Skip RRF for episodic queries where recency matters most
+            if intent.intent != QueryIntent.EPISODIC:
+                fts5_scores = fts5_search(self._conn, query, scope_id)
+                apply_rrf_fusion(scored, fts5_scores, self._config)
 
         # Q-value reranking
         if self._config.enable_qvalue_reranking and self._qvalue_store is not None:
