@@ -365,6 +365,18 @@ def apply_dampening(
             item.score *= cfg.resolution_boost_factor
             item.components['resolution_boost'] = cfg.resolution_boost_factor
 
+    # ── 4. INTENT-BASED TYPE BOOST ──
+    # If intent classification is enabled, boost facts matching the query intent
+    if cfg.enable_intent_classification:
+        from unified_memory.intent import classify_intent
+        intent = classify_intent(query)
+        boost_type = intent.type_boost
+        if boost_type is not None:
+            for item in scored:
+                if item.fact.fact_type == boost_type:
+                    item.score *= 1.15  # mild boost
+                    item.components['intent_boost'] = 1.15
+
     scored.sort(key=lambda s: s.score, reverse=True)
     return scored
 

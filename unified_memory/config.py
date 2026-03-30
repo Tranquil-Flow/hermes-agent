@@ -217,7 +217,7 @@ class UnifiedMemoryConfig:
     """Fraction of a superseded fact's activation transferred to its successor."""
 
     # Phase 2 — intent classification
-    enable_intent_classification: bool = False
+    enable_intent_classification: bool = True
     """(Phase 2) Classify query intent to adjust retrieval strategy."""
 
     # Phase 3 — graph analytics
