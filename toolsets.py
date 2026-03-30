@@ -222,6 +222,21 @@ TOOLSETS = {
         "includes": []
     },
 
+    "unified_memory": {
+        "description": "Unified memory store combining ACT-R activation, semantic recall, FTS5 search, typed facts, Hebbian links, and Q-value RL reranking",
+        "tools": [
+            "mcp_umemory_write",
+            "mcp_umemory_recall",
+            "mcp_umemory_search",
+            "mcp_umemory_reflect",
+            "mcp_umemory_reward",
+            "mcp_umemory_explore",
+            "mcp_umemory_stats",
+            "mcp_umemory_consolidate",
+        ],
+        "includes": []
+    },
+
 
     # Scenario-specific toolsets
     

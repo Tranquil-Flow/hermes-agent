@@ -96,7 +96,12 @@ class UnifiedMemoryStore:
         if self._config.enable_qvalue_reranking:
             try:
                 from cognitive_memory.qvalue_store import QValueStore
-                qvalue_db = ":memory:" if ":memory:" in (db_path or self._config.db_path) else None
+                actual_db = db_path or self._config.db_path
+                if ":memory:" in actual_db:
+                    qvalue_db = ":memory:"
+                else:
+                    # Store Q-values alongside the main DB
+                    qvalue_db = actual_db.replace(".db", "_qvalues.db")
                 self._qvalue_store = QValueStore(qvalue_db)
             except ImportError:
                 logger.warning("QValueStore not available — Q-value reranking disabled")
