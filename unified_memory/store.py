@@ -515,10 +515,17 @@ class UnifiedMemoryStore:
     # ─── Internal Helpers ────────────────────────────────────────
 
     def _get_active_facts(self, scope_id: Optional[str] = None) -> List[dict]:
-        """Get all active/cold facts, optionally filtered by scope."""
+        """Get all active/cold facts, optionally filtered by scope.
+
+        When a scope is specified, returns facts IN that scope PLUS global
+        facts (scope_id IS NULL). Global facts are always accessible —
+        scope filtering narrows context but doesn't exclude globals.
+        This matches cognitive memory's behavior.
+        """
         if scope_id:
             rows = self._conn.execute(
-                "SELECT * FROM um_facts WHERE status IN ('active', 'cold') AND scope_id = ?",
+                "SELECT * FROM um_facts WHERE status IN ('active', 'cold') "
+                "AND (scope_id = ? OR scope_id IS NULL)",
                 (scope_id,)
             ).fetchall()
         else:
