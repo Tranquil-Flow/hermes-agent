@@ -9,30 +9,30 @@
     0.971830985915493
   ],
   "per_category_mean": {
-    "cross_reference": 0.9333333333333332,
-    "scale": 1.0,
-    "compression": 0.9,
-    "semantic_recall": 1.0,
-    "temporal_decay": 0.9777777777777777,
-    "adversarial": 1.0,
-    "importance_filtering": 0.9499999999999998,
-    "contradictions": 0.9499999999999998,
-    "integration": 1.0,
     "consolidation": 1.0,
-    "scopes": 1.0
+    "scopes": 1.0,
+    "scale": 1.0,
+    "semantic_recall": 1.0,
+    "integration": 1.0,
+    "temporal_decay": 0.9777777777777777,
+    "contradictions": 0.9499999999999998,
+    "compression": 0.9,
+    "importance_filtering": 0.9499999999999998,
+    "adversarial": 1.0,
+    "cross_reference": 0.9333333333333332
   },
   "per_category_std": {
-    "cross_reference": 1.3597399555105182e-16,
-    "scale": 0.0,
-    "compression": 0.0,
-    "semantic_recall": 0.0,
-    "temporal_decay": 0.0,
-    "adversarial": 0.0,
-    "importance_filtering": 1.3597399555105182e-16,
-    "contradictions": 1.3597399555105182e-16,
-    "integration": 0.0,
     "consolidation": 0.0,
-    "scopes": 0.0
+    "scopes": 0.0,
+    "scale": 0.0,
+    "semantic_recall": 0.0,
+    "integration": 0.0,
+    "temporal_decay": 0.0,
+    "contradictions": 1.3597399555105182e-16,
+    "compression": 0.0,
+    "importance_filtering": 1.3597399555105182e-16,
+    "adversarial": 0.0,
+    "cross_reference": 1.3597399555105182e-16
   },
   "num_runs": 3,
   "retrieval_metrics": {
@@ -50,11 +50,11 @@
     "token_recall": 0.7560055234628659
   },
   "cost_metrics": {
-    "tokens_per_query": 36.66901408450704,
-    "tokens_per_correct": 37.731884057971016,
-    "cost_efficiency": 0.18563020336296984,
+    "tokens_per_query": 36.644366197183096,
+    "tokens_per_correct": 37.70652173913044,
+    "cost_efficiency": 0.18566369196283264,
     "score": 0.971830985915493,
-    "total_tokens": 10414.0,
+    "total_tokens": 10407.0,
     "total_queries": 284.0,
     "correct": 276.0,
     "total": 284.0
@@ -63,10 +63,10 @@
     {
       "seed": 42,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.5698351860046387,
+      "wall_time_seconds": 1.6321234703063965,
       "token_usage": {
-        "recall_tokens": 10414,
-        "recall_chars": 43054,
+        "recall_tokens": 10407,
+        "recall_chars": 43024,
         "recall_queries": 284,
         "avg_recall_tokens_per_query": 36
       },
@@ -85,11 +85,11 @@
         "token_recall": 0.7560055234628659
       },
       "cost_metrics": {
-        "tokens_per_query": 36.66901408450704,
-        "tokens_per_correct": 37.731884057971016,
-        "cost_efficiency": 0.18563020336296981,
+        "tokens_per_query": 36.644366197183096,
+        "tokens_per_correct": 37.70652173913044,
+        "cost_efficiency": 0.18566369196283267,
         "score": 0.971830985915493,
-        "total_tokens": 10414,
+        "total_tokens": 10407,
         "total_queries": 284,
         "correct": 276,
         "total": 284
@@ -120,8 +120,8 @@
           "score": 0.9333333333333333,
           "correct": 42,
           "total": 45,
-          "recall_tokens": 1259,
-          "recall_chars": 5237,
+          "recall_tokens": 1252,
+          "recall_chars": 5207,
           "retrieval_metrics": {
             "recall_at_1": 0.2,
             "recall_at_3": 0.37777777777777777,
@@ -331,10 +331,10 @@
     {
       "seed": 43,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.2226502895355225,
+      "wall_time_seconds": 1.912146806716919,
       "token_usage": {
-        "recall_tokens": 10414,
-        "recall_chars": 43054,
+        "recall_tokens": 10407,
+        "recall_chars": 43024,
         "recall_queries": 284,
         "avg_recall_tokens_per_query": 36
       },
@@ -353,11 +353,11 @@
         "token_recall": 0.7560055234628659
       },
       "cost_metrics": {
-        "tokens_per_query": 36.66901408450704,
-        "tokens_per_correct": 37.731884057971016,
-        "cost_efficiency": 0.18563020336296981,
+        "tokens_per_query": 36.644366197183096,
+        "tokens_per_correct": 37.70652173913044,
+        "cost_efficiency": 0.18566369196283267,
         "score": 0.971830985915493,
-        "total_tokens": 10414,
+        "total_tokens": 10407,
         "total_queries": 284,
         "correct": 276,
         "total": 284
@@ -388,8 +388,8 @@
           "score": 0.9333333333333333,
           "correct": 42,
           "total": 45,
-          "recall_tokens": 1259,
-          "recall_chars": 5237,
+          "recall_tokens": 1252,
+          "recall_chars": 5207,
           "retrieval_metrics": {
             "recall_at_1": 0.2,
             "recall_at_3": 0.37777777777777777,
@@ -599,10 +599,10 @@
     {
       "seed": 44,
       "overall_score": 0.971830985915493,
-      "wall_time_seconds": 1.2857470512390137,
+      "wall_time_seconds": 2.1125638484954834,
       "token_usage": {
-        "recall_tokens": 10414,
-        "recall_chars": 43054,
+        "recall_tokens": 10407,
+        "recall_chars": 43024,
         "recall_queries": 284,
         "avg_recall_tokens_per_query": 36
       },
@@ -621,11 +621,11 @@
         "token_recall": 0.7560055234628659
       },
       "cost_metrics": {
-        "tokens_per_query": 36.66901408450704,
-        "tokens_per_correct": 37.731884057971016,
-        "cost_efficiency": 0.18563020336296981,
+        "tokens_per_query": 36.644366197183096,
+        "tokens_per_correct": 37.70652173913044,
+        "cost_efficiency": 0.18566369196283267,
         "score": 0.971830985915493,
-        "total_tokens": 10414,
+        "total_tokens": 10407,
         "total_queries": 284,
         "correct": 276,
         "total": 284
@@ -656,8 +656,8 @@
           "score": 0.9333333333333333,
           "correct": 42,
           "total": 45,
-          "recall_tokens": 1259,
-          "recall_chars": 5237,
+          "recall_tokens": 1252,
+          "recall_chars": 5207,
           "retrieval_metrics": {
             "recall_at_1": 0.2,
             "recall_at_3": 0.37777777777777777,

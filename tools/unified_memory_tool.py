@@ -464,13 +464,10 @@ def tick_unified_memory(
 
     try:
         s = _store()
-        # Cool scopes that have been silent for too long
-        # A scope is "cold" if it hasn't been referenced in the last N turns.
-        # We use a simple heuristic: cool scopes last referenced > 20 turns ago.
-        # The um_scopes table stores last_referenced as a unix timestamp.
         import time
         now = time.time()
-        # Mark scopes as cold if last referenced more than 1 hour ago and turn > 10
+
+        # Cool scopes that have been silent for too long
         if turn > 10:
             s.conn.execute(
                 "UPDATE um_scopes SET status='cold' "
@@ -478,6 +475,28 @@ def tick_unified_memory(
                 (now,)
             )
             s.conn.commit()
+
+        # Auto-extract facts from assistant responses (every 3rd turn to avoid noise)
+        if message_text and turn % 3 == 0 and len(message_text) > 50:
+            try:
+                from unified_memory.ingestion import extract_facts, compute_memorability
+                facts = extract_facts(message_text)
+                # Only store high-confidence facts to avoid noise
+                for fact in facts:
+                    if fact["confidence"] >= 0.6:
+                        memorability = compute_memorability(
+                            fact["content"], fact["fact_type"]
+                        )
+                        if memorability >= 0.5:
+                            s.store(
+                                content=fact["content"],
+                                fact_type=fact["fact_type"].value,
+                                target=fact["target"],
+                                importance=memorability,
+                            )
+            except Exception:
+                pass  # Ingestion failures are non-critical
+
     except Exception:
         pass  # Silent — never interrupt the agent loop
 

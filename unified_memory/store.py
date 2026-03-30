@@ -207,7 +207,7 @@ class UnifiedMemoryStore:
         fact_id = str(uuid.uuid4())
         source_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
 
-        # Dedup check
+        # Dedup check — exact content match via source hash
         existing = self._conn.execute(
             "SELECT id FROM um_facts WHERE source_hash = ? AND status = 'active'",
             (source_hash,)
@@ -215,6 +215,17 @@ class UnifiedMemoryStore:
         if existing:
             logger.debug(f"Dedup: fact already exists as {existing['id'][:8]}")
             return existing["id"]
+
+        # Semantic dedup — catch near-duplicates with different wording
+        if embedding is not None:
+            try:
+                from unified_memory.ingestion import find_near_duplicates
+                dupes = find_near_duplicates(self._conn, content, embedding, threshold=0.90)
+                if dupes:
+                    logger.debug(f"Semantic dedup: near-duplicate of {dupes[0][0][:8]} (sim={dupes[0][1]:.3f})")
+                    return dupes[0][0]
+            except Exception:
+                pass
 
         # Supersession check — only for explicitly typed facts with specific targets
         # (not "general" which is the default for plain text)
