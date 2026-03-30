@@ -544,6 +544,19 @@ class UnifiedMemoryStore:
             except Exception:
                 pass
 
+        # Reset TF-IDF embedding provider to prevent vocabulary leakage
+        # across benchmark scenarios. TF-IDF builds vocab incrementally,
+        # so previous scenarios' vocabulary pollutes subsequent ones.
+        # Sentence-transformers don't need resetting (fixed vocab).
+        if self._embedder_initialized and self._embedder is not None:
+            backend = getattr(self._embedder, '_backend', None)
+            if backend is not None and hasattr(backend, '_vocab'):
+                # Re-initialize the TfidfEmbedder from scratch
+                backend._vocab = {}
+                backend._doc_freq.clear()
+                backend._num_docs = 0
+                backend._dim = 0
+
     # ─── Internal Helpers ────────────────────────────────────────
 
     def _get_active_facts(self, scope_id: Optional[str] = None) -> List[dict]:
