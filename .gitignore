@@ -61,3 +61,4 @@ result
 
 # HuggingFace model cache (persisted across containers)
 .huggingface_cache/
+benchmarks/results/history/

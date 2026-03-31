@@ -1,190 +1,349 @@
-# Memory Benchmark Suite
+# Agent Memory Benchmark Suite
 
-A system-agnostic benchmark for evaluating AI agent memory systems. Tests retrieval quality, temporal reasoning, contradiction handling, scale performance, and advanced features like typed facts and scope management.
+A comprehensive, system-agnostic benchmark for evaluating AI agent memory systems. Measures retrieval quality, temporal reasoning, contradiction handling, scope management, and advanced cognitive features across 357 scenarios in 18 categories.
 
-## Quick Start
+## Why This Benchmark?
 
-```bash
-# Run with the built-in baseline (no dependencies)
-python -m benchmarks.runner --backend baseline-flat --suite a,b,c,d,e,f
+Most AI agent memory systems are evaluated informally — "it seems to remember things." This benchmark provides **reproducible, quantitative evaluation** across the dimensions that actually matter for agent memory:
 
-# Run all suites including advanced features
-python -m benchmarks.runner --backend baseline-flat --suite all
+1. **Can the system find what it stored?** (semantic recall)
+2. **Does it know what's current vs outdated?** (temporal decay, contradictions)
+3. **Can it handle context boundaries?** (scopes, isolation)
+4. **Does it resist manipulation?** (adversarial injection)
+5. **Does it scale?** (100-1000 facts, capacity stress)
+6. **Can it learn from usage?** (Q-value learning, reward signals)
+7. **Does it manage structured knowledge?** (typed facts, supersession)
+8. **Does it work in real conversation?** (multi-turn dialogue patterns)
 
-# Compare two backends
-python -m benchmarks.runner --backend my-backend --suite all --compare results/baseline.json
-```
+## Academic Foundations
 
-## Adding Your Own Backend
+The benchmark draws on established memory research:
 
-Implement the `BenchmarkableStore` interface and register it:
+### Cognitive Architecture (Suite A)
+- **ACT-R Theory** (Anderson & Lebiere, 1998) — Base-level activation equation: `B_i = ln(Σ t_j^{-d})` models human memory accessibility as a function of recency and frequency. Our temporal_decay suite directly tests this.
+  - *Anderson, J. R., & Lebiere, C. (1998). The Atomic Components of Thought. Lawrence Erlbaum Associates.*
+
+### Hebbian Learning (Suites A, G)
+- **Hebbian Association** (Hebb, 1949) — "Neurons that fire together wire together." Our cross_reference and Q-learning suites test whether co-retrieved facts strengthen associative links.
+  - *Hebb, D. O. (1949). The Organization of Behavior. Wiley.*
+
+### Spreading Activation (Suites A, F)
+- **Spreading Activation Networks** (Collins & Loftus, 1975) — Semantic memory as a network where activation spreads between related concepts. Our integration suite tests multi-step retrieval chains.
+  - *Collins, A. M., & Loftus, E. F. (1975). A spreading-activation theory of semantic processing. Psychological Review, 82(6), 407–428.*
+
+### Information Retrieval (Suites A, E)
+- **BM25 Scoring** (Robertson et al., 1995) — Term-frequency based ranking. Our scale suite tests signal-to-noise discrimination.
+  - *Robertson, S. E., et al. (1995). Okapi at TREC-3. NIST Special Publication.*
+- **Reciprocal Rank Fusion** (Cormack et al., 2009) — Combining multiple ranking signals. Our retrieval pipeline uses score-weighted RRF.
+  - *Cormack, G. V., Clarke, C. L., & Buettcher, S. (2009). Reciprocal Rank Fusion outperforms Condorcet and individual rank learning methods. SIGIR.*
+
+### Memory Consolidation (Suite B)
+- **Complementary Learning Systems** (McClelland et al., 1995) — Hippocampal rapid learning + cortical slow consolidation. Our consolidation/compression suites test this two-stage model.
+  - *McClelland, J. L., McNaughton, B. L., & O'Reilly, R. C. (1995). Why there are complementary learning systems. Psychological Review, 102(3), 419–457.*
+
+### Adversarial Robustness (Suite D)
+- **Prompt Injection** (Perez & Ribeiro, 2022) — Testing resilience to adversarial content injected into memory.
+  - *Perez, F., & Ribeiro, I. (2022). Ignore This Title and HackAPrompt. arXiv:2211.09527.*
+
+### Reinforcement Learning for Memory (Suite G)
+- **Q-Learning** (Watkins & Dayan, 1992) — Learning memory value from reward signals. Suite G tests multi-round improvement.
+  - *Watkins, C. J., & Dayan, P. (1992). Q-learning. Machine Learning, 8(3), 279–292.*
+
+### Graph Analytics (Suite H)
+- **PageRank** (Brin & Page, 1998) — Personalized PageRank for memory exploration. Our explore() method uses PPR seeded from recall results.
+  - *Brin, S., & Page, L. (1998). The anatomy of a large-scale hypertextual web search engine. Computer Networks, 30(1-7), 107–117.*
+- **Articulation Points** (Tarjan, 1972) — Bridge node detection for memory graph integrity.
+  - *Tarjan, R. E. (1972). Depth-first search and linear graph algorithms. SIAM Journal on Computing, 1(2), 146–160.*
+
+### Contextual Bandits (Self-optimization)
+- **LinUCB** (Li et al., 2010) — Per-query retrieval pipeline optimization. Our LinUCB learns which retrieval stages help for which query types.
+  - *Li, L., et al. (2010). A contextual-bandit approach to personalized news article recommendation. WWW 2010.*
+
+## Benchmark Suites
+
+### Suite A — Core Retrieval Quality (200 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| semantic_recall | 50 | Store a fact, recall with paraphrased query at varying difficulty | The system understands meaning, not just keywords |
+| contradictions | 20 | Store fact A, wait, store contradicting fact B, query | The system knows which information is current |
+| temporal_decay | 45 | Facts at different ages, with/without rehearsal | Recent + rehearsed facts rank higher than stale ones |
+| cross_reference | 45 | Answer requires combining multiple stored facts | The system can surface related facts together |
+| importance_filtering | 40 | Important facts buried in noise | High-importance facts beat low-importance noise |
+
+### Suite B — Consolidation & Compression (30 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| consolidation | 20 | Facts survive consolidation cycles (promote/demote) | Core knowledge isn't lost during memory management |
+| compression | 10 | Critical values survive fact merging | Numbers, identifiers survive when duplicates merge |
+
+### Suite C — Scope Isolation (20 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| scopes | 20 | Facts in scope A don't leak to scope B queries; globals accessible everywhere | Context boundaries work without breaking global access |
+
+### Suite D — Adversarial Robustness (15 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| adversarial | 15 | Malicious facts (prompt injection, override attempts) vs legitimate facts | Adversarial content is detected and demoted |
+
+### Suite E — Scale & Performance (8 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| scale | 8 | Retrieval with 10-200 facts, needle-in-haystack, time-series at scale | Quality doesn't degrade as memory grows |
+
+### Suite F — Integration (11 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| integration | 11 | Multi-step sequences: store → time → access → consolidate → recall | The full lifecycle works end-to-end |
+
+### Suite G — Q-Value Learning (variable)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| qlearning | var | Multi-round recall → reward → recall, measuring rank improvement | Memory improves from feedback over time |
+
+### Suite H — Advanced Memory Features (58 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| supersession | 15 | Same type+target auto-replaces old fact | Structured updates work without manual deletion |
+| typed_decay | 10 | Constraints persist longer than unknowns (metabolic decay) | Fact importance modulates forgetting rate |
+| scope_lifecycle | 10 | Create, close, and query across scope lifecycles | Scope management works end-to-end |
+| notation_parsing | 10 | TYPE[target]: content notation stored and retrieved | Structured input formats are handled |
+| deduplication | 8 | Exact + near-duplicate detection and handling | Memory stays clean without redundancy |
+
+### Suite I — Conversation & Stress (15 scenarios)
+
+| Category | # | What It Tests | Passing Means |
+|----------|---|---------------|---------------|
+| conversation_memory | 10 | Multi-turn dialogue: preferences, corrections, evolving state | Works in real conversation patterns |
+| capacity_stress | 5 | 50-1000 facts with importance discrimination | Scales to production fact counts |
+
+## How to Use
+
+### 1. Implement the Interface
+
+Your memory system must implement `BenchmarkableStore` — 7 required methods:
 
 ```python
-# my_memory/benchmark_adapter.py
 from benchmarks.interface import BenchmarkableStore
 from typing import Dict, List, Any, Optional
 
-class MyMemoryBenchmarkAdapter(BenchmarkableStore):
-    def __init__(self, **kwargs):
-        # Initialize your memory system
-        self.store_data = {}
+class MyMemoryBackend(BenchmarkableStore):
     
     def store(self, content: str, category: str = "factual",
               scope: str = "global", importance: float = 0.5) -> None:
-        """Store a memory."""
-        ...
+        """Store a piece of information.
+        
+        Args:
+            content: The text to remember (may include structured notation)
+            category: Semantic category (factual, procedural, decision, etc.)
+            scope: Context scope (global, project:X, sprint:42, etc.)
+            importance: How important this fact is (0.0 to 1.0)
+        """
+        # Your implementation here
     
     def recall(self, query: str, top_k: int = 10,
                scope: Optional[str] = None) -> List[str]:
-        """Recall memories matching the query. Return content strings ranked by relevance."""
-        ...
+        """Retrieve memories matching the query.
+        
+        Returns list of content strings, ranked by relevance (best first).
+        """
+        # Your implementation here
     
     def simulate_time(self, days: float) -> None:
-        """Advance simulated clock. For decay/rehearsal testing."""
-        ...
+        """Advance the simulated clock by N days.
+        
+        Used to test temporal decay, recency bias, and time-based features.
+        Backends without time-awareness can implement as no-op.
+        """
+        pass
     
     def simulate_access(self, content_substring: str) -> None:
-        """Simulate accessing/rehearsing a memory."""
-        ...
+        """Simulate accessing/rehearsing a memory.
+        
+        Find a stored memory containing the substring and mark it as
+        recently accessed. Tests rehearsal effects on retrieval ranking.
+        """
+        pass
     
     def consolidate(self) -> None:
-        """Run consolidation/compaction. Noop if not supported."""
+        """Run a consolidation/compaction cycle.
+        
+        Tests whether important facts survive memory management operations.
+        No-op for backends without consolidation.
+        """
         pass
     
     def get_stats(self) -> Dict[str, Any]:
-        """Return backend statistics."""
-        return {"fact_count": len(self.store_data)}
+        """Return backend statistics (fact_count, etc.)."""
+        return {}
     
     def reset(self) -> None:
-        """Clear all stored memories."""
-        self.store_data.clear()
-    
-    # Optional overrides:
+        """Clear ALL stored memories. Called between benchmark scenarios."""
+        # MUST clear everything — scenarios are independent
+```
+
+**Optional methods** (default implementations provided):
+
+```python
     def reward_memory(self, memory_id: str, signal: float) -> None:
-        """Apply reward signal (for RL-based backends)."""
+        """Apply RL reward signal to a memory. Default: no-op."""
         pass
     
     def explore(self, query: str, top_k: int = 20,
                 scope: Optional[str] = None) -> List[str]:
-        """Multi-hop exploration (for graph-based backends)."""
+        """Multi-hop graph exploration. Default: falls back to recall()."""
         return self.recall(query, top_k=top_k, scope=scope)
 ```
 
-Register it:
+### 2. Register Your Backend
 
+**Option A — Direct registration:**
 ```python
-# In your code, before running benchmarks:
 from benchmarks.runner import register_backend
-from my_memory.benchmark_adapter import MyMemoryBenchmarkAdapter
+from my_module import MyMemoryBackend
 
-register_backend("my-backend", MyMemoryBenchmarkAdapter)
+register_backend("my-backend", MyMemoryBackend)
 ```
 
-Or use the plugin system (auto-discovery):
-
+**Option B — Plugin file (auto-discovered):**
 ```python
-# Create benchmarks/backends/my_backend.py
-from benchmarks.interface import BenchmarkableStore
+# benchmarks/backends/my_backend.py
+from my_module import MyMemoryBackend
 
-class MyBackend(BenchmarkableStore):
-    ...
-
-# Export for auto-discovery
 BACKEND_NAME = "my-backend"
-BACKEND_CLASS = MyBackend
+BACKEND_CLASS = MyMemoryBackend
 ```
 
-## Benchmark Suites
+### 3. Run Benchmarks
 
-### Suite A — Core Retrieval (200 scenarios)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| semantic_recall | 50 | Store a fact, recall with paraphrased query |
-| contradictions | 20 | Newer fact should supersede older contradicting fact |
-| temporal_decay | 45 | Recent facts should rank higher than old ones |
-| cross_reference | 45 | Recall requiring multiple related facts |
-| importance_filtering | 40 | High-importance facts should beat noise |
+```bash
+# Quick test (Suite A only, 1 run)
+python -m benchmarks.runner --backend my-backend --suite a --runs 1
 
-### Suite B — Consolidation (30 scenarios)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| consolidation | 20 | Facts survive consolidation cycles |
-| compression | 10 | Key info preserved after compression/merging |
+# Full evaluation (all suites, 5 runs for statistics)
+python -m benchmarks.runner --backend my-backend --suite all --runs 5
 
-### Suite C — Scopes (20 scenarios)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| scopes | 20 | Scope isolation + global fact accessibility |
+# Specific suites
+python -m benchmarks.runner --backend my-backend --suite a,b,c,h --runs 3
 
-### Suite D — Adversarial (15 scenarios)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| adversarial | 15 | Malicious injection detection + legitimate fact preservation |
+# Compare against another backend
+python -m benchmarks.runner --backend my-backend --suite all --compare baseline-flat
 
-### Suite E — Scale (8 scenarios)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| scale | 8 | Retrieval quality with 10-200 facts, time-series |
+# With LLM judge (more accurate, requires API key)
+python -m benchmarks.runner --backend my-backend --suite all --judge-model claude-3-haiku-20240307
 
-### Suite F — Integration (11 scenarios)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| integration | 11 | Multi-step store/recall/time/consolidate sequences |
+# JSON output for programmatic use
+python -m benchmarks.runner --backend my-backend --suite all --json
+```
 
-### Suite G — Q-Learning (variable)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| qlearning | variable | Multi-round recall/reward feedback loops |
+### 4. Interpret Results
 
-### Suite H — Advanced Memory (58 scenarios)
-| Category | Scenarios | Tests |
-|----------|-----------|-------|
-| supersession | 15 | Type+target auto-replacement of old facts |
-| typed_decay | 10 | Different decay rates for different fact types |
-| scope_lifecycle | 10 | Scope creation, closing, isolation |
-| notation_parsing | 10 | Structured notation (TYPE[target]: content) |
-| deduplication | 8 | Exact + near-duplicate handling |
+Results are printed to stdout and saved to `benchmarks/results/{backend}.json`:
 
-## Scoring
+```
+============================================================
+  BENCHMARK RESULTS: my-backend
+============================================================
+  Runs: 5
+  Overall: 0.923 ± 0.003          ← Mean ± std across runs
+  95% CI:  [0.918, 0.928]         ← Confidence interval
+────────────────────────────────────────────────────────────
+  Category                   Mean      Std
+  semantic_recall            1.000    0.000   ← Perfect
+  temporal_decay             0.956    0.010   ← Some variance
+  adversarial                0.867    0.000   ← Room to improve
+────────────────────────────────────────────────────────────
+  Retrieval Metrics:
+    Recall@1:  0.534              ← Right answer ranked #1
+    Recall@5:  0.629              ← Right answer in top 5
+    MRR:       0.578              ← Mean reciprocal rank
+    Token F1:  0.403              ← Word overlap with gold
+```
 
-- **Keyword judge** (default): Token overlap matching, no LLM needed
-- **LLM judge**: Uses Claude/GPT for semantic answer matching
-  ```bash
-  python -m benchmarks.runner --judge-model claude-3-haiku-20240307
-  ```
+## Result Persistence & History
 
-## Output
+Results are saved to `benchmarks/results/{backend}.json` after each run. To maintain a history for regression tracking:
 
-Results saved to `benchmarks/results/{backend}.json` with:
-- Per-category scores and sub-scores
-- Retrieval metrics (Recall@K, MRR, NDCG, Token F1)
-- Token/cost efficiency metrics
-- Per-scenario details for debugging
+```bash
+# Save a timestamped snapshot
+cp benchmarks/results/my-backend.json \
+   benchmarks/results/my-backend_$(date +%Y%m%d_%H%M%S).json
+
+# Compare current vs previous
+python -m benchmarks.runner --backend my-backend --suite all \
+   --compare my-backend_20240115
+```
+
+The saved JSON contains per-category scores, retrieval metrics, and run metadata for reproducibility.
+
+## Scoring Methodology
+
+### Answer Matching
+
+Two judge modes:
+
+1. **Heuristic judge** (default, no API needed):
+   - Exact substring match
+   - Identifier match (product names, acronyms, numbers)
+   - Keyword overlap with 60% threshold
+   - Fast, deterministic, free
+
+2. **LLM judge** (optional, more accurate):
+   - Semantic answer equivalence via Claude/GPT
+   - Handles paraphrasing, arithmetic, reasoning
+   - Requires `--judge-model` flag and API key
+
+### Retrieval Metrics
+
+Standard IR metrics computed per-scenario and averaged:
+
+| Metric | What It Measures |
+|--------|-----------------|
+| Recall@1 | Is the correct answer ranked #1? |
+| Recall@5 | Is the correct answer in the top 5? |
+| MRR | Mean Reciprocal Rank — how high is the correct answer? |
+| NDCG@5 | Normalized Discounted Cumulative Gain |
+| Token F1 | Word-level overlap between answer and gold |
+| Exact Match | Exact string match |
+
+### Statistical Comparison
+
+When using `--compare`, the suite runs both backends with identical seeds and reports:
+- Paired t-test (parametric)
+- Wilcoxon signed-rank (non-parametric)
+- Effect size and confidence intervals
 
 ## Reference Scores
 
-| Backend | Suites A-F | Suite H | Notes |
-|---------|-----------|---------|-------|
-| baseline-flat | 80.4% | 66.0% | Simple list + TF-IDF |
-| cognitive | 96.8% | 90.6% | ACT-R + Hebbian + Q-value |
-| unified | 97.2% | 73.6%* | All features combined |
+Tested with TF-IDF embeddings (no ML model needed):
 
-*Suite H with TF-IDF. With sentence-transformers: significantly higher.
+| Backend | A-F Overall | Suite H | Suite I | Notes |
+|---------|------------|---------|---------|-------|
+| baseline-flat | 80.4% | 66.0% | 86.7% | Simple list + substring match |
+| cognitive | 96.8% | 90.6% | 86.7% | ACT-R + Hebbian + Q-value |
+| unified | 97.2% | 73.6%* | 86.7% | Full cognitive + structured + Ori-Mnemos |
 
-## Interface Reference
+*Suite H unified score lower due to TF-IDF limitations on notation parsing.
+With sentence-transformers embeddings, unified scores significantly higher.
 
-```python
-class BenchmarkableStore(ABC):
-    # Required (7 methods):
-    store(content, category, scope, importance) -> None
-    recall(query, top_k, scope) -> List[str]
-    simulate_time(days) -> None
-    simulate_access(content_substring) -> None
-    consolidate() -> None
-    get_stats() -> Dict[str, Any]
-    reset() -> None
-    
-    # Optional (2 methods with default implementations):
-    reward_memory(memory_id, signal) -> None  # default: no-op
-    explore(query, top_k, scope) -> List[str]  # default: recall()
-```
+## Adding New Suites
+
+1. Create `benchmarks/suite_X/fixtures/category_name.json`
+2. Add a runner function: `def run_category_name(backend, scenarios, judge) -> CategoryResult`
+3. Register in `CATEGORY_RUNNERS` dict
+4. Follow existing fixture format conventions
+
+## Dependencies
+
+- Python 3.10+
+- numpy (for embeddings and metrics)
+- No ML models required (TF-IDF fallback works)
+- Optional: sentence-transformers, scipy (for statistical tests), anthropic/openai (for LLM judge)

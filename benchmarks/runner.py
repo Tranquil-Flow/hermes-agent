@@ -2057,20 +2057,23 @@ def main():
             vals = [m[key] for m in all_run_cm_file if key in m]
             avg_cm_file[key] = sum(vals) / len(vals) if vals else 0.0
 
-    with open(result_file, "w") as f:
-        json.dump({
-            "backend": config.backend_name,
-            "profile": config.profile,
-            "embedding_model": config.embedding_model,
-            "mean_score": agg.mean_score,
-            "std": agg.std_score,
-            "ci_95": [agg.ci_95_lower, agg.ci_95_upper],
-            "per_category_mean": agg.per_category_mean,
-            "per_category_std": agg.per_category_std,
-            "num_runs": agg.num_runs,
-            "retrieval_metrics": avg_rm_file,
-            "cost_metrics": avg_cm_file,
-            "runs": [
+    # Build result data
+    import datetime
+    result_data = {
+        "backend": config.backend_name,
+        "profile": config.profile,
+        "embedding_model": config.embedding_model,
+        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "suites": config.parameters.get("suites", ["a"]),
+        "mean_score": agg.mean_score,
+        "std": agg.std_score,
+        "ci_95": [agg.ci_95_lower, agg.ci_95_upper],
+        "per_category_mean": agg.per_category_mean,
+        "per_category_std": agg.per_category_std,
+        "num_runs": agg.num_runs,
+        "retrieval_metrics": avg_rm_file,
+        "cost_metrics": avg_cm_file,
+        "runs": [
                 {
                     "seed": r.seed,
                     "overall_score": r.overall_score,
@@ -2089,8 +2092,22 @@ def main():
                 }
                 for r in runs
             ],
-        }, f, indent=2)
+        }
+
+    # Save latest result (overwrites)
+    with open(result_file, "w") as f:
+        json.dump(result_data, f, indent=2)
+
+    # Also save timestamped copy for history tracking
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    history_dir = output_dir / "history"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    history_file = history_dir / f"{config.backend_name}_{ts}.json"
+    with open(history_file, "w") as f:
+        json.dump(result_data, f, indent=2)
+
     print(f"  Results saved to {result_file}")
+    print(f"  History saved to {history_file}")
 
     if args.compare:
         print(f"\nRunning comparison: {args.compare}...")
