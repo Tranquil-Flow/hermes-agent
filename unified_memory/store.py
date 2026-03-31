@@ -361,15 +361,23 @@ class UnifiedMemoryStore:
             now, self._config, scope,
         )
 
-        # FTS5/BM25 fusion — only when query is keyword-oriented, not temporal
-        # Temporal queries ("how often", "when did", "how long") should rely
-        # purely on ACT-R activation so recency signal isn't disrupted
-        if self._config.enable_rrf_fusion and scored:
-            from unified_memory.intent import classify_intent, QueryIntent
-            intent = classify_intent(query)
-            # Skip RRF for episodic queries where recency matters most
-            if intent.intent != QueryIntent.EPISODIC:
-                fts5_scores = fts5_search(self._conn, query, scope_id)
+        # FTS5/BM25 fusion — use FTS5 as a rescue signal when activation-only
+        # ranking has low confidence (top scores are very close together)
+        has_typed_facts = self._conn.execute(
+            "SELECT 1 FROM um_facts WHERE type != 'V' AND status='active' LIMIT 1"
+        ).fetchone()
+        use_rrf = self._config.enable_rrf_fusion
+        # Auto-enable RRF when typed facts exist (FTS5 matches target column)
+        if not use_rrf and has_typed_facts and scored:
+            # Check if top-2 scores are very close (activation can't discriminate)
+            if len(scored) >= 2:
+                gap = abs(scored[0].score - scored[1].score) if scored[0].score != 0 else 0
+                if gap < 0.5:
+                    use_rrf = True
+
+        if use_rrf and scored:
+            fts5_scores = fts5_search(self._conn, query, scope_id)
+            if fts5_scores:
                 apply_rrf_fusion(scored, fts5_scores, self._config)
 
         # Q-value reranking

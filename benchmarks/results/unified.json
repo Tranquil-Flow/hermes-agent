@@ -2,56 +2,56 @@
   "backend": "unified",
   "profile": "balanced",
   "embedding_model": "auto",
-  "mean_score": 0.7169811320754716,
+  "mean_score": 0.7358490566037735,
   "std": 0.0,
   "ci_95": [
-    0.7169811320754716,
-    0.7169811320754716
+    0.7358490566037735,
+    0.7358490566037735
   ],
   "per_category_mean": {
+    "deduplication": 1.0,
     "notation_parsing": 0.1,
-    "scope_lifecycle": 1.0,
-    "supersession": 0.6,
+    "supersession": 0.6666666666666666,
     "typed_decay": 1.0,
-    "deduplication": 1.0
+    "scope_lifecycle": 1.0
   },
   "per_category_std": {
+    "deduplication": 0.0,
     "notation_parsing": 0.0,
-    "scope_lifecycle": 0.0,
     "supersession": 0.0,
     "typed_decay": 0.0,
-    "deduplication": 0.0
+    "scope_lifecycle": 0.0
   },
   "num_runs": 1,
   "retrieval_metrics": {
-    "recall_at_1": 0.655,
+    "recall_at_1": 0.6683333333333332,
     "recall_at_3": 0.8800000000000001,
     "recall_at_5": 0.9666666666666668,
     "recall_at_10": 0.9666666666666668,
-    "mrr": 0.7633888888888889,
-    "ndcg_at_5": 0.8103738939821714,
-    "ndcg_at_10": 0.8103738939821714,
-    "average_precision": 0.9638055555555555,
+    "mrr": 0.7722777777777777,
+    "ndcg_at_5": 0.817040560648838,
+    "ndcg_at_10": 0.817040560648838,
+    "average_precision": 0.9726944444444443,
     "exact_match": 0.0,
-    "token_f1": 0.30616039516039517,
-    "token_precision": 0.21233874458874458,
-    "token_recall": 0.625
+    "token_f1": 0.31301753801753807,
+    "token_precision": 0.21678318903318905,
+    "token_recall": 0.635
   },
   "cost_metrics": {
     "tokens_per_query": 30.264150943396228,
-    "tokens_per_correct": 42.21052631578947,
-    "cost_efficiency": 0.14436528030349358,
-    "score": 0.7169811320754716,
+    "tokens_per_correct": 41.12820512820513,
+    "cost_efficiency": 0.14816436662726973,
+    "score": 0.7358490566037735,
     "total_tokens": 1604.0,
     "total_queries": 53.0,
-    "correct": 38.0,
+    "correct": 39.0,
     "total": 53.0
   },
   "runs": [
     {
       "seed": 42,
-      "overall_score": 0.7169811320754716,
-      "wall_time_seconds": 0.17172551155090332,
+      "overall_score": 0.7358490566037735,
+      "wall_time_seconds": 0.20565342903137207,
       "token_usage": {
         "recall_tokens": 1604,
         "recall_chars": 6695,
@@ -59,27 +59,27 @@
         "avg_recall_tokens_per_query": 30
       },
       "retrieval_metrics": {
-        "recall_at_1": 0.655,
+        "recall_at_1": 0.6683333333333332,
         "recall_at_3": 0.8800000000000001,
         "recall_at_5": 0.9666666666666668,
         "recall_at_10": 0.9666666666666668,
-        "mrr": 0.7633888888888889,
-        "ndcg_at_5": 0.8103738939821714,
-        "ndcg_at_10": 0.8103738939821714,
-        "average_precision": 0.9638055555555555,
+        "mrr": 0.7722777777777777,
+        "ndcg_at_5": 0.817040560648838,
+        "ndcg_at_10": 0.817040560648838,
+        "average_precision": 0.9726944444444443,
         "exact_match": 0.0,
-        "token_f1": 0.30616039516039517,
-        "token_precision": 0.21233874458874458,
-        "token_recall": 0.625
+        "token_f1": 0.31301753801753807,
+        "token_precision": 0.21678318903318905,
+        "token_recall": 0.635
       },
       "cost_metrics": {
         "tokens_per_query": 30.264150943396228,
-        "tokens_per_correct": 42.21052631578947,
-        "cost_efficiency": 0.14436528030349358,
-        "score": 0.7169811320754716,
+        "tokens_per_correct": 41.12820512820513,
+        "cost_efficiency": 0.14816436662726973,
+        "score": 0.7358490566037735,
         "total_tokens": 1604,
         "total_queries": 53,
-        "correct": 38,
+        "correct": 39,
         "total": 53
       },
       "categories": {
@@ -147,24 +147,24 @@
           }
         },
         "supersession": {
-          "score": 0.6,
-          "correct": 9,
+          "score": 0.6666666666666666,
+          "correct": 10,
           "total": 15,
           "recall_tokens": 375,
           "recall_chars": 1591,
           "retrieval_metrics": {
-            "recall_at_1": 0.6,
+            "recall_at_1": 0.6666666666666666,
             "recall_at_3": 0.8,
             "recall_at_5": 0.9333333333333333,
             "recall_at_10": 0.9333333333333333,
-            "mrr": 0.7044444444444444,
-            "ndcg_at_5": 0.7603090245360361,
-            "ndcg_at_10": 0.7603090245360361,
-            "average_precision": 0.7044444444444444,
+            "mrr": 0.7488888888888888,
+            "ndcg_at_5": 0.7936423578693694,
+            "ndcg_at_10": 0.7936423578693694,
+            "average_precision": 0.7488888888888888,
             "exact_match": 0.0,
-            "token_f1": 0.3549206349206349,
-            "token_precision": 0.2711111111111111,
-            "token_recall": 0.55
+            "token_f1": 0.3892063492063493,
+            "token_precision": 0.29333333333333333,
+            "token_recall": 0.6
           }
         },
         "typed_decay": {
