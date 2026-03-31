@@ -197,11 +197,17 @@ class UnifiedMemoryStore:
                 category = category or "factual"
                 importance = importance if importance is not None else 0.5
 
-        # Generate embedding
+        # Generate embedding — include target in the text for better keyword matching
+        # "api.url" → "api url" so queries like "API URL" match the embedding
         embedder = self._get_embedder()
         embedding = None
         if embedder:
-            embedding = embedder.encode(content)
+            embed_text = content
+            if target and target != "general":
+                # Convert dotted target to space-separated words for embedding
+                target_words = target.replace(".", " ").replace("_", " ")
+                embed_text = f"{target_words} {content}"
+            embedding = embedder.encode(embed_text)
 
         # Create fact ID and source hash
         fact_id = str(uuid.uuid4())

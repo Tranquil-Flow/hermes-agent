@@ -1210,6 +1210,373 @@ def run_qlearning(backend: BenchmarkableStore, scenarios: list,
 
 
 # Category runner dispatch
+# --- Suite H: Advanced Memory Features ---
+
+
+def run_supersession(backend: BenchmarkableStore, scenarios: list,
+                     judge: MemoryJudge) -> CategoryResult:
+    """Run supersession scenarios (Suite H1).
+
+    Tests that storing a new fact with the same type+target supersedes the old one.
+    Backends that support MEMORY_SPEC notation and supersession will excel;
+    flat backends will have both facts competing.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        # Store distractors first
+        for d in sc.get("distractors", []):
+            backend.store(d, category="factual")
+
+        # Store fact_a (the original)
+        backend.store(sc["fact_a"], category="factual")
+
+        # Store fact_b (the superseding fact)
+        backend.store(sc["fact_b"], category="factual")
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc["difficulty"],
+            "correct": jr.correct,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    sub_scores = {}
+    for diff in ["easy", "medium", "hard"]:
+        subset = [d for d in details if d["difficulty"] == diff]
+        if subset:
+            sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="supersession",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
+def run_typed_decay(backend: BenchmarkableStore, scenarios: list,
+                    judge: MemoryJudge) -> CategoryResult:
+    """Run typed decay scenarios (Suite H2).
+
+    Tests that constraints (C-type) persist longer than unknowns (?-type)
+    due to metabolic decay rates. After long time periods, C-type facts
+    should still be retrievable while ?-type facts should have faded.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        # Store facts at different simulated ages (oldest first)
+        sorted_facts = sorted(sc["facts"], key=lambda f: -f["stored_days_ago"])
+        prev_days = sorted_facts[0]["stored_days_ago"] if sorted_facts else 0
+
+        for fact in sorted_facts:
+            gap = prev_days - fact["stored_days_ago"]
+            if gap > 0:
+                backend.simulate_time(gap)
+            prev_days = fact["stored_days_ago"]
+
+            # Construct MEMORY_SPEC notation
+            notation = f"{fact['type']}[{fact['target']}]: {fact['content']}"
+            backend.store(notation, category="factual")
+
+        # Advance remaining time to "now"
+        if prev_days > 0:
+            backend.simulate_time(prev_days)
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc["difficulty"],
+            "correct": jr.correct,
+            "expected_type": sc["expected_type"],
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    sub_scores = {}
+    for diff in ["easy", "medium", "hard"]:
+        subset = [d for d in details if d["difficulty"] == diff]
+        if subset:
+            sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="typed_decay",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
+def run_scope_lifecycle(backend: BenchmarkableStore, scenarios: list,
+                        judge: MemoryJudge) -> CategoryResult:
+    """Run scope lifecycle scenarios (Suite H3).
+
+    Tests scope isolation, global fact accessibility, and scope closing.
+    Backends with scope lifecycle management should outperform flat stores.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        # Store facts with scopes
+        for fact in sc["facts"]:
+            backend.store(
+                fact["content"],
+                category="factual",
+                scope=fact.get("scope", "global"),
+            )
+
+        # Apply scope actions (close/cool)
+        for action in sc.get("scope_actions", []):
+            # Closing a scope: advance time slightly then consolidate
+            # This triggers scope cooling in backends that support it
+            backend.simulate_time(1)
+            backend.consolidate()
+
+        query_scope = sc.get("query_scope", "global")
+        results = backend.recall(sc["query"], top_k=5, scope=query_scope)
+        actual = " | ".join(results[:3]) if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+
+        # Check scope leakage
+        combined = " ".join(results).lower()
+        should_not = sc.get("should_not_contain", "")
+        no_leak = should_not.lower() not in combined if should_not else True
+
+        scenario_correct = jr.correct and no_leak
+        if scenario_correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc["difficulty"],
+            "correct": scenario_correct,
+            "answer_correct": jr.correct,
+            "no_leak": no_leak,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="scope_lifecycle",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
+def run_notation_parsing(backend: BenchmarkableStore, scenarios: list,
+                         judge: MemoryJudge) -> CategoryResult:
+    """Run notation parsing scenarios (Suite H4).
+
+    Tests that MEMORY_SPEC notation (C[x]:, D[x]:, V[x]:) is correctly
+    parsed and the content is retrievable. Flat backends store the notation
+    as-is; smart backends parse type/target/content.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        for fact in sc["facts"]:
+            backend.store(fact, category="factual")
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc["difficulty"],
+            "correct": jr.correct,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    sub_scores = {}
+    for diff in ["easy", "medium", "hard"]:
+        subset = [d for d in details if d["difficulty"] == diff]
+        if subset:
+            sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="notation_parsing",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
+def run_deduplication(backend: BenchmarkableStore, scenarios: list,
+                      judge: MemoryJudge) -> CategoryResult:
+    """Run deduplication scenarios (Suite H5).
+
+    Tests that duplicate/near-duplicate facts are handled gracefully.
+    Backends with dedup should store fewer facts; the gold answer should
+    still be retrievable.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        for fact in sc["facts"]:
+            backend.store(fact, category="factual")
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc["difficulty"],
+            "correct": jr.correct,
+            "num_results": len(results),
+            "max_expected": sc.get("max_unique_results", 5),
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    sub_scores = {}
+    for diff in ["easy", "medium", "hard"]:
+        subset = [d for d in details if d["difficulty"] == diff]
+        if subset:
+            sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="deduplication",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
 CATEGORY_RUNNERS = {
     "semantic_recall": run_semantic_recall,
     "contradictions": run_contradictions,
@@ -1229,6 +1596,12 @@ CATEGORY_RUNNERS = {
     "integration": run_integration,
     # Suite G
     "qlearning": run_qlearning,
+    # Suite H — Advanced Memory Features
+    "supersession": run_supersession,
+    "typed_decay": run_typed_decay,
+    "scope_lifecycle": run_scope_lifecycle,
+    "notation_parsing": run_notation_parsing,
+    "deduplication": run_deduplication,
 }
 
 
