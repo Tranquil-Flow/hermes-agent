@@ -1,8 +1,9 @@
 """
-Hermes Cognitive Memory Benchmark Runner
+Memory Benchmark Runner — system-agnostic AI agent memory evaluation
 
 Usage:
-    python -m benchmarks.runner --backend baseline-flat --suite a --runs 5
+    python -m benchmarks.runner --backend baseline-flat --suite all --runs 3
+    python -m benchmarks.runner --backend my-backend --suite a,b,c --runs 5
 """
 
 import argparse
@@ -61,6 +62,23 @@ try:
     register_backend("unified", UnifiedBenchmarkAdapter)
 except ImportError:
     pass  # unified_memory not available
+
+# Auto-discover plugin backends from benchmarks/backends/
+try:
+    import importlib
+    _backends_dir = Path(__file__).parent / "backends"
+    if _backends_dir.exists():
+        for _plugin_file in _backends_dir.glob("*.py"):
+            if _plugin_file.name.startswith("_"):
+                continue
+            try:
+                _mod = importlib.import_module(f"benchmarks.backends.{_plugin_file.stem}")
+                if hasattr(_mod, "BACKEND_NAME") and hasattr(_mod, "BACKEND_CLASS"):
+                    register_backend(_mod.BACKEND_NAME, _mod.BACKEND_CLASS)
+            except Exception:
+                pass
+except Exception:
+    pass
 
 
 # --- Token Estimation ---
@@ -1577,6 +1595,156 @@ def run_deduplication(backend: BenchmarkableStore, scenarios: list,
     )
 
 
+# --- Suite I: Conversation & Stress ---
+
+
+def run_conversation_memory(backend: BenchmarkableStore, scenarios: list,
+                            judge: MemoryJudge) -> CategoryResult:
+    """Run conversation memory scenarios (Suite I1).
+
+    Simulates multi-turn conversations where facts are stated, updated,
+    and must be recalled later. Tests real-world dialogue patterns.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        # Process turns: store content from designated store_turns
+        store_turns = set(sc.get("store_turns", []))
+        for i, turn in enumerate(sc["turns"]):
+            if i in store_turns:
+                backend.store(turn["content"], category="factual")
+
+        # Query on the final turn
+        query = sc["turns"][sc["query_turn"]]["content"]
+        results = backend.recall(query, top_k=5)
+        actual = " | ".join(results[:2]) if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(query, sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc["difficulty"],
+            "correct": jr.correct,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="conversation_memory",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
+def run_capacity_stress(backend: BenchmarkableStore, scenarios: list,
+                        judge: MemoryJudge) -> CategoryResult:
+    """Run capacity stress scenarios (Suite I2).
+
+    Tests retrieval quality under high fact counts (50-1000 facts).
+    Measures how well the backend discriminates signal from noise at scale.
+    """
+    correct = 0
+    details = []
+    total_recall_tokens = 0
+    total_recall_chars = 0
+
+    for sc in scenarios:
+        backend.reset()
+
+        num_facts = sc["num_facts"]
+        template = sc.get("noise_template", "Fact {i}: value is {val}")
+        noise_importance = sc.get("noise_importance", 0.1)
+
+        # Store target fact
+        if "old_fact" in sc:
+            # Time-series: old fact stored first
+            backend.store(sc["old_fact"], category="factual", importance=0.5)
+            backend.simulate_time(sc.get("old_days_ago", 90) - sc.get("new_days_ago", 5))
+
+        target_fact = sc.get("target_fact") or sc.get("new_fact", "")
+        target_importance = sc.get("target_importance", 0.8)
+        backend.store(target_fact, category="factual", importance=target_importance)
+
+        # Store noise
+        for i in range(num_facts - 1):
+            content = template.format(i=i, val=f"value_{i}")
+            backend.store(content, category="factual", importance=noise_importance)
+
+        # Time-series: advance remaining days
+        if "new_days_ago" in sc:
+            backend.simulate_time(sc["new_days_ago"])
+
+        results = backend.recall(sc["query"], top_k=5)
+        actual = results[0] if results else ""
+        rt, rc = count_recall_tokens(results)
+        total_recall_tokens += rt
+        total_recall_chars += rc
+
+        jr = judge.judge_answer(sc["query"], sc["gold_answer"], actual)
+        if jr.correct:
+            correct += 1
+
+        details.append({
+            "id": sc["id"],
+            "difficulty": sc["difficulty"],
+            "correct": jr.correct,
+            "num_facts": num_facts,
+            "actual": actual,
+            "gold": sc["gold_answer"],
+        })
+        scenario_metrics = compute_scenario_metrics(results, sc["gold_answer"])
+        details[-1]["metrics"] = scenario_metrics
+
+    sub_scores = {}
+    for diff in ["easy", "medium", "hard"]:
+        subset = [d for d in details if d["difficulty"] == diff]
+        if subset:
+            sub_scores[diff] = sum(1 for d in subset if d["correct"]) / len(subset)
+
+    all_metrics = [d.get("metrics", {}) for d in details if "metrics" in d]
+    avg_retrieval_metrics = {}
+    if all_metrics:
+        for key in all_metrics[0]:
+            values = [m[key] for m in all_metrics if key in m]
+            avg_retrieval_metrics[key] = sum(values) / len(values) if values else 0.0
+
+    return CategoryResult(
+        category="capacity_stress",
+        total=len(scenarios),
+        correct=correct,
+        score=correct / len(scenarios) if scenarios else 0,
+        sub_scores=sub_scores,
+        details=details,
+        recall_tokens=total_recall_tokens,
+        recall_chars=total_recall_chars,
+        retrieval_metrics=avg_retrieval_metrics,
+    )
+
+
 CATEGORY_RUNNERS = {
     "semantic_recall": run_semantic_recall,
     "contradictions": run_contradictions,
@@ -1597,11 +1765,15 @@ CATEGORY_RUNNERS = {
     # Suite G
     "qlearning": run_qlearning,
     # Suite H — Advanced Memory Features
-    "supersession": run_supersession,
+    "supersession": run_supersession,  
+
     "typed_decay": run_typed_decay,
     "scope_lifecycle": run_scope_lifecycle,
     "notation_parsing": run_notation_parsing,
     "deduplication": run_deduplication,
+    # Suite I — Conversation & Stress
+    "conversation_memory": run_conversation_memory,
+    "capacity_stress": run_capacity_stress,
 }
 
 
@@ -1631,6 +1803,13 @@ def run_single(config: BenchmarkConfig, seed: int) -> RunResult:
     results_by_cat = {}
 
     suites_to_run = config.parameters.get("suites", ["a"])
+    if suites_to_run == ["all"] or suites_to_run == "all":
+        # Auto-discover all available suites
+        suites_to_run = sorted(
+            d.name.split("_")[1]
+            for d in SUITE_DIR.iterdir()
+            if d.is_dir() and d.name.startswith("suite_") and (d / "fixtures").exists()
+        )
     for suite_letter in suites_to_run:
         try:
             fixtures = load_fixtures(suite_letter)
@@ -1775,7 +1954,7 @@ def print_results(agg: AggregateResult, config: BenchmarkConfig,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Hermes Cognitive Memory Benchmark Runner"
+        description="Memory Benchmark Runner — system-agnostic AI agent memory evaluation"
     )
     parser.add_argument("--backend", default="baseline-flat",
                         choices=list(BACKENDS.keys()),
