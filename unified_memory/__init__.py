@@ -1,9 +1,17 @@
 """
-Unified Memory — typed, scored, decaying memory with gauge pressure management.
+Unified Memory System — cognitive + structured + self-optimizing memory for AI agents.
 
-This package extends the cognitive memory foundation with fact typing,
-metabolic decay rates, supersession, and phase-gated advanced features.
+Merges ACT-R activation scoring, typed facts with metabolic decay, Hebbian
+link formation, Q-value reinforcement learning, scope lifecycle management,
+and LinUCB self-optimizing retrieval into a single SQLite-backed engine.
+
+Usage:
+    from unified_memory.store import UnifiedMemoryStore
+    from unified_memory.config import UnifiedMemoryConfig
+
+    store = UnifiedMemoryStore(UnifiedMemoryConfig.balanced())
+    store.store("V[api.url]: https://example.com")
+    results = store.recall("What is the API URL?")
 """
 
 __version__ = "0.1.0"
-__all__ = ["types", "config"]
