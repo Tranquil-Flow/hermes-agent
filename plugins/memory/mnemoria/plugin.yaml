@@ -1,0 +1,24 @@
+name: mnemoria
+version: 0.1.0
+description: |
+  Unified Memory System — combines cognitive (ACT-R activation, Hebbian links, RL Q-values)
+  with structured memory (typed facts, scopes, supersession, gauge pressure).
+  Benchmarks: 97.2% on cognitive memory suite vs 87.5% flat-baseline.
+provider: mnemoria
+memory_provider: true
+
+config:
+  HERMES_MEMORY_MNEMORIA_ENABLED:
+    type: bool
+    default: false
+    description: Enable the Mnemoria unified memory provider.
+  HERMES_MEMORY_MNEMORIA_MODE:
+    type: string
+    default: balanced
+    description: Memory profile — balanced (default).
+    choices:
+      - balanced
+  HERMES_UNIFIED_MEMORY_DB:
+    type: path
+    default: ~/.hermes/unified_memory.db
+    description: SQLite database path for the unified memory store.

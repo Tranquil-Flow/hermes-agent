@@ -226,7 +226,7 @@ class UnifiedMemoryStore:
         if embedding is not None:
             try:
                 from unified_memory.ingestion import find_near_duplicates
-                dupes = find_near_duplicates(self._conn, content, embedding, threshold=0.90)
+                dupes = find_near_duplicates(self._conn, content, embedding, threshold=0.95)
                 if dupes:
                     logger.debug(f"Semantic dedup: near-duplicate of {dupes[0][0][:8]} (sim={dupes[0][1]:.3f})")
                     return dupes[0][0]
