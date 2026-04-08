@@ -6539,6 +6539,31 @@ class AIAgent:
             }
             messages.append(tool_msg)
 
+            # ── Continuous memory extraction ─────────────────────────────
+            # Notify memory providers so observers can extract facts from
+            # tool results.  Skip if no external memory provider is active.
+            if self._memory_manager and self._memory_manager.providers:
+                try:
+                    import time as _time
+                    _mem_provider = self._memory_manager.providers[-1]
+                    if hasattr(_mem_provider, "observe_event"):
+                        _event = {
+                            "kind": "tool_result",
+                            "session_id": self.session_id or "",
+                            "timestamp": _time.time(),
+                            "payload": {
+                                "tool": function_name,
+                                "exit_code": 0 if not _is_error_result else 1,
+                                "stdout": function_result[:4000],
+                                "stderr": "",
+                                "command": f"{function_name}({json.dumps(function_args)[:200]})",
+                                "tool_call_id": tool_call.id,
+                            },
+                        }
+                        _mem_provider.observe_event(_event)
+                except Exception as _ev_err:
+                    logger.debug("observe_event hook failed (non-fatal): %s", _ev_err)
+
             if not self.quiet_mode:
                 if self.verbose_logging:
                     print(f"  ✅ Tool {i} completed in {tool_duration:.2f}s")
@@ -6935,6 +6960,21 @@ class AIAgent:
         messages.append(user_msg)
         current_turn_user_idx = len(messages) - 1
         self._persist_user_message_idx = current_turn_user_idx
+
+        # ── Continuous memory extraction: user message ──────────────────
+        if self._memory_manager and self._memory_manager.providers:
+            try:
+                _mem_provider = self._memory_manager.providers[-1]
+                if hasattr(_mem_provider, "observe_event"):
+                    _clean_msg = persist_user_message if persist_user_message is not None else user_message
+                    _mem_provider.observe_event({
+                        "kind": "user_message",
+                        "session_id": self.session_id or "",
+                        "timestamp": time.time(),
+                        "payload": {"content": _clean_msg},
+                    })
+            except Exception as _ev_err:
+                logger.debug("user_message observe_event failed (non-fatal): %s", _ev_err)
         
         if not self.quiet_mode:
             self._safe_print(f"💬 Starting conversation: '{user_message[:60]}{'...' if len(user_message) > 60 else ''}'")
