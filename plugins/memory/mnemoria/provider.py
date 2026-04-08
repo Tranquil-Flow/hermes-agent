@@ -285,6 +285,75 @@ _TOOL_SCHEMAS: List[Dict[str, Any]] = [
         ),
         "parameters": {"type": "object", "properties": {}},
     },
+    {
+        "name": "mcp_umemory_pending",
+        "description": (
+            "List pending facts, optionally filtered by session_id or source.\n"
+            "Returns JSON with id, content, type, target, source, status, created_at.\n"
+            "Use to audit what Mnemoria has extracted but not yet promoted."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "Filter by session ID.",
+                },
+                "source": {
+                    "type": "string",
+                    "description": "Filter by source: 'observed', 'user_stated', 'agent_inference'.",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status: 'provisional', 'promoted', 'retracted'.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default 50, max 200).",
+                    "default": 50,
+                },
+            },
+        },
+    },
+    {
+        "name": "mcp_umemory_retract",
+        "description": (
+            "Retract a pending fact or supersede a confirmed fact.\n"
+            "For pending: sets status='retracted'. For confirmed fact: marks as superseded.\n"
+            "Takes either pending_id OR fact_id (not both)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pending_id": {
+                    "type": "string",
+                    "description": "Pending fact ID to retract.",
+                },
+                "fact_id": {
+                    "type": "string",
+                    "description": "Confirmed fact ID to supersede.",
+                },
+            },
+        },
+    },
+    {
+        "name": "mcp_umemory_promote",
+        "description": (
+            "Force immediate promotion of a pending fact.\n"
+            "Bypasses TTL rules — useful for agent_inference facts the user has verified.\n"
+            "Returns the new fact_id on success."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pending_id": {
+                    "type": "string",
+                    "description": "Pending fact ID to promote.",
+                },
+            },
+            "required": ["pending_id"],
+        },
+    },
 ]
 
 
@@ -568,6 +637,9 @@ class MnemoriaMemoryProvider(MemoryProvider):
             "mcp_umemory_explore": _handle_explore,
             "mcp_umemory_stats": _handle_stats,
             "mcp_umemory_consolidate": _handle_consolidate,
+            "mcp_umemory_pending": _handle_pending,
+            "mcp_umemory_retract": _handle_retract,
+            "mcp_umemory_promote": _handle_promote,
         }
 
         handler = handlers.get(tool_name)
@@ -779,4 +851,175 @@ def _handle_consolidate(args: dict, session_id: str = "") -> str:
         "pruned": report.get("pruned", 0),
         "links_pruned": report.get("links_pruned", 0),
         "gauge_pct": stats.get("gauge_pct", 0.0),
+    })
+
+
+def _handle_pending(args: dict, session_id: str = "") -> str:
+    import json
+    s = _store()
+    conn = s.conn
+
+    filter_session = args.get("session_id")
+    filter_source = args.get("source")
+    filter_status = args.get("status")
+    limit = min(int(args.get("limit", 50)), 200)
+
+    query = "SELECT id, content, type, target, source, status, session_id, created_at FROM um_pending WHERE 1=1"
+    params = []
+
+    if filter_session:
+        query += " AND session_id = ?"
+        params.append(filter_session)
+    if filter_source:
+        query += " AND source = ?"
+        params.append(filter_source)
+    if filter_status:
+        query += " AND status = ?"
+        params.append(filter_status)
+
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+
+    rows = conn.execute(query, params).fetchall()
+
+    return json.dumps({
+        "pending": [
+            {
+                "id": row["id"],
+                "content": row["content"],
+                "type": row["type"],
+                "target": row["target"],
+                "source": row["source"],
+                "status": row["status"],
+                "session_id": row["session_id"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ],
+        "count": len(rows),
+    })
+
+
+def _handle_retract(args: dict, session_id: str = "") -> str:
+    import json
+    s = _store()
+    conn = s.conn
+
+    pending_id = args.get("pending_id", "").strip()
+    fact_id = args.get("fact_id", "").strip()
+
+    if not pending_id and not fact_id:
+        return json.dumps({"error": "Either pending_id or fact_id is required"})
+
+    if pending_id and fact_id:
+        return json.dumps({"error": "Provide only one of pending_id or fact_id, not both"})
+
+    if pending_id:
+        # Check pending exists
+        row = conn.execute(
+            "SELECT id, status FROM um_pending WHERE id = ?", (pending_id,)
+        ).fetchone()
+        if not row:
+            return json.dumps({"error": f"Pending fact not found: {pending_id}"})
+        if row["status"] == "retracted":
+            return json.dumps({"pending_id": pending_id, "status": "already_retracted"})
+        if row["status"] == "promoted":
+            return json.dumps({"error": f"Pending fact already promoted: {pending_id}"})
+
+        conn.execute(
+            "UPDATE um_pending SET status = 'retracted', updated_at = ? WHERE id = ?",
+            (s._now(), pending_id),
+        )
+        conn.commit()
+        return json.dumps({"pending_id": pending_id, "status": "retracted"})
+
+    else:  # fact_id
+        # Check fact exists
+        row = conn.execute(
+            "SELECT id, status FROM um_facts WHERE id = ?", (fact_id,)
+        ).fetchone()
+        if not row:
+            return json.dumps({"error": f"Fact not found: {fact_id}"})
+        if row["status"] == "superseded":
+            return json.dumps({"fact_id": fact_id, "status": "already_superseded"})
+
+        conn.execute(
+            "UPDATE um_facts SET status = 'superseded', superseded_by = ?,"
+            " updated_at = ? WHERE id = ?",
+            (fact_id, s._now(), fact_id),
+        )
+        conn.commit()
+        return json.dumps({"fact_id": fact_id, "status": "superseded"})
+
+
+def _handle_promote(args: dict, session_id: str = "") -> str:
+    """Force immediate promotion of a specific pending fact, bypassing TTL."""
+    import json
+    import uuid as _uuid
+
+    s = _store()
+    conn = s.conn
+    now = s._now()
+
+    pending_id = args.get("pending_id", "").strip()
+    if not pending_id:
+        return json.dumps({"error": "pending_id is required"})
+
+    # Fetch the pending row
+    row = conn.execute(
+        "SELECT id, content, type, target, scope_id, session_id, provenance "
+        "FROM um_pending WHERE id = ? AND status = 'provisional'",
+        (pending_id,),
+    ).fetchone()
+
+    if not row:
+        return json.dumps({"error": f"Provisional pending fact not found: {pending_id}"})
+
+    provenance_raw = row["provenance"] or "{}"
+    try:
+        provenance = json.loads(provenance_raw)
+    except Exception:
+        provenance = {}
+
+    provenance["source"] = row["source"]
+    provenance["pending_id"] = pending_id
+    provenance["session_id"] = row["session_id"]
+    provenance["promoted_at"] = now
+    provenance["forced_promotion"] = True  # Mark as user-forced
+
+    new_fact_id = str(_uuid.uuid4())
+
+    conn.execute("""
+        INSERT INTO um_facts
+            (id, content, type, target, scope_id, status,
+             activation, q_value, access_count, metabolic_rate,
+             importance, category, layer, pinned,
+             created_at, updated_at, last_accessed, provenance)
+        VALUES (?, ?, ?, ?, ?, 'active',
+                0.0, 0.5, 0, 1.0,
+                0.5, NULL, 'working', 0,
+                ?, ?, ?, ?)
+    """, (
+        new_fact_id,
+        row["content"],
+        row["type"],
+        row["target"],
+        row["scope_id"],
+        now,  # created_at
+        now,  # updated_at
+        now,  # last_accessed
+        json.dumps(provenance),
+    ))
+
+    conn.execute(
+        "UPDATE um_pending SET status = 'promoted', promoted_to = ?,"
+        " updated_at = ? WHERE id = ?",
+        (new_fact_id, now, pending_id),
+    )
+    conn.commit()
+
+    return json.dumps({
+        "pending_id": pending_id,
+        "fact_id": new_fact_id,
+        "status": "promoted",
     })
