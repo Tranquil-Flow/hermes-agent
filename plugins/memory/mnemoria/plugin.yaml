@@ -1,0 +1,41 @@
+name: mnemoria
+version: 0.1.0
+description: |
+  Mnemoria cognitive memory system — combines ACT-R activation scoring, Hebbian link formation,
+  RL Q-value reranking with structured memory (typed facts, scopes, supersession, gauge pressure).
+  Verified around 93.4% on the current hermes-agent all-suite benchmark in a TF-IDF/container
+  environment; expected to improve on local installs with real embeddings.
+
+  Install: pip install 'hermes-agent[mnemoria]'
+  Or: pip install 'mnemoria @ git+https://github.com/Tranquil-Flow/mnemoria.git'
+  Enable: set memory.provider: mnemoria in ~/.hermes/config.yaml
+provider: mnemoria
+memory_provider: true
+
+config:
+  HERMES_MEMORY_MNEMORIA_ENABLED:
+    type: bool
+    default: false
+    description: Enable the Mnemoria memory provider.
+  HERMES_MEMORY_MNEMORIA_MODE:
+    type: string
+    default: balanced
+    description: Memory profile — balanced (default).
+    choices:
+      - balanced
+  HERMES_MNEMORIA_DB:
+    type: path
+    default: ~/.hermes/mnemoria.db
+    description: SQLite database path for the Mnemoria memory store.
+  HERMES_MEMORY_MNEMORIA_EXTRACT_MODE:
+    type: string
+    default: observed_only
+    description: |
+      Continuous extraction mode.
+      off = no extraction.
+      observed_only = tool outputs + user statements only (recommended).
+      full = include agent_inference (v2+).
+    choices:
+      - "off"
+      - "observed_only"
+      - "full"

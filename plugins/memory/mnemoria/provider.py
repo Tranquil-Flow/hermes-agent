@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -20,6 +21,36 @@ from typing import Any, Dict, List, Optional
 from agent.memory_provider import MemoryProvider
 
 logger = logging.getLogger(__name__)
+
+# -----------------------------------------------------------------------
+# Observers — imported lazily to avoid hard dependency until enabled
+# -----------------------------------------------------------------------
+
+_OBSERVERS: Optional[List[Any]] = None
+
+
+def _get_observers() -> List[Any]:
+    """Return singleton observer list, lazy-initialized on first call."""
+    global _OBSERVERS
+    if _OBSERVERS is None:
+        try:
+            from mnemoria.observers import (
+                PytestObserver,
+                GitObserver,
+                FileObserver,
+                UserStatementObserver,
+            )
+
+            _OBSERVERS = [
+                PytestObserver(),
+                GitObserver(),
+                FileObserver(),
+                UserStatementObserver(),
+            ]
+        except ImportError:
+            _OBSERVERS = []
+    return _OBSERVERS
+
 
 # -----------------------------------------------------------------------
 # Per-thread store pool — mirrors pattern from mnemoria integration
@@ -294,6 +325,8 @@ class MnemoriaMemoryProvider(MemoryProvider):
     def __init__(self):
         self._session_id: str = ""
         self._hermes_home: str = ""
+        self._write_counter: int = 0
+        self._extract_mode: str = "observed_only"
 
     @property
     def name(self) -> str:
@@ -307,10 +340,16 @@ class MnemoriaMemoryProvider(MemoryProvider):
         self._session_id = session_id
         self._hermes_home = kwargs.get("hermes_home", os.path.expanduser("~/.hermes"))
 
+        # Read extraction mode from environment (plugin.yaml maps to env var)
+        self._extract_mode = os.getenv(
+            "HERMES_MEMORY_MNEMORIA_EXTRACT_MODE", "observed_only"
+        )
+
         # Warm up the per-thread store (create tables if needed)
         try:
             _store()
-            logger.info("MnemoriaMemoryProvider initialized (session=%s)", session_id)
+            logger.info("MnemoriaMemoryProvider initialized (session=%s, extract=%s)",
+                        session_id, self._extract_mode)
         except Exception as exc:
             logger.error("MnemoriaMemoryProvider init failed: %s", exc)
 
@@ -386,6 +425,126 @@ class MnemoriaMemoryProvider(MemoryProvider):
         # No-op: the agent loop calls tick_unified_memory() which auto-extracts facts.
         # This follows BuiltinMemoryProvider.sync_turn pattern (also a no-op).
         pass
+
+    # -- Continuous extraction -----------------------------------------------
+
+    def observe_event(self, event: dict) -> None:
+        """
+        Called by hermes-agent for every significant session event.
+
+        Runs registered observers, writes pending facts, occasionally triggers
+        promotion.  Checks HERMES_MEMORY_MNEMORIA_EXTRACT_MODE first:
+          - ``off``: short-circuits immediately, no extraction.
+          - ``observed_only``: skips any observer that produces agent_inference facts.
+          - ``full``: runs all observers including future agent_inference ones.
+
+        Parameters
+        ----------
+        event : dict
+            Structured dict with at minimum:
+            - kind: ``'tool_call'`` | ``'tool_result'`` | ``'user_message'`` | ``'agent_message'``
+            - session_id: str
+            - timestamp: float
+            - payload: dict (kind-specific)
+        """
+        if self._extract_mode == "off":
+            return
+
+        if not _UM_AVAILABLE:
+            return
+
+        try:
+            observers = _get_observers()
+            if not observers:
+                return
+
+            session_id = event.get("session_id") or self._session_id or _SESSION_ID
+            timestamp = event.get("timestamp") or time.time()
+
+            pending_facts: List[Any] = []
+
+            for observer in observers:
+                # observed_only mode: skip observers that emit agent_inference
+                if self._extract_mode == "observed_only":
+                    if getattr(observer, "name", "") == "agent_inference":
+                        continue
+
+                try:
+                    facts = observer.observe(event)
+                except Exception as obs_err:
+                    logger.debug(
+                        "Observer %s.observe() failed (non-fatal): %s",
+                        getattr(observer, "name", "?"), obs_err,
+                    )
+                    continue
+
+                for fact in facts:
+                    # Second pass: skip agent_inference facts when in observed_only mode
+                    if self._extract_mode == "observed_only":
+                        if getattr(fact, "source", "") == "agent_inference":
+                            continue
+                    pending_facts.append(fact)
+
+            if not pending_facts:
+                return
+
+            # Batch-insert into um_pending (one transaction)
+            self._insert_pending_batch(pending_facts, session_id, timestamp)
+
+            # Every 10 writes, run a promotion pass
+            self._write_counter += len(pending_facts)
+            if self._write_counter >= 10:
+                self._write_counter = 0
+                try:
+                    _store().flush_pending()
+                except Exception as flush_err:
+                    logger.debug("flush_pending failed (non-fatal): %s", flush_err)
+
+        except Exception as exc:
+            logger.debug("observe_event failed (non-fatal): %s", exc)
+
+    def _insert_pending_batch(self, facts: List[Any], session_id: str, timestamp: float) -> None:
+        """Insert a list of PendingFact objects into um_pending in one transaction."""
+        import json
+        import uuid as _uuid
+
+        s = _store()
+        conn = s.conn
+        now = timestamp
+
+        rows = []
+        for fact in facts:
+            fid = str(_uuid.uuid4())
+            provenance = getattr(fact, "provenance", {}) or {}
+            provenance["observer_name"] = getattr(fact, "name", "unknown")
+            rows.append((
+                fid,
+                getattr(fact, "content", ""),
+                getattr(fact, "type", "V"),
+                getattr(fact, "target", "general"),
+                None,  # scope_id
+                session_id,
+                getattr(fact, "source", "observed"),
+                "provisional",
+                None,  # retracted_by
+                None,  # promoted_to
+                now,
+                now,
+                json.dumps(provenance),
+            ))
+
+        if not rows:
+            return
+
+        placeholders = ",".join(["?"] * len(rows[0]))
+        conn.executemany(
+            f"""INSERT INTO um_pending
+                (id, content, type, target, scope_id, session_id, source,
+                 status, retracted_by, promoted_to, created_at, updated_at, provenance)
+                VALUES ({placeholders})""",
+            rows,
+        )
+        conn.commit()
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
         """Return the 8 Mnemoria memory tool schemas."""
