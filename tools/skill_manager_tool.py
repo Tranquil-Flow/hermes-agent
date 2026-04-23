@@ -53,25 +53,38 @@ except ImportError:
     _GUARD_AVAILABLE = False
 
 
-def _security_scan_skill(skill_dir: Path) -> Optional[str]:
-    """Scan a skill directory after write. Returns error string if blocked, else None."""
+def _security_scan_skill(skill_dir: Path) -> Tuple[Optional[str], Optional[str]]:
+    """Scan a skill directory after write.
+
+    Returns:
+        (error, warning) tuple.
+        - error: blocking error string, or None if the skill is allowed.
+        - warning: non-blocking warning string (for "ask" verdicts), or None.
+    """
     if not _GUARD_AVAILABLE:
-        return None
+        return None, None
     try:
         result = scan_skill(skill_dir, source="agent-created")
         allowed, reason = should_allow_install(result)
         if allowed is False:
             report = format_scan_report(result)
-            return f"Security scan blocked this skill ({reason}):\n{report}"
+            return f"Security scan blocked this skill ({reason}):\n{report}", None
         if allowed is None:
-            # "ask" verdict — for agent-created skills this means dangerous
-            # findings were detected.  Block the skill and include the report.
+            # "ask" verdict — for agent-created skills this means the scanner
+            # found patterns that COULD be dangerous but are also common in
+            # legitimate skills (e.g. network access, file writes).  Allow the
+            # skill but surface the findings so the user can review.
             report = format_scan_report(result)
-            logger.warning("Agent-created skill blocked (dangerous findings): %s", reason)
-            return f"Security scan blocked this skill ({reason}):\n{report}"
+            logger.warning("Agent-created skill has findings requiring review: %s", reason)
+            warning = (
+                f"Security scan found patterns that may need review ({reason}):\n"
+                f"{report}\n"
+                "The skill has been created. Please review the findings above."
+            )
+            return None, warning
     except Exception as e:
         logger.warning("Security scan failed for %s: %s", skill_dir, e, exc_info=True)
-    return None
+    return None, None
 
 import yaml
 
@@ -338,7 +351,7 @@ def _create_skill(name: str, content: str, category: str = None) -> Dict[str, An
     _atomic_write_text(skill_md, content)
 
     # Security scan — roll back on block
-    scan_error = _security_scan_skill(skill_dir)
+    scan_error, scan_warning = _security_scan_skill(skill_dir)
     if scan_error:
         shutil.rmtree(skill_dir, ignore_errors=True)
         return {"success": False, "error": scan_error}
@@ -355,6 +368,8 @@ def _create_skill(name: str, content: str, category: str = None) -> Dict[str, An
         "To add reference files, templates, or scripts, use "
         "skill_manage(action='write_file', name='{}', file_path='references/example.md', file_content='...')".format(name)
     )
+    if scan_warning:
+        result["warning"] = scan_warning
     return result
 
 
@@ -381,17 +396,20 @@ def _edit_skill(name: str, content: str) -> Dict[str, Any]:
     _atomic_write_text(skill_md, content)
 
     # Security scan — roll back on block
-    scan_error = _security_scan_skill(existing["path"])
+    scan_error, scan_warning = _security_scan_skill(existing["path"])
     if scan_error:
         if original_content is not None:
             _atomic_write_text(skill_md, original_content)
         return {"success": False, "error": scan_error}
 
-    return {
+    result = {
         "success": True,
         "message": f"Skill '{name}' updated.",
         "path": str(existing["path"]),
     }
+    if scan_warning:
+        result["warning"] = scan_warning
+    return result
 
 
 def _patch_skill(
@@ -480,15 +498,18 @@ def _patch_skill(
     _atomic_write_text(target, new_content)
 
     # Security scan — roll back on block
-    scan_error = _security_scan_skill(skill_dir)
+    scan_error, scan_warning = _security_scan_skill(skill_dir)
     if scan_error:
         _atomic_write_text(target, original_content)
         return {"success": False, "error": scan_error}
 
-    return {
+    result = {
         "success": True,
         "message": f"Patched {'SKILL.md' if not file_path else file_path} in skill '{name}' ({match_count} replacement{'s' if match_count > 1 else ''}).",
     }
+    if scan_warning:
+        result["warning"] = scan_warning
+    return result
 
 
 def _delete_skill(name: str) -> Dict[str, Any]:
@@ -554,7 +575,7 @@ def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
     _atomic_write_text(target, file_content)
 
     # Security scan — roll back on block
-    scan_error = _security_scan_skill(existing["path"])
+    scan_error, scan_warning = _security_scan_skill(existing["path"])
     if scan_error:
         if original_content is not None:
             _atomic_write_text(target, original_content)
@@ -562,11 +583,14 @@ def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
             target.unlink(missing_ok=True)
         return {"success": False, "error": scan_error}
 
-    return {
+    result = {
         "success": True,
         "message": f"File '{file_path}' written to skill '{name}'.",
         "path": str(target),
     }
+    if scan_warning:
+        result["warning"] = scan_warning
+    return result
 
 
 def _remove_file(name: str, file_path: str) -> Dict[str, Any]:

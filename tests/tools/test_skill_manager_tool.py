@@ -484,3 +484,224 @@ class TestSkillManageDispatcher:
             raw = skill_manage(action="create", name="test-skill", content=VALID_SKILL_CONTENT)
         result = json.loads(raw)
         assert result["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# Security scan "ask" verdict — fix for #13686
+# ---------------------------------------------------------------------------
+# Before the fix, agent-created skills with "dangerous" findings were
+# hard-blocked (same as "block" verdict). The "ask" verdict should allow
+# the skill but surface findings as a warning.
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from tools.skill_manager_tool import _security_scan_skill
+
+
+@dataclass
+class _FakeScanResult:
+    skill_name: str = "test-skill"
+    source: str = "agent-created"
+    trust_level: str = "agent-created"
+    verdict: str = "safe"
+    findings: list = field(default_factory=list)
+    scan_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass
+class _FakeFinding:
+    pattern_id: str = "test"
+    severity: str = "high"
+    category: str = "network"
+    file: str = "SKILL.md"
+    line: int = 1
+    match: str = "curl"
+    description: str = "network access detected"
+
+
+class TestSecurityScanAskVerdict:
+    """The 'ask' verdict for agent-created skills must allow with a warning."""
+
+    def test_ask_verdict_allows_skill_creation(self, tmp_path):
+        """A skill with 'ask' verdict should be created successfully."""
+        # Create a mock scan result that would trigger "ask" verdict
+        mock_result = _FakeScanResult(verdict="dangerous", findings=[_FakeFinding()])
+
+        with _skill_dir(tmp_path), \
+             patch("tools.skill_manager_tool._GUARD_AVAILABLE", True), \
+             patch("tools.skill_manager_tool.scan_skill", return_value=mock_result), \
+             patch("tools.skill_manager_tool.should_allow_install",
+                   return_value=(None, "Requires confirmation (agent-created source + dangerous verdict, 1 findings)")), \
+             patch("tools.skill_manager_tool.format_scan_report",
+                   return_value="[SCAN REPORT]"):
+            result = _create_skill("test-skill", VALID_SKILL_CONTENT)
+
+        assert result["success"] is True, (
+            "Agent-created skill with 'ask' verdict was blocked — "
+            "should be allowed with warning"
+        )
+
+    def test_ask_verdict_includes_warning(self, tmp_path):
+        """The result should include a warning with scan findings."""
+        mock_result = _FakeScanResult(verdict="dangerous", findings=[_FakeFinding()])
+
+        with _skill_dir(tmp_path), \
+             patch("tools.skill_manager_tool._GUARD_AVAILABLE", True), \
+             patch("tools.skill_manager_tool.scan_skill", return_value=mock_result), \
+             patch("tools.skill_manager_tool.should_allow_install",
+                   return_value=(None, "Requires confirmation")), \
+             patch("tools.skill_manager_tool.format_scan_report",
+                   return_value="[SCAN REPORT]"):
+            result = _create_skill("test-skill", VALID_SKILL_CONTENT)
+
+        assert "warning" in result, "Result should include a 'warning' key"
+        assert "[SCAN REPORT]" in result["warning"]
+
+    def test_block_verdict_still_blocks(self, tmp_path):
+        """A 'block' verdict should still block the skill."""
+        mock_result = _FakeScanResult(verdict="dangerous", findings=[_FakeFinding()])
+
+        with _skill_dir(tmp_path), \
+             patch("tools.skill_manager_tool._GUARD_AVAILABLE", True), \
+             patch("tools.skill_manager_tool.scan_skill", return_value=mock_result), \
+             patch("tools.skill_manager_tool.should_allow_install",
+                   return_value=(False, "Blocked")), \
+             patch("tools.skill_manager_tool.format_scan_report",
+                   return_value="[SCAN REPORT]"):
+            result = _create_skill("test-skill", VALID_SKILL_CONTENT)
+
+        assert result["success"] is False
+
+    def test_safe_verdict_no_warning(self, tmp_path):
+        """A 'safe' verdict should have no warning."""
+        mock_result = _FakeScanResult(verdict="safe", findings=[])
+
+        with _skill_dir(tmp_path), \
+             patch("tools.skill_manager_tool._GUARD_AVAILABLE", True), \
+             patch("tools.skill_manager_tool.scan_skill", return_value=mock_result), \
+             patch("tools.skill_manager_tool.should_allow_install",
+                   return_value=(True, "Allowed")):
+            result = _create_skill("test-skill", VALID_SKILL_CONTENT)
+
+        assert result["success"] is True
+        assert "warning" not in result
+
+    def test_ask_verdict_on_edit(self, tmp_path):
+        """'ask' verdict should also work for skill edits, not just creates."""
+        mock_result = _FakeScanResult(verdict="dangerous", findings=[_FakeFinding()])
+
+        with _skill_dir(tmp_path):
+            # Create the skill first (no scanning)
+            with patch("tools.skill_manager_tool._GUARD_AVAILABLE", False):
+                _create_skill("test-skill", VALID_SKILL_CONTENT)
+
+            # Now edit with scanning enabled
+            with patch("tools.skill_manager_tool._GUARD_AVAILABLE", True), \
+                 patch("tools.skill_manager_tool.scan_skill", return_value=mock_result), \
+                 patch("tools.skill_manager_tool.should_allow_install",
+                       return_value=(None, "Requires confirmation")), \
+                 patch("tools.skill_manager_tool.format_scan_report",
+                       return_value="[SCAN REPORT]"):
+                result = _edit_skill("test-skill", VALID_SKILL_CONTENT_2)
+
+        assert result["success"] is True
+        assert "warning" in result
+
+    def test_security_scan_returns_tuple(self, tmp_path):
+        """_security_scan_skill must return (error, warning) tuple."""
+        mock_result = _FakeScanResult(verdict="safe", findings=[])
+
+        with patch("tools.skill_manager_tool._GUARD_AVAILABLE", True), \
+             patch("tools.skill_manager_tool.scan_skill", return_value=mock_result), \
+             patch("tools.skill_manager_tool.should_allow_install",
+                   return_value=(True, "Allowed")):
+            error, warning = _security_scan_skill(tmp_path)
+
+        assert error is None
+        assert warning is None
+
+    def test_guard_unavailable_skips_scan(self, tmp_path):
+        """When skills_guard is not installed, scan should be skipped."""
+        with patch("tools.skill_manager_tool._GUARD_AVAILABLE", False):
+            error, warning = _security_scan_skill(tmp_path)
+
+        assert error is None
+        assert warning is None
+
+
+class TestShouldAllowInstallPolicy:
+    """Test the real should_allow_install policy function with agent-created
+    trust level.  These tests verify the INSTALL_POLICY table itself produces
+    the expected (allowed, reason) for each verdict -- the core classification
+    that was broken before this fix.
+    """
+
+    def test_agent_created_safe_is_allowed(self):
+        """agent-created + safe verdict -> allowed."""
+        from tools.skills_guard import should_allow_install, ScanResult
+        result = ScanResult(
+            skill_name="test", source="agent-created",
+            trust_level="agent-created", verdict="safe",
+            findings=[], scanned_at="2026-01-01T00:00:00Z",
+        )
+        allowed, _ = should_allow_install(result)
+        assert allowed is True
+
+    def test_agent_created_caution_is_allowed(self):
+        """agent-created + caution verdict -> allowed."""
+        from tools.skills_guard import should_allow_install, ScanResult
+        result = ScanResult(
+            skill_name="test", source="agent-created",
+            trust_level="agent-created", verdict="caution",
+            findings=[],  scanned_at="2026-01-01T00:00:00Z",
+        )
+        allowed, _ = should_allow_install(result)
+        assert allowed is True
+
+    def test_agent_created_dangerous_returns_ask(self):
+        """agent-created + dangerous verdict -> ask (None), NOT block (False).
+
+        This is the exact bug #13686 reported: the old code treated this
+        as a hard block.  The policy table says "ask" which must return
+        allowed=None to signal "needs user confirmation."
+        """
+        from tools.skills_guard import should_allow_install, ScanResult, Finding
+        finding = Finding(
+            pattern_id="test", severity="high", category="network",
+            file="SKILL.md", line=1, match="curl http://example.com",
+            description="network access",
+        )
+        result = ScanResult(
+            skill_name="test", source="agent-created",
+            trust_level="agent-created", verdict="dangerous",
+            findings=[finding], scanned_at="2026-01-01T00:00:00Z",
+        )
+        allowed, reason = should_allow_install(result)
+        assert allowed is None, (
+            f"agent-created + dangerous should return None (ask), "
+            f"got {allowed!r} -- this is the #13686 regression"
+        )
+        assert "confirmation" in reason.lower()
+
+    def test_community_dangerous_is_blocked(self):
+        """community + dangerous -> block (False).  Verifies the policy table
+        distinguishes agent-created from community trust level."""
+        from tools.skills_guard import should_allow_install, ScanResult
+        result = ScanResult(
+            skill_name="test", source="community",
+            trust_level="community", verdict="dangerous",
+            findings=[], scanned_at="2026-01-01T00:00:00Z",
+        )
+        allowed, _ = should_allow_install(result)
+        assert allowed is False
+
+    def test_force_overrides_block(self):
+        """force=True should override any block/ask verdict."""
+        from tools.skills_guard import should_allow_install, ScanResult
+        result = ScanResult(
+            skill_name="test", source="community",
+            trust_level="community", verdict="dangerous",
+            findings=[], scanned_at="2026-01-01T00:00:00Z",
+        )
+        allowed, _ = should_allow_install(result, force=True)
+        assert allowed is True
