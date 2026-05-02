@@ -20,7 +20,6 @@ Improvements over v2:
 import hashlib
 import json
 import logging
-import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -32,6 +31,10 @@ from agent.model_metadata import (
     estimate_messages_tokens_rough,
 )
 from agent.redact import redact_sensitive_text
+from agent.tool_result_compressor import (
+    ToolResultCompressor,
+    make_tool_result_compressor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -194,128 +197,6 @@ def _truncate_tool_call_args_json(args: str, head_chars: int = 200) -> str:
     return json.dumps(shrunken, ensure_ascii=False)
 
 
-def _summarize_tool_result(tool_name: str, tool_args: str, tool_content: str) -> str:
-    """Create an informative 1-line summary of a tool call + result.
-
-    Used during the pre-compression pruning pass to replace large tool
-    outputs with a short but useful description of what the tool did,
-    rather than a generic placeholder that carries zero information.
-
-    Returns strings like::
-
-        [terminal] ran `npm test` -> exit 0, 47 lines output
-        [read_file] read config.py from line 1 (1,200 chars)
-        [search_files] content search for 'compress' in agent/ -> 12 matches
-    """
-    try:
-        args = json.loads(tool_args) if tool_args else {}
-    except (json.JSONDecodeError, TypeError):
-        args = {}
-
-    content = tool_content or ""
-    content_len = len(content)
-    line_count = content.count("\n") + 1 if content.strip() else 0
-
-    if tool_name == "terminal":
-        cmd = args.get("command", "")
-        if len(cmd) > 80:
-            cmd = cmd[:77] + "..."
-        exit_match = re.search(r'"exit_code"\s*:\s*(-?\d+)', content)
-        exit_code = exit_match.group(1) if exit_match else "?"
-        return f"[terminal] ran `{cmd}` -> exit {exit_code}, {line_count} lines output"
-
-    if tool_name == "read_file":
-        path = args.get("path", "?")
-        offset = args.get("offset", 1)
-        return f"[read_file] read {path} from line {offset} ({content_len:,} chars)"
-
-    if tool_name == "write_file":
-        path = args.get("path", "?")
-        written_lines = args.get("content", "").count("\n") + 1 if args.get("content") else "?"
-        return f"[write_file] wrote to {path} ({written_lines} lines)"
-
-    if tool_name == "search_files":
-        pattern = args.get("pattern", "?")
-        path = args.get("path", ".")
-        target = args.get("target", "content")
-        match_count = re.search(r'"total_count"\s*:\s*(\d+)', content)
-        count = match_count.group(1) if match_count else "?"
-        return f"[search_files] {target} search for '{pattern}' in {path} -> {count} matches"
-
-    if tool_name == "patch":
-        path = args.get("path", "?")
-        mode = args.get("mode", "replace")
-        return f"[patch] {mode} in {path} ({content_len:,} chars result)"
-
-    if tool_name in ("browser_navigate", "browser_click", "browser_snapshot",
-                     "browser_type", "browser_scroll", "browser_vision"):
-        url = args.get("url", "")
-        ref = args.get("ref", "")
-        detail = f" {url}" if url else (f" ref={ref}" if ref else "")
-        return f"[{tool_name}]{detail} ({content_len:,} chars)"
-
-    if tool_name == "web_search":
-        query = args.get("query", "?")
-        return f"[web_search] query='{query}' ({content_len:,} chars result)"
-
-    if tool_name == "web_extract":
-        urls = args.get("urls", [])
-        url_desc = urls[0] if isinstance(urls, list) and urls else "?"
-        if isinstance(urls, list) and len(urls) > 1:
-            url_desc += f" (+{len(urls) - 1} more)"
-        return f"[web_extract] {url_desc} ({content_len:,} chars)"
-
-    if tool_name == "delegate_task":
-        goal = args.get("goal", "")
-        if len(goal) > 60:
-            goal = goal[:57] + "..."
-        return f"[delegate_task] '{goal}' ({content_len:,} chars result)"
-
-    if tool_name == "execute_code":
-        code_preview = (args.get("code") or "")[:60].replace("\n", " ")
-        if len(args.get("code", "")) > 60:
-            code_preview += "..."
-        return f"[execute_code] `{code_preview}` ({line_count} lines output)"
-
-    if tool_name in ("skill_view", "skills_list", "skill_manage"):
-        name = args.get("name", "?")
-        return f"[{tool_name}] name={name} ({content_len:,} chars)"
-
-    if tool_name == "vision_analyze":
-        question = args.get("question", "")[:50]
-        return f"[vision_analyze] '{question}' ({content_len:,} chars)"
-
-    if tool_name == "memory":
-        action = args.get("action", "?")
-        target = args.get("target", "?")
-        return f"[memory] {action} on {target}"
-
-    if tool_name == "todo":
-        return "[todo] updated task list"
-
-    if tool_name == "clarify":
-        return "[clarify] asked user a question"
-
-    if tool_name == "text_to_speech":
-        return f"[text_to_speech] generated audio ({content_len:,} chars)"
-
-    if tool_name == "cronjob":
-        action = args.get("action", "?")
-        return f"[cronjob] {action}"
-
-    if tool_name == "process":
-        action = args.get("action", "?")
-        sid = args.get("session_id", "?")
-        return f"[process] {action} session={sid}"
-
-    # Generic fallback
-    first_arg = ""
-    for k, v in list(args.items())[:2]:
-        sv = str(v)[:40]
-        first_arg += f" {k}={sv}"
-    return f"[{tool_name}]{first_arg} ({content_len:,} chars result)"
-
-
 class ContextCompressor(ContextEngine):
     """Default context engine — compresses conversation context via lossy summarization.
 
@@ -387,6 +268,7 @@ class ContextCompressor(ContextEngine):
         config_context_length: int | None = None,
         provider: str = "",
         api_mode: str = "",
+        tool_compression_config: Optional[dict] = None,
     ):
         self.model = model
         self.base_url = base_url
@@ -398,6 +280,9 @@ class ContextCompressor(ContextEngine):
         self.protect_last_n = protect_last_n
         self.summary_target_ratio = max(0.10, min(summary_target_ratio, 0.80))
         self.quiet_mode = quiet_mode
+        self._tool_compressor: ToolResultCompressor = make_tool_result_compressor(
+            tool_compression_config
+        )
 
         self.context_length = get_model_context_length(
             model, base_url=base_url, api_key=api_key,
@@ -597,8 +482,10 @@ class ContextCompressor(ContextEngine):
             if len(content) > 200:
                 call_id = msg.get("tool_call_id", "")
                 tool_name, tool_args = call_id_to_tool.get(call_id, ("unknown", ""))
-                summary = _summarize_tool_result(tool_name, tool_args, content)
-                result[i] = {**msg, "content": summary}
+                compression = self._tool_compressor.compress(
+                    tool_name, tool_args, content
+                )
+                result[i] = {**msg, "content": compression.compressed_text}
                 pruned += 1
 
         # Pass 3: Truncate large tool_call arguments in assistant messages

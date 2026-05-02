@@ -4,6 +4,11 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from agent.context_compressor import ContextCompressor, SUMMARY_PREFIX
+from agent.tool_result_compressor import (
+    CompressionResult,
+    DropBodyCompressor,
+    ToolResultCompressor,
+)
 
 
 @pytest.fixture()
@@ -1430,3 +1435,63 @@ class TestTruncateToolCallArgsJson:
         parsed = _json.loads(shrunk)
         assert parsed["path"] == "~/.hermes/skills/shopping/browser-setup-notes.md"
         assert parsed["content"].endswith("...[truncated]")
+
+
+class TestContextCompressorDelegation:
+    def test_default_tool_compressor_is_drop_body(self, compressor):
+        assert isinstance(compressor._tool_compressor, DropBodyCompressor)
+
+    def test_prune_old_tool_results_delegates_to_tool_compressor(self, compressor):
+        spy = MagicMock(spec=ToolResultCompressor)
+        spy.compress.return_value = CompressionResult(
+            compressed_text="MOCKED-SUMMARY",
+            original_tokens=100, compressed_tokens=10,
+            latency_ms=0.0, cache_hit=False, fell_back=False,
+        )
+        compressor._tool_compressor = spy
+
+        # Build a prunable tool message: assistant call -> tool result >200 chars
+        big_body = "X" * 500
+        messages = [
+            {"role": "user", "content": "search the web"},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_1", "type": "function",
+                 "function": {"name": "web_extract",
+                              "arguments": '{"urls":["https://example.com"]}'}},
+            ]},
+            {"role": "tool", "tool_call_id": "call_1", "content": big_body},
+            {"role": "user", "content": "ok"},
+            {"role": "assistant", "content": "done"},
+        ]
+        result, _ = compressor._prune_old_tool_results(messages, protect_tail_count=2)
+
+        assert spy.compress.called
+        first_call = spy.compress.call_args_list[0]
+        # compress(tool_name, tool_args, content)
+        assert first_call.args[0] == "web_extract"
+        assert first_call.args[1] == '{"urls":["https://example.com"]}'
+        assert first_call.args[2] == big_body
+        # And the result text replaces the message body
+        assert result[2]["content"] == "MOCKED-SUMMARY"
+
+    def test_default_drop_body_produces_identical_output_to_old_inline_call(self, compressor):
+        # Behavior preservation: with default DropBodyCompressor, the pruned
+        # message body equals what the old direct _summarize_tool_result call
+        # produced. The fixture above doesn't mock the compressor, so this
+        # verifies end-to-end behavioral equivalence.
+        from agent.tool_result_compressor import summarize_tool_result
+
+        big_body = "Y" * 500
+        messages = [
+            {"role": "user", "content": "search"},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "c1", "type": "function",
+                 "function": {"name": "web_search", "arguments": '{"query":"x"}'}},
+            ]},
+            {"role": "tool", "tool_call_id": "c1", "content": big_body},
+            {"role": "user", "content": "ok"},
+            {"role": "assistant", "content": "done"},
+        ]
+        result, _ = compressor._prune_old_tool_results(messages, protect_tail_count=2)
+        expected = summarize_tool_result("web_search", '{"query":"x"}', big_body)
+        assert result[2]["content"] == expected
