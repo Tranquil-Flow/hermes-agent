@@ -1,12 +1,22 @@
 """Unit tests for agent.tool_result_compressor."""
 import asyncio
+import socket
+import time
+import urllib.error
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agent.tool_result_compressor import (
     CompressionResult,
     DropBodyCompressor,
+    LLMLinguaConfig,
+    LLMLinguaLocalCompressor,
+    LLMLinguaRemoteCompressor,
     ToolResultCompressor,
+    _ContentLRU,
+    _validate_compression,
+    compress_with_wrapper,
     count_tokens,
     make_tool_result_compressor,
     summarize_tool_result,
@@ -209,8 +219,394 @@ class TestFactory:
         with pytest.raises(ValueError, match="unknown.*compression.*method"):
             make_tool_result_compressor({"method": "magic_pixie_dust"})
 
-    def test_llmlingua_methods_raise_not_implemented_in_phase_1(self):
-        with pytest.raises(NotImplementedError, match="PR 2|llmlingua2_local"):
-            make_tool_result_compressor({"method": "llmlingua2_local"})
-        with pytest.raises(NotImplementedError, match="PR 2|llmlingua2_remote"):
+    def test_llmlingua_local_returns_local_compressor(self):
+        c = make_tool_result_compressor({"method": "llmlingua2_local"})
+        assert isinstance(c, LLMLinguaLocalCompressor)
+
+    def test_llmlingua_remote_returns_remote_compressor(self):
+        c = make_tool_result_compressor({
+            "method": "llmlingua2_remote",
+            "endpoint": "http://example.com/compress",
+        })
+        assert isinstance(c, LLMLinguaRemoteCompressor)
+
+    def test_llmlingua_remote_requires_endpoint(self):
+        with pytest.raises(ValueError, match="endpoint"):
             make_tool_result_compressor({"method": "llmlingua2_remote"})
+
+    def test_llmlingua_local_passes_user_config_through(self):
+        c = make_tool_result_compressor({
+            "method": "llmlingua2_local",
+            "min_output_chars": 5000,
+            "rate": 0.5,
+            "use_question": False,
+            "only_tools": ["web_extract"],
+            "rate_ladder": [
+                {"max_chars": 8000, "rate": 0.6},
+                {"max_chars": None, "rate": 0.2},
+            ],
+        })
+        assert c.config.min_output_chars == 5000
+        assert c.config.rate == 0.5
+        assert c.config.use_question is False
+        assert c.config.only_tools == ("web_extract",)
+        assert c.config.rate_ladder == ((8000, 0.6), (None, 0.2))
+
+
+class TestContentLRU:
+    def test_insert_and_get(self):
+        lru = _ContentLRU(max_size=4)
+        r = CompressionResult("x", 10, 5, 1.0, False, False)
+        key = _ContentLRU.key_for("hello")
+        lru.put(key, r)
+        assert lru.get(key) is r
+
+    def test_eviction_least_recently_used(self):
+        lru = _ContentLRU(max_size=2)
+        for i in range(3):
+            lru.put(_ContentLRU.key_for(f"c{i}"),
+                    CompressionResult(f"x{i}", 1, 1, 0.0, False, False))
+        # c0 should have been evicted; c1 + c2 remain
+        assert lru.get(_ContentLRU.key_for("c0")) is None
+        assert lru.get(_ContentLRU.key_for("c1")).compressed_text == "x1"
+        assert lru.get(_ContentLRU.key_for("c2")).compressed_text == "x2"
+
+    def test_get_updates_recency(self):
+        lru = _ContentLRU(max_size=2)
+        lru.put(_ContentLRU.key_for("a"), CompressionResult("A", 1, 1, 0.0, False, False))
+        lru.put(_ContentLRU.key_for("b"), CompressionResult("B", 1, 1, 0.0, False, False))
+        # Access "a" to make it most recent
+        lru.get(_ContentLRU.key_for("a"))
+        # Add "c" — "b" should be evicted (least recently used), not "a"
+        lru.put(_ContentLRU.key_for("c"), CompressionResult("C", 1, 1, 0.0, False, False))
+        assert lru.get(_ContentLRU.key_for("a")).compressed_text == "A"
+        assert lru.get(_ContentLRU.key_for("b")) is None
+        assert lru.get(_ContentLRU.key_for("c")).compressed_text == "C"
+
+    def test_key_is_deterministic(self):
+        assert _ContentLRU.key_for("same") == _ContentLRU.key_for("same")
+        assert _ContentLRU.key_for("a") != _ContentLRU.key_for("b")
+
+
+class TestValidateCompression:
+    def test_valid_passes(self):
+        _validate_compression("original" * 100, "compressed" * 10)
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="empty"):
+            _validate_compression("original", "")
+
+    def test_longer_than_input_raises(self):
+        with pytest.raises(ValueError, match="more content"):
+            _validate_compression("short", "much longer than input")
+
+    def test_5_percent_overhead_allowed_for_appendix(self):
+        # The [REFS:] appendix can push compressed slightly past input length.
+        original = "a" * 100
+        compressed = "a" * 104
+        _validate_compression(original, compressed)  # no raise
+
+    def test_endoftext_sentinel_raises(self):
+        with pytest.raises(ValueError, match="control sentinel"):
+            _validate_compression("a" * 100, "shorter <|endoftext|>")
+
+    def test_endoftext_in_original_is_fine(self):
+        # If the input legitimately contained the sentinel, output may too.
+        _validate_compression("a <|endoftext|> b", "a <|endoftext|>")
+
+
+class TestCompressWithWrapper:
+    def _fake_pc(self, return_text: str = None) -> MagicMock:
+        pc = MagicMock()
+        if return_text is not None:
+            pc.compress_prompt.return_value = {"compressed_prompt": return_text}
+        return pc
+
+    def test_calls_compress_prompt_with_force_tokens_and_digits(self):
+        pc = self._fake_pc("compressed body")
+        compress_with_wrapper(pc, "input body with no urls", rate=0.33, question=None)
+        kwargs = pc.compress_prompt.call_args.kwargs
+        assert kwargs["rate"] == 0.33
+        assert kwargs["force_reserve_digit"] is True
+        assert "\n" in kwargs["force_tokens"]
+        assert "|" in kwargs["force_tokens"]
+        assert "#" in kwargs["force_tokens"]
+        assert "question" not in kwargs   # omitted when None
+
+    def test_question_passed_when_truthy(self):
+        pc = self._fake_pc("out")
+        compress_with_wrapper(pc, "input", rate=0.5, question="why?")
+        assert pc.compress_prompt.call_args.kwargs["question"] == "why?"
+
+    def test_question_omitted_when_empty_string(self):
+        pc = self._fake_pc("out")
+        compress_with_wrapper(pc, "input", rate=0.5, question="")
+        assert "question" not in pc.compress_prompt.call_args.kwargs
+
+    def test_url_placeholder_round_trip(self):
+        # Compressor "preserves" the placeholder; wrapper restores it.
+        pc = self._fake_pc("see URLREF000 for details")
+        out = compress_with_wrapper(
+            pc, "Background see https://example.com/a for details",
+            rate=0.33, question=None,
+        )
+        assert "https://example.com/a" in out
+        assert "URLREF" not in out
+
+    def test_dropped_url_appended_in_refs_block(self):
+        # Compressor drops the placeholder entirely; wrapper appends [REFS: ...]
+        pc = self._fake_pc("compressed text without placeholder")
+        out = compress_with_wrapper(
+            pc, "see https://example.com/lost",
+            rate=0.33, question=None,
+        )
+        assert "https://example.com/lost" in out
+        assert "[REFS:" in out
+
+    def test_input_without_urls_skips_appendix(self):
+        pc = self._fake_pc("compressed body")
+        out = compress_with_wrapper(pc, "no urls here at all", rate=0.33, question=None)
+        assert "[REFS:" not in out
+        assert out == "compressed body"
+
+    def test_multiple_urls_each_get_unique_placeholder(self):
+        pc = self._fake_pc("URLREF000 URLREF001 URLREF002 something")
+        out = compress_with_wrapper(
+            pc,
+            "https://a.com https://b.com https://c.com something",
+            rate=0.33, question=None,
+        )
+        assert "https://a.com" in out
+        assert "https://b.com" in out
+        assert "https://c.com" in out
+
+
+class TestLLMLinguaLocalCompressor:
+    def _make(self, **overrides):
+        cfg = LLMLinguaConfig(**overrides)
+        return LLMLinguaLocalCompressor(cfg)
+
+    def test_module_imports_without_llmlingua_installed(self):
+        # Sanity: the module already imported in this test file. If [llmlingua]
+        # extras were required, this whole file would have failed to collect.
+        # The actual lazy-load behaviour is covered in
+        # test_import_failure_falls_back_to_drop_body below.
+        c = self._make()
+        assert c._pc is None  # not loaded yet
+
+    def test_non_allowlisted_tool_falls_through_to_drop_body(self):
+        c = self._make()
+        big = "X" * 5000
+        result = c.compress("terminal", '{"command":"ls"}', big)
+        # Output should equal what DropBody would produce
+        expected = summarize_tool_result("terminal", '{"command":"ls"}', big)
+        assert result.compressed_text == expected
+        # Lazy: PromptCompressor was never instantiated
+        assert c._pc is None
+
+    def test_undersize_content_falls_through_to_drop_body(self):
+        c = self._make(min_output_chars=2000)
+        result = c.compress("web_extract", '{"urls":["x"]}', "x" * 500)
+        expected = summarize_tool_result("web_extract", '{"urls":["x"]}', "x" * 500)
+        assert result.compressed_text == expected
+        assert c._pc is None  # never loaded
+
+    def test_compresses_when_allowlisted_and_large(self):
+        c = self._make(min_output_chars=100)
+        body = "alpha beta gamma " * 100
+        # Inject a fake PromptCompressor that returns something valid
+        c._pc = MagicMock()
+        c._pc.compress_prompt.return_value = {"compressed_prompt": "alpha gamma"}
+        result = c.compress("web_extract", '{"urls":["x"]}', body)
+        assert result.compressed_text == "alpha gamma"
+        assert result.fell_back is False
+        assert result.cache_hit is False
+        assert result.original_tokens > result.compressed_tokens
+
+    def test_cache_hit_returns_cached_result_with_flag_set(self):
+        c = self._make(min_output_chars=100)
+        c._pc = MagicMock()
+        c._pc.compress_prompt.return_value = {"compressed_prompt": "compressed"}
+        body = "y" * 500
+        r1 = c.compress("web_extract", "{}", body)
+        r2 = c.compress("web_extract", "{}", body)
+        assert r1.cache_hit is False
+        assert r2.cache_hit is True
+        assert r2.compressed_text == r1.compressed_text
+        # PromptCompressor only called once despite two compress() calls
+        assert c._pc.compress_prompt.call_count == 1
+
+    def test_invalid_compression_output_triggers_fallback(self):
+        c = self._make(min_output_chars=100)
+        c._pc = MagicMock()
+        c._pc.compress_prompt.return_value = {"compressed_prompt": ""}  # empty → fail
+        body = "x" * 500
+        result = c.compress("web_extract", "{}", body)
+        assert result.fell_back is True
+        # Got the drop-body summary instead
+        assert result.compressed_text == summarize_tool_result("web_extract", "{}", body)
+
+    def test_compress_prompt_exception_triggers_fallback(self):
+        c = self._make(min_output_chars=100)
+        c._pc = MagicMock()
+        c._pc.compress_prompt.side_effect = RuntimeError("boom")
+        body = "x" * 500
+        result = c.compress("web_extract", "{}", body)
+        assert result.fell_back is True
+        assert "[web_extract]" in result.compressed_text
+
+    def test_import_failure_falls_back_to_drop_body(self):
+        c = self._make(min_output_chars=100)
+        body = "y" * 500
+        # Simulate `import llmlingua` raising ImportError on first call
+        with patch.dict("sys.modules", {"llmlingua": None}):
+            result = c.compress("web_extract", "{}", body)
+        assert result.fell_back is True
+        # And subsequent calls don't keep retrying — model_load_failed sticks
+        assert c._model_load_failed is True
+
+    def test_rate_ladder_picks_per_size(self):
+        c = self._make()  # default ladder
+        assert c._rate_for_size(5_000) == 0.50
+        assert c._rate_for_size(20_000) == 0.33
+        assert c._rate_for_size(50_000) == 0.25
+        assert c._rate_for_size(10_000) == 0.50      # boundary inclusive
+        assert c._rate_for_size(10_001) == 0.33
+
+    def test_explicit_rate_overrides_ladder(self):
+        c = self._make(rate=0.4)
+        assert c._rate_for_size(1_000_000) == 0.4
+        assert c._rate_for_size(100) == 0.4
+
+    def test_question_threading(self):
+        c = self._make(min_output_chars=100, use_question=True)
+        c._pc = MagicMock()
+        c._pc.compress_prompt.return_value = {"compressed_prompt": "out"}
+        body = "x" * 500
+        c.compress("web_extract", "{}", body, question="why does this happen?")
+        kwargs = c._pc.compress_prompt.call_args.kwargs
+        assert kwargs.get("question") == "why does this happen?"
+
+    def test_question_disabled_omits_kwarg(self):
+        c = self._make(min_output_chars=100, use_question=False)
+        c._pc = MagicMock()
+        c._pc.compress_prompt.return_value = {"compressed_prompt": "out"}
+        c.compress("web_extract", "{}", "x" * 500, question="should be ignored")
+        assert "question" not in c._pc.compress_prompt.call_args.kwargs
+
+    def test_question_none_omits_kwarg(self):
+        c = self._make(min_output_chars=100, use_question=True)
+        c._pc = MagicMock()
+        c._pc.compress_prompt.return_value = {"compressed_prompt": "out"}
+        c.compress("web_extract", "{}", "x" * 500, question=None)
+        assert "question" not in c._pc.compress_prompt.call_args.kwargs
+
+
+class TestLLMLinguaRemoteCompressor:
+    def _make(self, **overrides):
+        overrides.setdefault("endpoint", "http://example.com/compress")
+        cfg = LLMLinguaConfig(**overrides)
+        return LLMLinguaRemoteCompressor(cfg)
+
+    def test_constructor_requires_endpoint(self):
+        with pytest.raises(ValueError, match="endpoint"):
+            LLMLinguaRemoteCompressor(LLMLinguaConfig(method="llmlingua2_remote"))
+
+    def test_non_allowlisted_tool_falls_through(self):
+        c = self._make()
+        # Should never call _post because terminal isn't allowlisted
+        with patch.object(c, "_post") as post:
+            result = c.compress("terminal", '{"command":"ls"}', "x" * 5000)
+        assert post.call_count == 0
+        assert result.compressed_text == summarize_tool_result(
+            "terminal", '{"command":"ls"}', "x" * 5000
+        )
+
+    def test_undersize_content_falls_through(self):
+        c = self._make(min_output_chars=2000)
+        with patch.object(c, "_post") as post:
+            c.compress("web_extract", "{}", "x" * 500)
+        assert post.call_count == 0
+
+    def test_successful_post_returns_remote_result(self):
+        c = self._make(min_output_chars=100)
+        with patch.object(c, "_post", return_value={"compressed": "tiny output"}) as post:
+            result = c.compress("web_extract", "{}", "y" * 500)
+        assert post.call_count == 1
+        assert result.compressed_text == "tiny output"
+        assert result.fell_back is False
+        assert result.cache_hit is False
+
+    def test_timeout_falls_back_and_arms_cooldown(self):
+        c = self._make(min_output_chars=100, timeout_secs=0.1)
+        with patch.object(c, "_post", side_effect=socket.timeout("no answer")):
+            r1 = c.compress("web_extract", "{}", "y" * 500)
+        assert r1.fell_back is True
+        assert c._service_down_until > time.time()
+        # Subsequent call within cooldown window doesn't even try the post
+        with patch.object(c, "_post") as post:
+            r2 = c.compress("web_extract", "{}", "z" * 500)
+        assert post.call_count == 0
+        assert r2.fell_back is True
+
+    def test_url_error_falls_back(self):
+        c = self._make(min_output_chars=100)
+        with patch.object(c, "_post", side_effect=urllib.error.URLError("conn refused")):
+            r = c.compress("web_extract", "{}", "y" * 500)
+        assert r.fell_back is True
+
+    def test_invalid_response_falls_back(self):
+        c = self._make(min_output_chars=100)
+        with patch.object(c, "_post", return_value={"unexpected_key": 42}):
+            r = c.compress("web_extract", "{}", "y" * 500)
+        assert r.fell_back is True
+
+    def test_oversized_response_falls_back(self):
+        c = self._make(min_output_chars=100)
+        # Response longer than input → validation failure
+        with patch.object(c, "_post", return_value={"compressed": "z" * 10_000}):
+            r = c.compress("web_extract", "{}", "y" * 500)
+        assert r.fell_back is True
+
+    def test_cache_hit_skips_post(self):
+        c = self._make(min_output_chars=100)
+        with patch.object(c, "_post", return_value={"compressed": "out"}) as post:
+            r1 = c.compress("web_extract", "{}", "y" * 500)
+            r2 = c.compress("web_extract", "{}", "y" * 500)
+        assert post.call_count == 1
+        assert r1.cache_hit is False
+        assert r2.cache_hit is True
+
+    def test_post_includes_question_when_set(self):
+        c = self._make(min_output_chars=100, use_question=True)
+        captured = {}
+        def fake_post(text, rate, question):
+            captured["question"] = question
+            return {"compressed": "out"}
+        with patch.object(c, "_post", side_effect=fake_post):
+            c.compress("web_extract", "{}", "y" * 500, question="why?")
+        assert captured["question"] == "why?"
+
+    def test_post_omits_question_when_disabled(self):
+        c = self._make(min_output_chars=100, use_question=False)
+        captured = {}
+        def fake_post(text, rate, question):
+            captured["question"] = question
+            return {"compressed": "out"}
+        with patch.object(c, "_post", side_effect=fake_post):
+            c.compress("web_extract", "{}", "y" * 500, question="ignored")
+        assert captured["question"] is None
+
+
+class TestLLMLinguaConfigDefaults:
+    def test_defaults_are_sensible(self):
+        cfg = LLMLinguaConfig()
+        assert cfg.method == "llmlingua2_local"
+        assert "bert-base" in cfg.model
+        assert cfg.device == "cpu"
+        assert "web_extract" in cfg.only_tools
+        assert "web_search" in cfg.only_tools
+        assert cfg.min_output_chars == 2000
+        assert cfg.rate is None  # use ladder by default
+        assert cfg.use_question is True
+        assert cfg.cache_size == 256
