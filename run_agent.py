@@ -1841,6 +1841,14 @@ class AIAgent:
         compression_target_ratio = float(_compression_cfg.get("target_ratio", 0.20))
         compression_protect_last = int(_compression_cfg.get("protect_last_n", 20))
 
+        # Tool-result compression config (separate from context summarization).
+        # Default {} → DropBodyCompressor → today's behaviour.  Users opt
+        # in by setting ``tool_compression: { method: llmlingua2_local }``
+        # in config.yaml.  See agent.tool_result_compressor for the schema.
+        _tool_compression_cfg = _agent_cfg.get("tool_compression", {})
+        if not isinstance(_tool_compression_cfg, dict):
+            _tool_compression_cfg = {}
+
         # Read optional explicit context_length override for the auxiliary
         # compression model. Custom endpoints often cannot report this via
         # /models, so the startup feasibility check needs the config hint.
@@ -2023,6 +2031,7 @@ class AIAgent:
                 config_context_length=_config_context_length,
                 provider=self.provider,
                 api_mode=self.api_mode,
+                tool_compression_config=_tool_compression_cfg,
             )
         self.compression_enabled = compression_enabled
 

@@ -214,9 +214,11 @@ class ToolResultCompressor(ABC):
         items: List[Tuple[str, str, str]],
         question: Optional[str] = None,
     ) -> List[CompressionResult]:
-        """Concurrent compression. Default: thread-pool over compress().
+        """Async concurrent compression. Default: threadpool over compress().
 
-        items: list of (tool_name, tool_args, content) tuples.
+        items: list of (tool_name, tool_args, content) tuples. This is the
+        forward-compatible API for async callers. Sync callers should use
+        ``compress_batch`` instead — it doesn't require a running event loop.
         """
         loop = asyncio.get_running_loop()
         return list(await asyncio.gather(*[
@@ -225,6 +227,26 @@ class ToolResultCompressor(ABC):
             )
             for tool_name, tool_args, content in items
         ]))
+
+    def compress_batch(
+        self,
+        items: List[Tuple[str, str, str]],
+        question: Optional[str] = None,
+    ) -> List[CompressionResult]:
+        """Synchronous batch compression. Default impl is sequential.
+
+        Subclasses with a parallel-safe transport (e.g. HTTP) should
+        override this with concurrent dispatch — see
+        ``LLMLinguaRemoteCompressor.compress_batch``.
+
+        Stays sync so callers like ``_prune_old_tool_results`` (which run
+        in synchronous code paths) don't need the
+        ``asyncio.run``-inside-running-loop dance.
+        """
+        return [
+            self.compress(tn, ta, c, question)
+            for tn, ta, c in items
+        ]
 
 
 class DropBodyCompressor(ToolResultCompressor):
@@ -539,6 +561,7 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
 
 
 _REMOTE_BACKOFF_SECS = 60.0  # cooldown after a remote failure before retrying
+_REMOTE_BATCH_MAX_WORKERS = 8  # concurrent HTTP calls to the compressor service
 
 
 class LLMLinguaRemoteCompressor(ToolResultCompressor):
@@ -656,6 +679,30 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
         )
         self._cache.put(key, result)
         return result
+
+    def compress_batch(
+        self,
+        items: List[Tuple[str, str, str]],
+        question: Optional[str] = None,
+    ) -> List[CompressionResult]:
+        """Concurrent HTTP batch — the remote service handles parallel calls fine.
+
+        Falls back to a sequential loop for trivial inputs (1 item) so we
+        don't pay threadpool setup cost on the common short prune.
+        """
+        if not items:
+            return []
+        if len(items) == 1:
+            tn, ta, c = items[0]
+            return [self.compress(tn, ta, c, question)]
+        from concurrent.futures import ThreadPoolExecutor
+        n_workers = min(_REMOTE_BATCH_MAX_WORKERS, len(items))
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            futures = [
+                pool.submit(self.compress, tn, ta, c, question)
+                for tn, ta, c in items
+            ]
+            return [f.result() for f in futures]
 
 
 # ---------------------------------------------------------------------------

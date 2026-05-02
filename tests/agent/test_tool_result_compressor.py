@@ -127,6 +127,26 @@ class TestToolResultCompressorABC:
         asyncio.run(c.compress_many([("web_extract", "{}", "x")]))
         assert c.calls == [("web_extract", "{}", "x", None)]
 
+    def test_compress_batch_sync_runs_compress_per_item(self):
+        c = _FakeCompressor()
+        items = [
+            ("web_extract", "{}", "alpha"),
+            ("web_search", "{}", "beta"),
+            ("web_extract", "{}", "gamma"),
+        ]
+        results = c.compress_batch(items, question="why?")
+        assert [r.compressed_text for r in results] == ["alpha", "beta", "gamma"]
+        assert c.calls == [
+            ("web_extract", "{}", "alpha", "why?"),
+            ("web_search", "{}", "beta", "why?"),
+            ("web_extract", "{}", "gamma", "why?"),
+        ]
+
+    def test_compress_batch_empty_items(self):
+        c = _FakeCompressor()
+        assert c.compress_batch([], question="x") == []
+        assert c.calls == []
+
 
 class TestSummarizeToolResult:
     """Characterization tests — lock current summary shapes so refactors

@@ -133,6 +133,25 @@ def _content_text_for_contains(content: Any) -> str:
     return str(content)
 
 
+def _first_user_message_text(messages: List[Dict[str, Any]]) -> Optional[str]:
+    """Return the text of the first user message, or None.
+
+    Threaded into ``ToolResultCompressor.compress_batch`` as the
+    ``question`` argument so question-aware backends (LLMLingua) can bias
+    retention toward content relevant to the user's actual ask. Returns
+    ``None`` (not empty string) when no usable text is found, so the
+    compressor can omit the kwarg entirely instead of running its
+    question-aware path on empty input.
+    """
+    for msg in messages:
+        if msg.get("role") != "user":
+            continue
+        text = _content_text_for_contains(msg.get("content"))
+        text = text.strip() if text else ""
+        return text or None
+    return None
+
+
 def _append_text_to_content(content: Any, text: str, *, prepend: bool = False) -> Any:
     """Append or prepend plain text to message content safely.
 
@@ -465,28 +484,48 @@ class ContextCompressor(ContextEngine):
                 content_hashes[h] = (i, msg.get("tool_call_id", "?"))
 
         # Pass 2: Replace old tool results with informative summaries
+        #
+        # Two-step: first collect all prunable (i, tool_name, tool_args, content)
+        # candidates so we can dispatch them as one batch through
+        # ``ToolResultCompressor.compress_batch``. Backends that benefit from
+        # parallelism (the remote HTTP one) override compress_batch with a
+        # threadpool; default impl is sequential. Threading the first user
+        # message as ``question`` lets question-aware backends (LLMLingua)
+        # bias retention toward content relevant to the user's actual ask.
+        candidates: list = []  # list of (i, tool_name, tool_args, content)
         for i in range(prune_boundary):
             msg = result[i]
             if msg.get("role") != "tool":
                 continue
             content = msg.get("content", "")
-            # Skip multimodal content (list of content blocks)
             if isinstance(content, list):
-                continue
+                continue  # multimodal — skip
             if not content or content == _PRUNED_TOOL_PLACEHOLDER:
                 continue
-            # Skip already-deduplicated or previously-summarized results
             if content.startswith("[Duplicate tool output"):
                 continue
-            # Only prune if the content is substantial (>200 chars)
             if len(content) > 200:
                 call_id = msg.get("tool_call_id", "")
                 tool_name, tool_args = call_id_to_tool.get(call_id, ("unknown", ""))
-                compression = self._tool_compressor.compress(
-                    tool_name, tool_args, content
-                )
-                result[i] = {**msg, "content": compression.compressed_text}
+                candidates.append((i, tool_name, tool_args, content))
+
+        if candidates:
+            question = _first_user_message_text(messages)
+            batch_items = [(tn, ta, c) for _, tn, ta, c in candidates]
+            compressions = self._tool_compressor.compress_batch(
+                batch_items, question=question
+            )
+            for (i, tn, _ta, _c), compression in zip(candidates, compressions):
+                result[i] = {**result[i], "content": compression.compressed_text}
                 pruned += 1
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "tool_compression: tool=%s orig=%dt comp=%dt ratio=%.2fx "
+                        "ms=%.0f cache_hit=%s fell_back=%s",
+                        tn, compression.original_tokens, compression.compressed_tokens,
+                        compression.compression_ratio, compression.latency_ms,
+                        compression.cache_hit, compression.fell_back,
+                    )
 
         # Pass 3: Truncate large tool_call arguments in assistant messages
         # outside the protected tail. write_file with 50KB content, for

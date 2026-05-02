@@ -1443,17 +1443,17 @@ class TestContextCompressorDelegation:
 
     def test_prune_old_tool_results_delegates_to_tool_compressor(self, compressor):
         spy = MagicMock(spec=ToolResultCompressor)
-        spy.compress.return_value = CompressionResult(
+        spy.compress_batch.return_value = [CompressionResult(
             compressed_text="MOCKED-SUMMARY",
             original_tokens=100, compressed_tokens=10,
             latency_ms=0.0, cache_hit=False, fell_back=False,
-        )
+        )]
         compressor._tool_compressor = spy
 
         # Build a prunable tool message: assistant call -> tool result >200 chars
         big_body = "X" * 500
         messages = [
-            {"role": "user", "content": "search the web"},
+            {"role": "user", "content": "search the web for kittens"},
             {"role": "assistant", "content": None, "tool_calls": [
                 {"id": "call_1", "type": "function",
                  "function": {"name": "web_extract",
@@ -1465,14 +1465,41 @@ class TestContextCompressorDelegation:
         ]
         result, _ = compressor._prune_old_tool_results(messages, protect_tail_count=2)
 
-        assert spy.compress.called
-        first_call = spy.compress.call_args_list[0]
-        # compress(tool_name, tool_args, content)
-        assert first_call.args[0] == "web_extract"
-        assert first_call.args[1] == '{"urls":["https://example.com"]}'
-        assert first_call.args[2] == big_body
+        # _prune_old_tool_results calls compress_batch (not compress), once,
+        # with the prunable items + the first user message threaded through.
+        assert spy.compress_batch.called
+        call = spy.compress_batch.call_args
+        items = call.args[0] if call.args else call.kwargs["items"]
+        assert items == [("web_extract", '{"urls":["https://example.com"]}', big_body)]
+        assert call.kwargs.get("question") == "search the web for kittens"
         # And the result text replaces the message body
         assert result[2]["content"] == "MOCKED-SUMMARY"
+
+    def test_prune_old_tool_results_threads_first_user_message_as_question(self, compressor):
+        spy = MagicMock(spec=ToolResultCompressor)
+        spy.compress_batch.return_value = [CompressionResult(
+            compressed_text="x", original_tokens=10, compressed_tokens=2,
+            latency_ms=0.0, cache_hit=False, fell_back=False,
+        )]
+        compressor._tool_compressor = spy
+
+        # Multimodal first user message — should still extract the text part
+        messages = [
+            {"role": "user", "content": [
+                {"type": "text", "text": "Research EAGLE-3 speculative decoding"},
+                {"type": "image_url", "image_url": {"url": "data:..."}},
+            ]},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "c", "type": "function",
+                 "function": {"name": "web_search", "arguments": '{"query":"x"}'}},
+            ]},
+            {"role": "tool", "tool_call_id": "c", "content": "Y" * 500},
+            {"role": "user", "content": "ok"},
+            {"role": "assistant", "content": "done"},
+        ]
+        compressor._prune_old_tool_results(messages, protect_tail_count=2)
+        assert spy.compress_batch.call_args.kwargs.get("question") == \
+            "Research EAGLE-3 speculative decoding"
 
     def test_default_drop_body_produces_identical_output_to_old_inline_call(self, compressor):
         # Behavior preservation: with default DropBodyCompressor, the pruned
