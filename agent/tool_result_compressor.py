@@ -22,6 +22,7 @@ import json
 import logging
 import re
 import socket
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -408,36 +409,78 @@ def compress_with_wrapper(
 
 
 class _ContentLRU:
-    """Tiny LRU cache keyed on sha256(content). Per-process, bounded.
+    """Tiny thread-safe LRU cache for compressor results. Per-process, bounded.
 
     Stores ``CompressionResult`` values. Lookups update recency. Eviction
     is least-recently-used.
+
+    The cache key is derived from every input that affects compressor
+    output: content, question (when use_question is on), tool_name (gating),
+    and rate (per-size selection). Keying on content alone would cause
+    a session that re-uses a previously-extracted page under a different
+    user question to receive the prior session's compressed output.
+
+    All read/write operations hold an internal lock so the cache is safe
+    to share across threads — required by ``LLMLinguaRemoteCompressor.compress_batch``,
+    which dispatches HTTP calls concurrently via ThreadPoolExecutor.
     """
     def __init__(self, max_size: int):
         self._max_size = max(1, int(max_size))
         self._store: "OrderedDict[str, CompressionResult]" = OrderedDict()
+        self._lock = threading.Lock()
 
     @staticmethod
-    def key_for(content: str) -> str:
-        return hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()
+    def key_for(
+        content: str,
+        *,
+        question: Optional[str] = None,
+        tool_name: str = "",
+        rate: Optional[float] = None,
+    ) -> str:
+        """Hash all inputs that affect compressor output.
+
+        ``question`` of None and "" are treated identically (both mean
+        "no question conditioning"). ``rate`` is rounded to 4 decimals
+        before hashing to avoid float-precision cache misses.
+        """
+        h = hashlib.sha256()
+        h.update(content.encode("utf-8", errors="replace"))
+        h.update(b"\x00question:")
+        if question:
+            h.update(question.encode("utf-8", errors="replace"))
+        h.update(b"\x00tool:")
+        h.update(tool_name.encode("utf-8", errors="replace"))
+        h.update(b"\x00rate:")
+        if rate is not None:
+            h.update(f"{rate:.4f}".encode("ascii"))
+        return h.hexdigest()
 
     def get(self, key: str) -> Optional[CompressionResult]:
-        if key not in self._store:
-            return None
-        self._store.move_to_end(key)
-        return self._store[key]
+        with self._lock:
+            value = self._store.get(key)
+            if value is None:
+                return None
+            self._store.move_to_end(key)
+            return value
 
     def put(self, key: str, value: CompressionResult) -> None:
-        if key in self._store:
-            self._store.move_to_end(key)
+        with self._lock:
+            if key in self._store:
+                self._store.move_to_end(key)
+                self._store[key] = value
+                return
             self._store[key] = value
-            return
-        self._store[key] = value
-        if len(self._store) > self._max_size:
-            self._store.popitem(last=False)
+            if len(self._store) > self._max_size:
+                self._store.popitem(last=False)
 
     def __len__(self) -> int:
-        return len(self._store)
+        with self._lock:
+            return len(self._store)
+
+    def clear(self) -> None:
+        """Drop all entries. Useful on session reset or test setup."""
+        with self._lock:
+            self._store.clear()
 
 
 def _validate_compression(original: str, compressed: str) -> None:
@@ -526,8 +569,10 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
         if len(content) < self.config.min_output_chars:
             return self._delegate_to_fallback(tool_name, tool_args, content, question)
 
-        # 3. Cache lookup
-        key = self._cache.key_for(content)
+        # 3. Cache lookup — keyed on every input that affects output
+        rate = self._rate_for_size(len(content))
+        q = question if (self.config.use_question and question) else None
+        key = self._cache.key_for(content, question=q, tool_name=tool_name, rate=rate)
         cached = self._cache.get(key)
         if cached is not None:
             return dataclasses.replace(cached, cache_hit=True)
@@ -536,8 +581,6 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
         t0 = time.perf_counter()
         try:
             self._ensure_loaded()
-            rate = self._rate_for_size(len(content))
-            q = question if (self.config.use_question and question) else None
             compressed = compress_with_wrapper(self._pc, content, rate, q)
             _validate_compression(content, compressed)
         except Exception as e:
@@ -643,8 +686,10 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
                 fell_back=True,
             )
 
-        # 4. Cache lookup
-        key = self._cache.key_for(content)
+        # 4. Cache lookup — keyed on every input that affects output
+        rate = self._rate_for_size(len(content))
+        q = question if (self.config.use_question and question) else None
+        key = self._cache.key_for(content, question=q, tool_name=tool_name, rate=rate)
         cached = self._cache.get(key)
         if cached is not None:
             return dataclasses.replace(cached, cache_hit=True)
@@ -652,8 +697,6 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
         # 5. Remote call with fallback on any failure
         t0 = time.perf_counter()
         try:
-            rate = self._rate_for_size(len(content))
-            q = question if (self.config.use_question and question) else None
             response = self._post(content, rate, q)
             compressed = response.get("compressed")
             if not isinstance(compressed, str):
@@ -760,7 +803,7 @@ def make_tool_result_compressor(
           # rate: 0.33                    # explicit — overrides rate_ladder
           use_question: true
           cache_size: 256
-          endpoint: http://100.84.252.4:8080/compress    # remote only
+          endpoint: http://your-compressor-host:8080/compress    # remote only
           timeout_secs: 15
           fallback_method: drop
     """

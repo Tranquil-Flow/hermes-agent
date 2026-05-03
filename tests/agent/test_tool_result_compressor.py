@@ -307,6 +307,62 @@ class TestContentLRU:
         assert _ContentLRU.key_for("same") == _ContentLRU.key_for("same")
         assert _ContentLRU.key_for("a") != _ContentLRU.key_for("b")
 
+    def test_key_distinguishes_question(self):
+        # Same content, different question → different cache key. Otherwise
+        # a session reset (or any reuse of the same page under a new user
+        # question) would return the stale prior compression.
+        a = _ContentLRU.key_for("body", question="why?")
+        b = _ContentLRU.key_for("body", question="how?")
+        c = _ContentLRU.key_for("body", question=None)
+        assert a != b
+        assert a != c
+        assert b != c
+
+    def test_key_question_none_and_empty_match(self):
+        # None and "" both mean "no question conditioning" — should hash the same.
+        assert (_ContentLRU.key_for("body", question=None)
+                == _ContentLRU.key_for("body", question=""))
+
+    def test_key_distinguishes_tool_name_and_rate(self):
+        a = _ContentLRU.key_for("body", tool_name="web_extract", rate=0.33)
+        b = _ContentLRU.key_for("body", tool_name="web_search",  rate=0.33)
+        c = _ContentLRU.key_for("body", tool_name="web_extract", rate=0.50)
+        assert a != b and a != c
+
+    def test_concurrent_get_put_does_not_crash(self):
+        # Regression: the LRU is shared across threads in
+        # LLMLinguaRemoteCompressor.compress_batch. Without locking, a
+        # check-then-move race can raise KeyError outside the compressor's
+        # try block, violating the "must not crash pruning" contract.
+        import threading
+        lru = _ContentLRU(max_size=8)
+        errors: list = []
+        stop = threading.Event()
+
+        def writer():
+            i = 0
+            while not stop.is_set():
+                lru.put(_ContentLRU.key_for(f"k{i % 16}"),
+                        CompressionResult(f"v{i}", 1, 1, 0.0, False, False))
+                i += 1
+
+        def reader():
+            i = 0
+            while not stop.is_set():
+                try:
+                    lru.get(_ContentLRU.key_for(f"k{i % 16}"))
+                except Exception as e:
+                    errors.append(e)
+                i += 1
+
+        threads = [threading.Thread(target=writer) for _ in range(2)] + \
+                  [threading.Thread(target=reader) for _ in range(4)]
+        for t in threads: t.start()
+        time.sleep(0.2)
+        stop.set()
+        for t in threads: t.join()
+        assert errors == [], f"races raised: {errors[:3]}"
+
 
 class TestValidateCompression:
     def test_valid_passes(self):
@@ -455,6 +511,43 @@ class TestLLMLinguaLocalCompressor:
         assert r2.compressed_text == r1.compressed_text
         # PromptCompressor only called once despite two compress() calls
         assert c._pc.compress_prompt.call_count == 1
+
+    def test_cache_distinguishes_questions(self):
+        # Regression: caching only on content meant a second session asking
+        # a different question would receive the prior session's compressed
+        # output. The cache key must include the question.
+        c = self._make(min_output_chars=100, use_question=True)
+        c._pc = MagicMock()
+        # Different return values per call, so we can detect cache hits by
+        # which value comes back.
+        outputs = ["compressed-for-alpha", "compressed-for-beta"]
+        c._pc.compress_prompt.side_effect = [
+            {"compressed_prompt": outputs[0]},
+            {"compressed_prompt": outputs[1]},
+        ]
+        body = "z" * 500
+        r1 = c.compress("web_extract", "{}", body, question="alpha")
+        r2 = c.compress("web_extract", "{}", body, question="beta")
+        assert r1.compressed_text == "compressed-for-alpha"
+        assert r2.compressed_text == "compressed-for-beta"
+        assert r1.cache_hit is False
+        assert r2.cache_hit is False
+        assert c._pc.compress_prompt.call_count == 2
+
+    def test_cache_distinguishes_rate(self):
+        # Same content + question, different rate (because content size
+        # bucket differs in the rate_ladder) → distinct cache entries.
+        c = self._make(min_output_chars=100, rate=None)
+        c._pc = MagicMock()
+        c._pc.compress_prompt.return_value = {"compressed_prompt": "out"}
+        # Build two contents of same hash-distinguishable bytes but different
+        # sizes so the rate_ladder picks different rates.
+        small = "y" * 5_000   # rate=0.5
+        large = "y" * 20_000  # rate=0.33
+        c.compress("web_extract", "{}", small)
+        c.compress("web_extract", "{}", large)
+        # Both went through compress_prompt — neither is a cache hit of the other
+        assert c._pc.compress_prompt.call_count == 2
 
     def test_invalid_compression_output_triggers_fallback(self):
         c = self._make(min_output_chars=100)
