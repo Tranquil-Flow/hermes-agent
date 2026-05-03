@@ -320,10 +320,53 @@ _DEFAULT_LLMLINGUA_MODEL = (
 # use for reasoning.
 _FORCE_TOKENS: Tuple[str, ...] = ("\n", "|", "#", "-", ".", "?", "!")
 
-# URL pattern. Matches http(s) URLs up to a trailing whitespace or common
-# closing bracket. Imperfect for URLs containing parens, but good enough for
-# the placeholder-and-restore pattern we use in compress_with_wrapper().
-_URL_RE = re.compile(r'https?://[^\s\)\]\}<>"\']+')
+# Permissive URL match: any non-whitespace run starting with http(s)://.
+# We post-process to trim trailing punctuation and balance brackets — see
+# ``_extract_urls`` below. A stricter character class would mishandle
+# Wikipedia-style URLs like ``https://en.wikipedia.org/wiki/Foo_(bar)``.
+_URL_RE = re.compile(r"https?://\S+")
+
+# Trailing characters we strip from a matched URL when they're unbalanced
+# (i.e. the URL ends with a closing bracket that doesn't have a matching
+# opener earlier in the URL). Markdown link syntax — ``(https://x.com)`` —
+# is the typical source of trailing close-parens that should NOT be part
+# of the URL.
+_URL_TRAIL_PUNCT = ".,;:!?\"'"
+# Markdown autolink syntax — ``<https://x.com>`` — is the typical source
+# of trailing ``>``. Tracked here so it gets stripped when unmatched.
+_URL_TRAIL_BRACKETS = {")": "(", "]": "[", "}": "{", ">": "<"}
+
+
+def _extract_urls(text: str) -> List[str]:
+    """Extract URLs from ``text`` with balanced-bracket awareness.
+
+    The bare regex ``https?://\\S+`` over-matches: it greedily consumes
+    Markdown punctuation that wraps the URL ("(https://x.com)" → URL
+    would include the trailing ")"). We post-process each match to:
+
+      1. Strip trailing punctuation in ``_URL_TRAIL_PUNCT``.
+      2. Strip trailing brackets in ``_URL_TRAIL_BRACKETS`` only when
+         they're unbalanced (more closes than opens). This preserves
+         Wikipedia-style URLs that legitimately end in ``)``.
+    """
+    urls: List[str] = []
+    for m in _URL_RE.finditer(text):
+        url = m.group()
+        # Trim trailing punctuation
+        while url and url[-1] in _URL_TRAIL_PUNCT:
+            url = url[:-1]
+        # Balance trailing brackets
+        changed = True
+        while changed and url:
+            changed = False
+            last = url[-1]
+            opener = _URL_TRAIL_BRACKETS.get(last)
+            if opener is not None and url.count(last) > url.count(opener):
+                url = url[:-1]
+                changed = True
+        if url:
+            urls.append(url)
+    return urls
 
 
 @dataclass
@@ -348,6 +391,23 @@ class LLMLinguaConfig:
     fallback_method: str = "drop"
 
 
+def _make_url_placeholder_prefix(content: str) -> str:
+    """Pick a URL-placeholder prefix that does NOT appear in ``content``.
+
+    Default ``URLREF`` is short and works for nearly all real content,
+    but a literal ``URLREF000`` token in the source would be rewritten as
+    a URL during the restore step. We probe a few candidates and only
+    fall back to a per-call random nonce if the simple form collides.
+    """
+    if "URLREF" not in content:
+        return "URLREF"
+    # Add a 6-hex-char nonce per call. Vanishingly unlikely to collide
+    # with anything in the input. uuid4 is fine here — we just need
+    # uniqueness, not cryptographic strength.
+    import uuid
+    return f"URLREF{uuid.uuid4().hex[:6]}_"
+
+
 def compress_with_wrapper(
     pc: Any,
     content: str,
@@ -359,30 +419,34 @@ def compress_with_wrapper(
     """Compress ``content`` via LLMLingua-2 with structure-preserving wrapper.
 
     Steps:
-      1. Pre-extract URLs to ``URLREF000``-style placeholders so the
+      1. Pre-extract URLs to ``URLREF<nonce?>NNN`` placeholders so the
          classifier (trained on MeetingBank, treats URLs as noise) can't
-         drop them.
+         drop them. The nonce is added only if the literal ``URLREF``
+         token already appears in the content.
       2. Run ``compress_prompt`` with ``force_reserve_digit=True`` and
          markdown-structure ``force_tokens``.
       3. Restore URL placeholders, then append any URLs that the
-         compressor still dropped as a ``[REFS: ...]`` block to guarantee
-         100% URL preservation.
+         compressor still dropped as a ``[REFS: ...]`` block. URL
+         preservation is best-effort — pathological inputs (e.g. URLs
+         embedded inside other URLs) may not round-trip perfectly.
 
-    Honours the ``question is None`` semantics (spec §7): when ``question``
-    is None or empty, the kwarg is omitted entirely rather than coerced to
-    an empty string, so LLMLingua-2's question-aware path is fully bypassed
-    instead of running on empty input.
+    Honours the ``question is None`` semantics: when ``question``
+    is None or empty, the kwarg is omitted entirely rather than coerced
+    to an empty string, so LLMLingua-2's question-aware path is fully
+    bypassed instead of running on empty input.
 
-    ``pc`` is an instantiated ``llmlingua.PromptCompressor`` — passed in so
-    callers can share a single model load and so unit tests can inject a
-    fake.
+    ``pc`` is an instantiated ``llmlingua.PromptCompressor`` — passed in
+    so callers can share a single model load and so unit tests can
+    inject a fake.
     """
-    # 1) URL placeholders
-    urls = _URL_RE.findall(content)
+    # 1) URL placeholders. Use balanced-bracket-aware extraction so
+    # Wikipedia-style URLs (.../Foo_(bar)) survive intact.
+    urls = _extract_urls(content)
+    placeholder_prefix = _make_url_placeholder_prefix(content)
     mapping: Dict[str, str] = {}
     pre = content
     for i, u in enumerate(urls):
-        ph = f"URLREF{i:03d}"
+        ph = f"{placeholder_prefix}{i:03d}"
         mapping[ph] = u
         pre = pre.replace(u, ph, 1)
 
@@ -401,7 +465,7 @@ def compress_with_wrapper(
         out = out.replace(ph, u)
 
     # 4) Append any URLs the compressor still dropped
-    surviving = set(_URL_RE.findall(out))
+    surviving = set(_extract_urls(out))
     missing = [u for u in urls if u not in surviving]
     if missing:
         out += "\n\n[REFS: " + " ".join(missing) + "]"
@@ -538,11 +602,26 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
                 "Run `pip install hermes-agent[llmlingua]` to enable. (%s)", e,
             )
             raise
-        self._pc = PromptCompressor(
-            model_name=self.config.model,
-            use_llmlingua2=True,
-            device_map=self.config.device,
-        )
+        try:
+            self._pc = PromptCompressor(
+                model_name=self.config.model,
+                use_llmlingua2=True,
+                device_map=self.config.device,
+            )
+        except Exception as e:
+            # Construction can fail even after a successful import — e.g.
+            # HuggingFace download error, unrecognized model name, GPU
+            # runtime mismatch, partial dependency install.  Mark the
+            # failure sticky so we don't pay the slow-failure path on
+            # every subsequent prune.
+            self._model_load_failed = True
+            logger.warning(
+                "LLMLingua-2 model construction failed (%s: %s); falling back "
+                "to drop-body for this process. Set tool_compression.method=drop "
+                "or fix the underlying error to silence this.",
+                type(e).__name__, e,
+            )
+            raise
 
     def _rate_for_size(self, char_count: int) -> float:
         if self.config.rate is not None:
@@ -699,6 +778,14 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
         t0 = time.perf_counter()
         try:
             response = self._post(content, rate, q)
+            # _post is typed as -> Dict[str, Any] but JSON allows lists,
+            # null, strings, etc.  A non-dict reply from a misbehaving
+            # sidecar would raise AttributeError on .get(), bypassing
+            # the fallback below.  Guard explicitly.
+            if not isinstance(response, dict):
+                raise ValueError(
+                    f"compressor returned non-object JSON: {type(response).__name__}"
+                )
             compressed = response.get("compressed")
             if not isinstance(compressed, str):
                 raise ValueError("missing 'compressed' field in response")

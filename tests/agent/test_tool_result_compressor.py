@@ -490,6 +490,57 @@ class TestCompressWithWrapper:
         assert "https://b.com" in out
         assert "https://c.com" in out
 
+    def test_url_with_balanced_parens_preserved(self):
+        # Regression: the prior URL regex stopped at any ')' so
+        # Wikipedia-style URLs lost their closing paren.
+        pc = self._fake_pc("see URLREF000 for context")
+        out = compress_with_wrapper(
+            pc,
+            "Background: see https://en.wikipedia.org/wiki/Foo_(bar) for context",
+            rate=0.33, question=None,
+        )
+        assert "https://en.wikipedia.org/wiki/Foo_(bar)" in out
+
+    def test_markdown_link_does_not_eat_trailing_paren(self):
+        # The opposite case: ``(https://x.com)`` in Markdown link syntax
+        # should NOT include the trailing close-paren in the URL.
+        pc = self._fake_pc("see URLREF000 directly")
+        out = compress_with_wrapper(
+            pc, "see (https://example.com) directly",
+            rate=0.33, question=None,
+        )
+        assert "https://example.com" in out
+        # Bare URL without trailing paren survived
+        assert "https://example.com)" not in out
+
+    def test_markdown_autolink_does_not_eat_trailing_angle_bracket(self):
+        # Regression: ``<https://x.com>`` autolink syntax was extracting
+        # ``https://x.com>`` because the ``>`` wasn't tracked as a
+        # bracket. The corrupted URL flowed through placeholder/restore.
+        pc = self._fake_pc("see URLREF000 in autolink")
+        out = compress_with_wrapper(
+            pc, "see <https://example.com> in autolink",
+            rate=0.33, question=None,
+        )
+        assert "https://example.com" in out
+        assert "https://example.com>" not in out
+
+    def test_url_extraction_robust_to_collisions(self):
+        # Regression: deterministic URLREF000 placeholder collided with
+        # literal "URLREF000" in the source. With the nonce-prefix fix,
+        # content containing the literal token doesn't get rewritten as
+        # a URL during the restore step.
+        pc = self._fake_pc("the URLREF000 placeholder format and example.com link")
+        out = compress_with_wrapper(
+            pc,
+            "the URLREF000 placeholder format and https://example.com link",
+            rate=0.33, question=None,
+        )
+        # Literal "URLREF000" stays verbatim — was NOT rewritten as URL
+        assert "URLREF000" in out
+        # The actual URL is still in the output (inline or [REFS:])
+        assert "https://example.com" in out
+
 
 class TestLLMLinguaLocalCompressor:
     def _make(self, **overrides):
@@ -612,6 +663,29 @@ class TestLLMLinguaLocalCompressor:
         # And subsequent calls don't keep retrying — model_load_failed sticks
         assert c._model_load_failed is True
 
+    def test_model_construction_failure_marks_load_failed_sticky(self):
+        # Regression: PromptCompressor() construction can fail even after
+        # a successful import (HF download, bad model name, runtime
+        # mismatch). Earlier versions only set _model_load_failed on
+        # ImportError, so subsequent prunes paid the slow-failure path.
+        c = self._make(min_output_chars=100)
+        body = "z" * 500
+
+        fake_module = MagicMock()
+        fake_module.PromptCompressor.side_effect = RuntimeError(
+            "could not download model from HuggingFace"
+        )
+        with patch.dict("sys.modules", {"llmlingua": fake_module}):
+            r1 = c.compress("web_extract", "{}", body)
+        assert r1.fell_back is True
+        assert c._model_load_failed is True
+
+        # A second call must NOT retry the construction — the sticky
+        # flag short-circuits _ensure_loaded.
+        r2 = c.compress("web_extract", "{}", body + "second")
+        assert r2.fell_back is True
+        assert fake_module.PromptCompressor.call_count == 1
+
     def test_rate_ladder_picks_per_size(self):
         c = self._make()  # default ladder
         assert c._rate_for_size(5_000) == 0.50
@@ -714,6 +788,24 @@ class TestLLMLinguaRemoteCompressor:
         with patch.object(c, "_post", return_value={"compressed": "z" * 10_000}):
             r = c.compress("web_extract", "{}", "y" * 500)
         assert r.fell_back is True
+
+    @pytest.mark.parametrize("bad_response", [
+        [],                                  # JSON array
+        None,                                # JSON null
+        "ok",                                # JSON string
+        42,                                  # JSON number
+        True,                                # JSON bool
+    ])
+    def test_non_dict_json_response_falls_back(self, bad_response):
+        # Regression: _post is typed -> dict but JSON allows arrays,
+        # null, strings, etc. A non-dict reply from a misbehaving
+        # sidecar would raise AttributeError on .get(), bypassing the
+        # fallback. compress() must catch this and fall back cleanly.
+        c = self._make(min_output_chars=100)
+        with patch.object(c, "_post", return_value=bad_response):
+            r = c.compress("web_extract", "{}", "y" * 500)
+        assert r.fell_back is True
+        assert "[web_extract]" in r.compressed_text
 
     def test_cache_hit_skips_post(self):
         c = self._make(min_output_chars=100)
