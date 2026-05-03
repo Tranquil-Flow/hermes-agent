@@ -665,9 +665,16 @@ The summary model **must** have a context window at least as large as your main 
 
 ## Tool Result Compression
 
-When the compression threshold above fires, every old web tool message (`web_extract`, `web_search`, `browser_*`, `firecrawl_*`) has its body replaced before the LLM summarizer runs. The default replaces each body with a one-line summary like `[web_extract] https://x.com (15234 chars)` — fast and cheap, but loses the actual content the agent might want to refer back to.
+When the compression threshold above fires, every old web tool message (`web_extract`, `web_search`, `browser_*`, `firecrawl_*`) has its body replaced before the LLM summarizer runs. The historical default replaces each body with a one-line summary like `[web_extract] https://x.com (15234 chars)` — fast and cheap, but loses the actual content the agent might want to refer back to.
 
-This is **opt-in**, off by default. Most short interactive sessions never reach the compression threshold and see no behavior change either way; this setting only matters for sessions that do (long research workflows, multi-extract investigations, runaway cron jobs).
+The default `method: auto` resolves to:
+
+- **`llmlingua2_local`** if the `[llmlingua]` extra is installed (`pip install hermes-agent[llmlingua]`)
+- **`drop`** otherwise — byte-identical to hermes versions before this section existed
+
+Installing the extra IS the opt-in. No config change is required after install. This mirrors the `provider: auto` idiom used by `auxiliary.compression` / `auxiliary.vision` / `auxiliary.web_extract` elsewhere on this page.
+
+Most short interactive sessions never reach the compression threshold and see no behavior change either way; this section only matters for sessions that do (long research workflows, multi-extract investigations, runaway cron jobs).
 
 ### `llmlingua2_local` — in-process LLMLingua-2
 
@@ -677,9 +684,11 @@ Replaces the body with a token-classifier compression that preserves URLs, numbe
 pip install hermes-agent[llmlingua]    # ~2GB on disk including torch CPU
 ```
 
+After installing, the default `method: auto` will resolve to this backend automatically. No config change required. Pin it explicitly only if you want to override knobs:
+
 ```yaml
 tool_compression:
-  method: llmlingua2_local
+  method: llmlingua2_local            # optional — auto would pick this anyway
   # Optional knobs (defaults shown):
   min_output_chars: 2000              # below this, fall back to drop summary
   use_question: true                  # bias retention toward content relevant to the user's first message
@@ -691,7 +700,7 @@ tool_compression:
   device: cpu                         # MPS not recommended (graph-cache thrashing)
 ```
 
-The bert-base classifier model (~280MB) downloads from HuggingFace on first use and stays resident for the process lifetime. Lazy-loaded — if `tool_compression` is left at the default, the model is never imported.
+The bert-base classifier model (~280MB) downloads from HuggingFace on first use and stays resident for the process lifetime. Lazy-loaded — if the extra is not installed, the model is never imported.
 
 ### `llmlingua2_remote` — sidecar HTTP backend
 
@@ -707,14 +716,14 @@ tool_compression:
 
 On any HTTP failure the compressor falls back to the default `drop` for the current call AND arms a 60s cooldown so a dead service doesn't add `timeout_secs` of latency to every prune for the next several minutes.
 
-### `drop` — default
+### `drop` — pre-PR behavior
 
 ```yaml
 tool_compression:
-  method: drop                        # explicit form of the default
+  method: drop                        # explicit opt-out, even with [llmlingua] installed
 ```
 
-No `pip` extras required. Behavior is byte-identical to hermes versions before this knob existed.
+Useful when you want to disable the compression entirely while keeping the `[llmlingua]` extra installed for other reasons. Otherwise leave at the default `auto`.
 
 ## Context Engine
 

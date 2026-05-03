@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import hashlib
+import importlib.util
 import json
 import logging
 import re
@@ -781,6 +782,17 @@ def _build_llmlingua_config(method: str, raw: Dict[str, Any]) -> LLMLinguaConfig
     return cfg
 
 
+def _llmlingua_extra_installed() -> bool:
+    """Return True if the ``[llmlingua]`` extra is installed.
+
+    Uses ``importlib.util.find_spec`` so we can probe for the package
+    without paying its import cost (``import llmlingua`` pulls in
+    transformers + torch, ~2GB / 2-5s warm). The check is cheap enough
+    to call on every ``ContextCompressor.__init__``.
+    """
+    return importlib.util.find_spec("llmlingua") is not None
+
+
 def make_tool_result_compressor(
     config: Optional[dict],
 ) -> ToolResultCompressor:
@@ -789,9 +801,10 @@ def make_tool_result_compressor(
     Config schema (full schema documented in the design spec)::
 
         tool_compression:
-          method: drop                    # default — current behaviour
-          # method: llmlingua2_local      # opt-in, in-process
-          # method: llmlingua2_remote     # opt-in, sidecar HTTP
+          method: auto                    # default — see resolution below
+          # method: drop                  # never compress (pre-PR behaviour)
+          # method: llmlingua2_local      # always use in-process LLMLingua-2
+          # method: llmlingua2_remote     # always use sidecar HTTP
           model: microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank
           device: cpu
           only_tools: [web_extract, web_search, browser_snapshot, ...]
@@ -806,9 +819,33 @@ def make_tool_result_compressor(
           endpoint: http://your-compressor-host:8080/compress    # remote only
           timeout_secs: 15
           fallback_method: drop
+
+    ``method: auto`` (the default) resolves to:
+
+      * ``llmlingua2_local`` if the ``[llmlingua]`` extra is installed
+        (i.e. the user ran ``pip install hermes-agent[llmlingua]``)
+      * ``drop`` otherwise — preserves the pre-PR behaviour for any
+        user who hasn't installed the heavy optional dep
+
+    This mirrors the ``provider: auto`` idiom used elsewhere in hermes
+    (auxiliary.compression / auxiliary.vision / auxiliary.web_extract):
+    sensible default that picks the best available option and falls
+    back gracefully when a dep is missing.
     """
     config = config or {}
-    method = config.get("method", "drop")
+    method = config.get("method", "auto")
+
+    if method == "auto":
+        if _llmlingua_extra_installed():
+            method = "llmlingua2_local"
+            logger.info(
+                "tool_compression: method=auto resolved to llmlingua2_local "
+                "([llmlingua] extra installed)"
+            )
+        else:
+            method = "drop"
+            # Don't log — most users hit this path and it represents
+            # zero behaviour change from before this PR existed.
 
     if method == "drop":
         return DropBodyCompressor()

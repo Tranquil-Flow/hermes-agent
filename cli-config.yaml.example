@@ -350,30 +350,33 @@ compression:
   # auxiliary section below (auxiliary.compression.provider / model).
 
 # =============================================================================
-# Tool result compression (opt-in, only fires after compression threshold hit)
+# Tool result compression (only fires after compression threshold above hits)
 # =============================================================================
 # When _prune_old_tool_results runs (i.e. once a session crosses the threshold
 # above), the body of each old web tool message — web_extract, web_search,
-# browser_*, firecrawl_* — is replaced. The default replaces it with a
-# 1-line summary like "[web_extract] https://x.com (15234 chars)", losing the
-# actual content.
+# browser_*, firecrawl_* — is replaced. The historical default replaces each
+# body with a 1-line summary like "[web_extract] https://x.com (15234 chars)",
+# losing the actual content the agent might want to refer back to.
 #
-# Set method: llmlingua2_local to use Microsoft's LLMLingua-2 classifier
-# (https://arxiv.org/abs/2403.12968) to compress the body to ~30-50% of its
-# size while preserving high-information tokens — URLs, numbers, named
-# entities, structure. Useful for long research workflows where the agent's
-# follow-up turns need to refer back to prior tool outputs.
+# The default method is now ``auto`` which resolves to:
+#   * ``llmlingua2_local`` if the [llmlingua] extra is installed
+#       (pip install hermes-agent[llmlingua])
+#   * ``drop`` otherwise — byte-identical to the historical behavior
 #
-# Default behavior is unchanged. Opting in requires:
-#   pip install hermes-agent[llmlingua]    # ~2GB on disk including torch CPU
+# Installing the extra IS the opt-in. No config change is required after
+# install. Mirrors the auxiliary.compression / auxiliary.vision
+# ``provider: auto`` idiom used elsewhere in this file.
 #
-# This is an opt-in upgrade; most short interactive sessions never hit the
-# compression threshold and see no behavior change either way.
+# Most short interactive sessions never reach the compression threshold and
+# see no behavior change either way; this setting only matters for sessions
+# that do (long research workflows, multi-extract investigations, runaway
+# cron jobs accumulating 65K+ tokens of tool output).
 #
 tool_compression:
-  # method: drop                  # default — current behavior (1-line summary)
-  # method: llmlingua2_local      # opt-in, in-process compression
-  # method: llmlingua2_remote     # opt-in, sidecar HTTP backend
+  # method: auto                  # default — resolves per the rules above
+  # method: drop                  # explicit form of pre-PR behavior
+  # method: llmlingua2_local      # always use in-process LLMLingua-2
+  # method: llmlingua2_remote     # always use sidecar HTTP backend
 
   # Tools whose output is rich natural-language text worth preserving.
   # only_tools:

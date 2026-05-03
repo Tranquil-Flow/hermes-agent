@@ -227,12 +227,44 @@ class TestFactory:
         c = make_tool_result_compressor({"method": "drop"})
         assert isinstance(c, DropBodyCompressor)
 
-    def test_default_when_no_method_specified_is_drop(self):
+    def test_default_method_is_auto(self):
+        # No method specified → resolves via the auto path. The exact result
+        # depends on whether [llmlingua] is installed in the test env, so
+        # just check the resolution lands on one of the two valid outcomes.
+        # More targeted tests below pin each branch via mocking.
         c = make_tool_result_compressor({})
+        assert isinstance(c, (DropBodyCompressor, LLMLinguaLocalCompressor))
+
+    def test_default_when_no_config_resolves_via_auto(self):
+        c = make_tool_result_compressor(None)
+        assert isinstance(c, (DropBodyCompressor, LLMLinguaLocalCompressor))
+
+    def test_auto_resolves_to_local_when_llmlingua_installed(self):
+        with patch(
+            "agent.tool_result_compressor._llmlingua_extra_installed",
+            return_value=True,
+        ):
+            c = make_tool_result_compressor({"method": "auto"})
+        assert isinstance(c, LLMLinguaLocalCompressor)
+
+    def test_auto_resolves_to_drop_when_llmlingua_missing(self):
+        # The most common case for upstream users: extra not installed,
+        # auto must resolve to the byte-identical drop-body behaviour.
+        with patch(
+            "agent.tool_result_compressor._llmlingua_extra_installed",
+            return_value=False,
+        ):
+            c = make_tool_result_compressor({"method": "auto"})
         assert isinstance(c, DropBodyCompressor)
 
-    def test_default_when_no_config_is_drop(self):
-        c = make_tool_result_compressor(None)
+    def test_explicit_drop_works_regardless_of_llmlingua_availability(self):
+        # Users who explicitly disable compression keep that behaviour
+        # even when the extra is installed.
+        with patch(
+            "agent.tool_result_compressor._llmlingua_extra_installed",
+            return_value=True,
+        ):
+            c = make_tool_result_compressor({"method": "drop"})
         assert isinstance(c, DropBodyCompressor)
 
     def test_unknown_method_raises_value_error(self):

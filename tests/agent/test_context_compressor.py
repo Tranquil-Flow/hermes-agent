@@ -13,7 +13,13 @@ from agent.tool_result_compressor import (
 
 @pytest.fixture()
 def compressor():
-    """Create a ContextCompressor with mocked dependencies."""
+    """Create a ContextCompressor with mocked dependencies.
+
+    Pins ``tool_compression.method`` to ``drop`` so the integration tests
+    downstream don't depend on whether the optional ``[llmlingua]`` extra
+    is installed in the dev environment. The auto-resolution behaviour
+    has its own dedicated tests in ``test_tool_result_compressor.py``.
+    """
     with patch("agent.context_compressor.get_model_context_length", return_value=100000):
         c = ContextCompressor(
             model="test/model",
@@ -21,6 +27,7 @@ def compressor():
             protect_first_n=2,
             protect_last_n=2,
             quiet_mode=True,
+            tool_compression_config={"method": "drop"},
         )
         return c
 
@@ -1438,7 +1445,9 @@ class TestTruncateToolCallArgsJson:
 
 
 class TestContextCompressorDelegation:
-    def test_default_tool_compressor_is_drop_body(self, compressor):
+    def test_explicit_drop_method_gives_drop_body_compressor(self, compressor):
+        # Fixture pins method=drop above. (Default method=auto resolution
+        # is exercised in test_tool_result_compressor.py::TestFactory.)
         assert isinstance(compressor._tool_compressor, DropBodyCompressor)
 
     def test_prune_old_tool_results_delegates_to_tool_compressor(self, compressor):
