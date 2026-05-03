@@ -702,6 +702,10 @@ tool_compression:
 
 The bert-base classifier model (~280MB) downloads from HuggingFace on first use and stays resident for the process lifetime. Lazy-loaded — if the extra is not installed, the model is never imported.
 
+:::caution[Compatibility note]
+The `llmlingua` package (v0.2.2) depends on `transformers` 4.x, which conflicts with the `transformers` 5.x that hermes-agent uses as a transitive dependency. If you see a version conflict when installing `[llmlingua]`, use a dedicated virtual environment, or check for a newer `llmlingua` release that supports `transformers` 5.x.
+:::
+
 ### `llmlingua2_remote` — sidecar HTTP backend
 
 For deployments running multiple agents against a centralized inference box, or anyone who wants the compressor out-of-process. Uses `urllib` from stdlib — no extra deps.
@@ -714,7 +718,24 @@ tool_compression:
   fallback_method: drop               # what to do when the sidecar is unreachable
 ```
 
-On any HTTP failure the compressor falls back to the default `drop` for the current call AND arms a 60s cooldown so a dead service doesn't add `timeout_secs` of latency to every prune for the next several minutes.
+:::danger[Security — remote endpoint privacy]
+
+The remote backend sends **full, unredacted tool-result text** to the configured HTTP endpoint. Tool results can contain file contents, API keys, search queries, browser snapshots, and other sensitive data.
+
+By default, **only localhost/loopback endpoints are allowed** (`127.0.0.1`, `::1`, `localhost`). To use an external endpoint, you must explicitly opt in:
+
+```yaml
+tool_compression:
+  method: llmlingua2_remote
+  endpoint: https://your-infra.example.com/compress
+  remote:
+    trust_external_endpoint: true     # required for non-localhost endpoints
+```
+
+Only enable `trust_external_endpoint` if you control the endpoint and its network path. The compressor does not perform client-side secret redaction before the POST.
+:::
+
+On any HTTP failure the compressor falls back to the default `drop` for the current call AND arms a 60s per-session cooldown so a dead service doesn't add `timeout_secs` of latency to every prune for the next several minutes.
 
 ### `drop` — pre-PR behavior
 

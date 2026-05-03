@@ -15,6 +15,7 @@ from agent.tool_result_compressor import (
     LLMLinguaRemoteCompressor,
     ToolResultCompressor,
     _ContentLRU,
+    _REMOTE_BACKOFF_SECS,
     _validate_compression,
     compress_with_wrapper,
     count_tokens,
@@ -763,7 +764,8 @@ class TestLLMLinguaRemoteCompressor:
         with patch.object(c, "_post", side_effect=socket.timeout("no answer")):
             r1 = c.compress("web_extract", "{}", "y" * 500)
         assert r1.fell_back is True
-        assert c._service_down_until > time.time()
+        assert c._last_remote_failure_time > 0
+        assert time.time() < c._last_remote_failure_time + _REMOTE_BACKOFF_SECS
         # Subsequent call within cooldown window doesn't even try the post
         with patch.object(c, "_post") as post:
             r2 = c.compress("web_extract", "{}", "z" * 500)

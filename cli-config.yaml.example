@@ -409,6 +409,10 @@ tool_compression:
   # endpoint: http://your-compressor-host:8080/compress
   # timeout_secs: 15
   # fallback_method: drop         # what to use when the sidecar is unreachable
+  # remote:
+  #   trust_external_endpoint: true  # required for non-localhost endpoints
+  #   # By default, only localhost/loopback endpoints are allowed.
+  #   # Enable this only if you control the endpoint and its network path.
 
 # =============================================================================
 # Anthropic prompt caching TTL

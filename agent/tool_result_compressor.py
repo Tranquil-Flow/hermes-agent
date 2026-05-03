@@ -250,6 +250,24 @@ class ToolResultCompressor(ABC):
             for tn, ta, c in items
         ]
 
+    def compress_inline(
+        self,
+        tool_name: str,
+        tool_args: str,
+        content: str,
+        question: Optional[str] = None,
+    ) -> CompressionResult:
+        """Synchronous single-result compression for inline (per-call) use.
+
+        Default implementation delegates to ``compress()``. Subclasses that
+        support a lighter single-shot protocol (e.g. HTTP /compress endpoint
+        with lower latency than a batch call) can override this directly.
+
+        Must not raise — callers rely on fail-open behavior and expect a
+        valid CompressionResult even when compression fails.
+        """
+        return self.compress(tool_name, tool_args, content, question)
+
 
 class DropBodyCompressor(ToolResultCompressor):
     """Default compressor: replaces tool body with a 1-line summary.
@@ -389,6 +407,7 @@ class LLMLinguaConfig:
     endpoint: str = ""
     timeout_secs: float = 15.0
     fallback_method: str = "drop"
+    trust_external_endpoint: bool = False
 
 
 def _make_url_placeholder_prefix(content: str) -> str:
@@ -691,9 +710,13 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
     """Sidecar HTTP backend.
 
     Posts ``{text, rate, question, force_urls}`` to a remote compressor
-    service that runs LLMLingua-2 + the wrapper internally. Falls back to
-    DropBodyCompressor on any network failure, malformed response, or
-    HTTP error, and applies a process-local cooldown so a dead service
+    service that runs LLMLingua-2 + the wrapper internally. By default
+    the endpoint must resolve to a loopback address (127.0.0.1, ::1, or
+    localhost); external endpoints require
+    ``tool_compression.remote.trust_external_endpoint: true`` in config.
+    Falls back to DropBodyCompressor on any network failure, malformed
+    response, HTTP error, or when a non-trusted external endpoint is
+    detected, and applies a per-instance cooldown so a dead service
     doesn't add ``timeout_secs`` of latency to every prune for the next
     several minutes.
 
@@ -710,7 +733,7 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
         self.config = config
         self._fallback = DropBodyCompressor()
         self._cache = _ContentLRU(config.cache_size)
-        self._service_down_until: float = 0.0
+        self._last_remote_failure_time: float = 0.0
 
     def _rate_for_size(self, char_count: int) -> float:
         if self.config.rate is not None:
@@ -723,9 +746,41 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
     def _delegate_to_fallback(self, *args, **kwargs) -> CompressionResult:
         return self._fallback.compress(*args, **kwargs)
 
+    def _is_loopback_hostname(self, hostname: str) -> bool:
+        """Return True if hostname resolves to a loopback address."""
+        if hostname in {"127.0.0.1", "::1", "localhost"}:
+            return True
+        try:
+            addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            for family, _, _, _, sockaddr in addr_info:
+                if sockaddr[0] in {"127.0.0.1", "::1"}:
+                    return True
+        except socket.gaierror:
+            pass
+        return False
+
+    def _check_endpoint_is_local(self) -> bool:
+        """Return True if the configured endpoint is loopback or explicitly trusted."""
+        from urllib.parse import urlparse
+        parsed = urlparse(self.config.endpoint)
+        hostname = parsed.hostname or ""
+        if self._is_loopback_hostname(hostname):
+            return True
+        if self.config.trust_external_endpoint:
+            return True
+        logger.warning(
+            "LLMLinguaRemoteCompressor endpoint %r resolves to a non-loopback address; "
+            "refusing to send tool-result text over the network. "
+            "Set tool_compression.remote.trust_external_endpoint: true to override.",
+            self.config.endpoint,
+        )
+        return False
+
     def _post(
         self, text: str, rate: float, question: Optional[str]
     ) -> Dict[str, Any]:
+        if not self._check_endpoint_is_local():
+            raise urllib.error.URLError("non-local endpoint blocked")
         body: Dict[str, Any] = {
             "text": text,
             "rate": rate,
@@ -760,7 +815,7 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
             return self._delegate_to_fallback(tool_name, tool_args, content, question)
 
         # 3. Cooldown (service was recently down)
-        if time.time() < self._service_down_until:
+        if time.time() < self._last_remote_failure_time + _REMOTE_BACKOFF_SECS:
             return dataclasses.replace(
                 self._delegate_to_fallback(tool_name, tool_args, content, question),
                 fell_back=True,
@@ -796,7 +851,7 @@ class LLMLinguaRemoteCompressor(ToolResultCompressor):
                 "remote compressor failed (%s: %s); falling back for %.0fs",
                 type(e).__name__, e, _REMOTE_BACKOFF_SECS,
             )
-            self._service_down_until = time.time() + _REMOTE_BACKOFF_SECS
+            self._last_remote_failure_time = time.time()
             fallback = self._delegate_to_fallback(tool_name, tool_args, content, question)
             return dataclasses.replace(fallback, fell_back=True)
 
@@ -854,6 +909,10 @@ def _build_llmlingua_config(method: str, raw: Dict[str, Any]) -> LLMLinguaConfig
             continue
         if fld.name in raw:
             setattr(cfg, fld.name, raw[fld.name])
+    # trust_external_endpoint lives under the "remote" sub-dict in user config
+    remote_cfg = raw.get("remote", {})
+    if isinstance(remote_cfg, dict) and "trust_external_endpoint" in remote_cfg:
+        cfg.trust_external_endpoint = bool(remote_cfg["trust_external_endpoint"])
     if "only_tools" in raw and isinstance(raw["only_tools"], list):
         cfg.only_tools = tuple(raw["only_tools"])
     if "rate_ladder" in raw and isinstance(raw["rate_ladder"], list):

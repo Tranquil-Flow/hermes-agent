@@ -1847,6 +1847,11 @@ class AIAgent:
         # in config.yaml.  See agent.tool_result_compressor for the schema.
         _tool_compression_cfg = _agent_cfg.get("tool_compression", {})
         if not isinstance(_tool_compression_cfg, dict):
+            if _tool_compression_cfg:
+                logger.warning(
+                    "tool_compression config must be a dict, got %s. Using defaults.",
+                    type(_tool_compression_cfg).__name__,
+                )
             _tool_compression_cfg = {}
 
         # Read optional explicit context_length override for the auxiliary

@@ -68,7 +68,13 @@ mcp = ["mcp>=1.2.0,<2"]
 # Pulls in transformers + torch CPU; ~2GB on disk.
 llmlingua = [
   "llmlingua>=0.2.2,<1",
-  "transformers>=4.45.0,<5",
+  # NOTE: llmlingua 0.2.2 (last updated Apr 2024) only supports
+  # transformers 4.x.  If the base hermes-agent install resolves to
+  # transformers 5.x (via transitive deps), the [llmlingua] extra will
+  # produce a conflict and cannot be co-installed.  Users who need
+  # [llmlingua] on a transformers-5 environment should check whether a
+  # newer llmlingua release exists, or pin transformers separately in a
+  # virtual environment dedicated to llmlingua.
   "torch>=2.0.0,<3",
 ]
 homeassistant = ["aiohttp>=3.9.0,<4"]

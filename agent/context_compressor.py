@@ -555,6 +555,39 @@ class ContextCompressor(ContextEngine):
 
         return result, pruned
 
+    def _maybe_inline_compress(
+        self,
+        tool_name: str,
+        tool_args: str,
+        content: str,
+    ) -> str:
+        """Pass-1 seam: compress a single tool result before it enters the conversation.
+
+        This is called by the context engine immediately after a tool result is
+        produced, *before* the result is appended to the message list. It lets
+        LLMLingua-based backends reduce tool-result verbosity early so the
+        compressed form (not the original) is what gets stored.
+
+        Falls back to the original content on any error:
+        - no context_compressor
+        - compress_inline raises
+        - tool_compression config is not a dict (handled at AIAgent init — this
+          method just checks the compressor is present and calls it safely)
+        """
+        compressor = getattr(self, "_tool_compressor", None)
+        if not compressor:
+            return content
+        try:
+            result = compressor.compress_inline(
+                tool_name=tool_name,
+                tool_args=tool_args,
+                content=content,
+            )
+            return result.compressed_text
+        except Exception:
+            # Fail-open: return original content unchanged
+            return content
+
     # ------------------------------------------------------------------
     # Summarization
     # ------------------------------------------------------------------
