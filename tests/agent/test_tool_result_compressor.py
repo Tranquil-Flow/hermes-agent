@@ -357,10 +357,12 @@ class TestContentLRU:
 
         threads = [threading.Thread(target=writer) for _ in range(2)] + \
                   [threading.Thread(target=reader) for _ in range(4)]
-        for t in threads: t.start()
+        for t in threads:
+            t.start()
         time.sleep(0.2)
         stop.set()
-        for t in threads: t.join()
+        for t in threads:
+            t.join()
         assert errors == [], f"races raised: {errors[:3]}"
 
 

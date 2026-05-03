@@ -350,6 +350,64 @@ compression:
   # auxiliary section below (auxiliary.compression.provider / model).
 
 # =============================================================================
+# Tool result compression (opt-in, only fires after compression threshold hit)
+# =============================================================================
+# When _prune_old_tool_results runs (i.e. once a session crosses the threshold
+# above), the body of each old web tool message — web_extract, web_search,
+# browser_*, firecrawl_* — is replaced. The default replaces it with a
+# 1-line summary like "[web_extract] https://x.com (15234 chars)", losing the
+# actual content.
+#
+# Set method: llmlingua2_local to use Microsoft's LLMLingua-2 classifier
+# (https://arxiv.org/abs/2403.12968) to compress the body to ~30-50% of its
+# size while preserving high-information tokens — URLs, numbers, named
+# entities, structure. Useful for long research workflows where the agent's
+# follow-up turns need to refer back to prior tool outputs.
+#
+# Default behavior is unchanged. Opting in requires:
+#   pip install hermes-agent[llmlingua]    # ~2GB on disk including torch CPU
+#
+# This is an opt-in upgrade; most short interactive sessions never hit the
+# compression threshold and see no behavior change either way.
+#
+tool_compression:
+  # method: drop                  # default — current behavior (1-line summary)
+  # method: llmlingua2_local      # opt-in, in-process compression
+  # method: llmlingua2_remote     # opt-in, sidecar HTTP backend
+
+  # Tools whose output is rich natural-language text worth preserving.
+  # only_tools:
+  #   - web_extract
+  #   - web_search
+  #   - browser_navigate
+  #   - browser_snapshot
+  #   - browser_vision
+  #   - firecrawl_scrape
+  #   - firecrawl_extract
+
+  # min_output_chars: 2000        # below this, fall back to drop summary
+  # use_question: true            # bias retention toward content relevant
+  #                               # to the user's first message (question-aware)
+
+  # Size-adaptive compression rate (used unless `rate` below is explicit)
+  # rate_ladder:
+  #   - {max_chars: 10000, rate: 0.50}    # mild compression on small inputs
+  #   - {max_chars: 30000, rate: 0.33}
+  #   - {max_chars: null,  rate: 0.25}    # aggressive on very large inputs
+  # rate: 0.33                    # explicit override of the ladder
+
+  # cache_size: 256               # content+question+rate hash LRU bound
+
+  # local mode only:
+  # model: microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank
+  # device: cpu                   # MPS not recommended (graph-cache thrashing)
+
+  # remote mode only:
+  # endpoint: http://your-compressor-host:8080/compress
+  # timeout_secs: 15
+  # fallback_method: drop         # what to use when the sidecar is unreachable
+
+# =============================================================================
 # Anthropic prompt caching TTL
 # =============================================================================
 # When prompt caching is active (Claude via OpenRouter or native Anthropic),

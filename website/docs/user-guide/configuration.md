@@ -663,6 +663,59 @@ Points at a custom OpenAI-compatible endpoint. Uses `OPENAI_API_KEY` for auth.
 The summary model **must** have a context window at least as large as your main agent model's. The compressor sends the full middle section of the conversation to the summary model — if that model's context window is smaller than the main model's, the summarization call will fail with a context length error. When this happens, the middle turns are **dropped without a summary**, losing conversation context silently. If you override the model, verify its context length meets or exceeds your main model's.
 :::
 
+## Tool Result Compression
+
+When the compression threshold above fires, every old web tool message (`web_extract`, `web_search`, `browser_*`, `firecrawl_*`) has its body replaced before the LLM summarizer runs. The default replaces each body with a one-line summary like `[web_extract] https://x.com (15234 chars)` — fast and cheap, but loses the actual content the agent might want to refer back to.
+
+This is **opt-in**, off by default. Most short interactive sessions never reach the compression threshold and see no behavior change either way; this setting only matters for sessions that do (long research workflows, multi-extract investigations, runaway cron jobs).
+
+### `llmlingua2_local` — in-process LLMLingua-2
+
+Replaces the body with a token-classifier compression that preserves URLs, numbers, named entities, and markdown structure (~30–50% of original tokens). Uses Microsoft's [LLMLingua-2](https://arxiv.org/abs/2403.12968) bert-base multilingual MeetingBank model on CPU.
+
+```bash
+pip install hermes-agent[llmlingua]    # ~2GB on disk including torch CPU
+```
+
+```yaml
+tool_compression:
+  method: llmlingua2_local
+  # Optional knobs (defaults shown):
+  min_output_chars: 2000              # below this, fall back to drop summary
+  use_question: true                  # bias retention toward content relevant to the user's first message
+  rate_ladder:                        # size-adaptive compression
+    - {max_chars: 10000, rate: 0.50}  # mild on small inputs
+    - {max_chars: 30000, rate: 0.33}
+    - {max_chars: null,  rate: 0.25}  # aggressive on very large inputs
+  cache_size: 256                     # content+question+rate hash LRU bound
+  device: cpu                         # MPS not recommended (graph-cache thrashing)
+```
+
+The bert-base classifier model (~280MB) downloads from HuggingFace on first use and stays resident for the process lifetime. Lazy-loaded — if `tool_compression` is left at the default, the model is never imported.
+
+### `llmlingua2_remote` — sidecar HTTP backend
+
+For deployments running multiple agents against a centralized inference box, or anyone who wants the compressor out-of-process. Uses `urllib` from stdlib — no extra deps.
+
+```yaml
+tool_compression:
+  method: llmlingua2_remote
+  endpoint: http://your-compressor-host:8080/compress
+  timeout_secs: 15
+  fallback_method: drop               # what to do when the sidecar is unreachable
+```
+
+On any HTTP failure the compressor falls back to the default `drop` for the current call AND arms a 60s cooldown so a dead service doesn't add `timeout_secs` of latency to every prune for the next several minutes.
+
+### `drop` — default
+
+```yaml
+tool_compression:
+  method: drop                        # explicit form of the default
+```
+
+No `pip` extras required. Behavior is byte-identical to hermes versions before this knob existed.
+
 ## Context Engine
 
 The context engine controls how conversations are managed when approaching the model's token limit. The built-in `compressor` engine uses lossy summarization (see [Context Compression](/docs/developer-guide/context-compression-and-caching)). Plugin engines can replace it with alternative strategies.
