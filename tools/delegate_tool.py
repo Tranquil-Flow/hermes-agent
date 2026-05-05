@@ -997,9 +997,33 @@ def _build_child_agent(
     # the subagent must use direct API calls — not the parent's ACP transport.
     # Inheriting acp_command unconditionally causes run_agent.py to initialize
     # CopilotACPClient, bypassing override credentials entirely (issue #16816).
-    if override_provider and not override_acp_command:
+    #
+    # The same divergence applies when only delegation.model is set against an
+    # ACP parent (e.g. TUI primary on copilot-acp): the parent's ACP runtime is
+    # bound to its own model, so reusing that transport with a different model
+    # slug crashes Copilot ACP immediately. Clear the transport — and, when
+    # the parent's provider/credentials are themselves the copilot-acp
+    # placeholders (unusable without ACP), clear those too so the child fails
+    # with an obvious "no provider configured" error instead of silently
+    # routing back through Copilot ACP. (issue #19567)
+    delegation_overrides_model = (
+        model and model != getattr(parent_agent, "model", None)
+    )
+    if not override_acp_command and (override_provider or delegation_overrides_model):
         effective_acp_command = None
         effective_acp_args = []
+        if (
+            not override_provider
+            and (effective_provider or "").strip().lower() == "copilot-acp"
+        ):
+            # Inherited copilot-acp creds (acp:// base_url, placeholder api_key)
+            # are useless without the ACP transport — drop them so the child
+            # falls through to provider auto-detection rather than initialising
+            # a broken CopilotACPClient.
+            effective_provider = None
+            effective_base_url = None
+            effective_api_key = None
+            effective_api_mode = None
 
     if override_acp_command:
         # If explicitly forcing an ACP transport override, the provider MUST be copilot-acp

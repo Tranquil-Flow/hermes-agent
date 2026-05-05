@@ -1212,6 +1212,115 @@ class TestDelegationProviderIntegration(unittest.TestCase):
             self.assertEqual(kwargs["provider"], parent.provider)
             self.assertEqual(kwargs["base_url"], parent.base_url)
 
+    @patch("tools.delegate_tool._load_config")
+    @patch("tools.delegate_tool._resolve_delegation_credentials")
+    def test_copilot_acp_parent_drops_acp_when_delegation_model_differs(
+        self, mock_creds, mock_cfg
+    ):
+        """TUI parent on copilot-acp must not route delegated subagents through
+        the parent's ACP transport when delegation.model points at a different
+        model than the parent runs (issue #19567).
+
+        Scenario: hermes --tui boots with copilot-acp as the primary provider,
+        which sets parent.acp_command and parent.provider="copilot-acp". The
+        user then configures delegation.model="deepseek-chat" so subagents
+        should use a different model. The parent's ACP runtime is bound to its
+        own model, so reusing that transport with a foreign slug crashes
+        Copilot ACP immediately. The child must therefore NOT inherit
+        acp_command/acp_args, and the inherited copilot-acp placeholder
+        credentials must be dropped so the child fails with a clear "no
+        provider configured" error rather than silently routing back through
+        Copilot ACP with the wrong model.
+        """
+        mock_cfg.return_value = {
+            "max_iterations": 45,
+            "model": "deepseek-chat",
+            "provider": "",
+        }
+        mock_creds.return_value = {
+            "model": "deepseek-chat",
+            "provider": None,
+            "base_url": None,
+            "api_key": None,
+            "api_mode": None,
+        }
+        parent = _make_mock_parent(depth=0)
+        parent.provider = "copilot-acp"
+        parent.base_url = "acp://copilot"
+        parent.api_key = "copilot-acp"
+        parent.api_mode = "chat_completions"
+        parent.model = "gpt-5-mini"
+        parent.acp_command = "/usr/local/bin/copilot"
+        parent.acp_args = ["--acp", "--stdio"]
+        parent.platform = "tui"
+
+        with patch("run_agent.AIAgent") as MockAgent:
+            mock_child = MagicMock()
+            mock_child.run_conversation.return_value = {
+                "final_response": "done", "completed": True, "api_calls": 1
+            }
+            MockAgent.return_value = mock_child
+
+            delegate_task(goal="Delegate to deepseek", parent_agent=parent)
+
+            _, kwargs = MockAgent.call_args
+            # Delegation.model must reach the child unchanged.
+            self.assertEqual(kwargs["model"], "deepseek-chat")
+            # Parent's ACP transport must NOT be inherited — that is the
+            # exact regression from #19567 (child crashes on copilot-acp
+            # because the model slug isn't recognised).
+            self.assertIsNone(kwargs["acp_command"])
+            self.assertEqual(kwargs["acp_args"], [])
+            # Parent's copilot-acp placeholder credentials are useless without
+            # the ACP transport, so they must be cleared too — otherwise the
+            # child still ends up labelled as copilot-acp and run_agent.py
+            # picks the CopilotACPClient based on provider/base_url alone.
+            self.assertNotEqual(kwargs.get("provider"), "copilot-acp")
+            self.assertFalse(
+                str(kwargs.get("base_url") or "").startswith("acp://")
+            )
+
+    @patch("tools.delegate_tool._load_config")
+    @patch("tools.delegate_tool._resolve_delegation_credentials")
+    def test_non_acp_parent_model_only_still_inherits(
+        self, mock_creds, mock_cfg
+    ):
+        """Model-only delegation on a direct-API parent (e.g. openrouter) must
+        still inherit the parent's credentials — the #19567 fix only fires on
+        ACP parents where the transport is bound to a fixed model."""
+        mock_cfg.return_value = {
+            "max_iterations": 45,
+            "model": "google/gemini-3-flash-preview",
+            "provider": "",
+        }
+        mock_creds.return_value = {
+            "model": "google/gemini-3-flash-preview",
+            "provider": None,
+            "base_url": None,
+            "api_key": None,
+            "api_mode": None,
+        }
+        parent = _make_mock_parent(depth=0)
+        # Default mock parent is already openrouter; ensure no ACP attrs leak.
+        parent.acp_command = None
+        parent.acp_args = []
+
+        with patch("run_agent.AIAgent") as MockAgent:
+            mock_child = MagicMock()
+            mock_child.run_conversation.return_value = {
+                "final_response": "done", "completed": True, "api_calls": 1
+            }
+            MockAgent.return_value = mock_child
+
+            delegate_task(goal="Model only on openrouter", parent_agent=parent)
+
+            _, kwargs = MockAgent.call_args
+            self.assertEqual(kwargs["model"], "google/gemini-3-flash-preview")
+            # Direct-API parent — credentials still inherit normally.
+            self.assertEqual(kwargs["provider"], parent.provider)
+            self.assertEqual(kwargs["base_url"], parent.base_url)
+            self.assertEqual(kwargs["api_key"], parent.api_key)
+
 
 class TestChildCredentialPoolResolution(unittest.TestCase):
     def test_same_provider_shares_parent_pool(self):
