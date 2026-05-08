@@ -1106,6 +1106,14 @@ setup_path() {
     command_link_display_dir="$(get_command_link_display_dir)"
 
     # Create a user-facing shim for the hermes command.
+    # If the command link directory is the virtualenv's bin directory, the pip
+    # console script already lives at $HERMES_BIN.  Do not overwrite it with a
+    # wrapper that execs itself.
+    if [ "$command_link_dir" = "$(dirname "$HERMES_BIN")" ]; then
+        log_success "hermes command ready at $HERMES_BIN"
+        return 0
+    fi
+
     # We intentionally clear PYTHONPATH/PYTHONHOME here so inherited env vars
     # can't make this launcher import modules from another checkout.
     mkdir -p "$command_link_dir"
