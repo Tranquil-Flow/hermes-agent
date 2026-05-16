@@ -2373,20 +2373,32 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
         api_key = configured_api_key  # None → inherited from parent in _build_child_agent
 
         base_lower = configured_base_url.lower()
-        provider = "custom"
+        # Default api_mode for a raw OpenAI-compatible endpoint.
         api_mode = "chat_completions"
+        # Sniff api_mode from well-known endpoints so the child speaks the
+        # right protocol even when only base_url is given.
         if (
             base_url_hostname(configured_base_url) == "chatgpt.com"
             and "/backend-api/codex" in base_lower
         ):
-            provider = "openai-codex"
             api_mode = "codex_responses"
+            detected_provider = "openai-codex"
         elif base_url_hostname(configured_base_url) == "api.anthropic.com":
-            provider = "anthropic"
             api_mode = "anthropic_messages"
+            detected_provider = "anthropic"
         elif "api.kimi.com/coding" in base_lower:
-            provider = "custom"
             api_mode = "anthropic_messages"
+            detected_provider = "custom"
+        else:
+            detected_provider = "custom"
+
+        # Issue #26482: honour delegation.provider when the user explicitly set
+        # it (e.g. provider: deepseek + base_url: api.deepseek.com/v1). Falling
+        # back to "custom" discards the user's routing intent and was the root
+        # cause of subagents appearing to use the parent's provider in logs/
+        # telemetry. Auto-detection still wins when the user did NOT set a
+        # provider, so existing well-known-endpoint behaviour is unchanged.
+        provider = configured_provider or detected_provider
 
         return {
             "model": configured_model,

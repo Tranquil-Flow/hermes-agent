@@ -876,6 +876,9 @@ class TestDelegationCredentialResolution(unittest.TestCase):
 
 
     def test_direct_endpoint_uses_configured_base_url_and_api_key(self):
+        # When the user explicitly names a provider alongside base_url, the
+        # provider label is preserved (Issue #26482). The previous behaviour
+        # of relabelling to "custom" discarded the user's routing intent.
         parent = _make_mock_parent(depth=0)
         cfg = {
             "model": "qwen2.5-coder",
@@ -885,9 +888,42 @@ class TestDelegationCredentialResolution(unittest.TestCase):
         }
         creds = _resolve_delegation_credentials(cfg, parent)
         self.assertEqual(creds["model"], "qwen2.5-coder")
-        self.assertEqual(creds["provider"], "custom")
+        self.assertEqual(creds["provider"], "openrouter")
         self.assertEqual(creds["base_url"], "http://localhost:1234/v1")
         self.assertEqual(creds["api_key"], "local-key")
+        self.assertEqual(creds["api_mode"], "chat_completions")
+
+    def test_direct_endpoint_preserves_configured_provider_name(self):
+        # Issue #26482 regression: delegation.provider must be honoured when
+        # the user configures provider + base_url + api_key + model together.
+        # Previously the resolver hardcoded provider="custom" in this branch,
+        # so subagents appeared in logs/telemetry under the parent's provider
+        # rather than the configured one (e.g. "deepseek").
+        parent = _make_mock_parent(depth=0)
+        cfg = {
+            "model": "deepseek-v4-flash",
+            "provider": "deepseek",
+            "base_url": "https://api.deepseek.com/v1",
+            "api_key": "sk-test-deepseek",
+        }
+        creds = _resolve_delegation_credentials(cfg, parent)
+        self.assertEqual(creds["model"], "deepseek-v4-flash")
+        self.assertEqual(creds["provider"], "deepseek")
+        self.assertEqual(creds["base_url"], "https://api.deepseek.com/v1")
+        self.assertEqual(creds["api_key"], "sk-test-deepseek")
+        self.assertEqual(creds["api_mode"], "chat_completions")
+
+    def test_direct_endpoint_defaults_to_custom_when_provider_unset(self):
+        # When only base_url is set (no provider), the resolver still falls
+        # back to "custom" — auto-detection of well-known endpoints unchanged.
+        parent = _make_mock_parent(depth=0)
+        cfg = {
+            "model": "qwen2.5-coder",
+            "base_url": "http://localhost:1234/v1",
+            "api_key": "local-key",
+        }
+        creds = _resolve_delegation_credentials(cfg, parent)
+        self.assertEqual(creds["provider"], "custom")
         self.assertEqual(creds["api_mode"], "chat_completions")
 
     def test_direct_endpoint_returns_none_api_key_when_not_configured(self):
