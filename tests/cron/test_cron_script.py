@@ -503,6 +503,180 @@ class TestCronjobToolScriptValidation:
         assert result["success"] is False
 
 
+class TestCronjobScriptPrefixNormalization:
+    """Regression tests for #26595: silent ``scripts/scripts/foo.py`` trap.
+
+    The cronjob tool prepends ``~/.hermes/scripts/`` to any relative script
+    path at runtime. Users naturally type ``scripts/foo.py`` because that's
+    what they see in their filesystem — but that produced
+    ``~/.hermes/scripts/scripts/foo.py``, which silently failed only when the
+    cron fired. These tests pin the normalization that strips the redundant
+    leading ``scripts/`` segment so both forms point to the same file.
+    """
+
+    def test_create_strips_leading_scripts_prefix(self, cron_env, monkeypatch):
+        """`scripts/foo.py` should resolve to `foo.py` and be runnable."""
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        # Place the script at its canonical location.
+        (cron_env / "scripts" / "monitor.py").write_text('print("ok")\n')
+
+        result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+            script="scripts/monitor.py",
+        ))
+        assert result["success"] is True, result
+        # Stored form must be the canonical one (no double-``scripts/``).
+        assert result["job"]["script"] == "monitor.py", (
+            "expected leading 'scripts/' to be stripped, got "
+            f"{result['job']['script']!r}"
+        )
+        # And the runtime resolver must pick up the same file.
+        from cron.scheduler import _run_job_script
+        success, output = _run_job_script(result["job"]["script"])
+        assert success is True
+        assert output == "ok"
+
+    def test_create_plain_filename_unchanged(self, cron_env, monkeypatch):
+        """Bare ``foo.py`` form must continue to be stored verbatim."""
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        (cron_env / "scripts" / "monitor.py").write_text('print("ok")\n')
+
+        result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+            script="monitor.py",
+        ))
+        assert result["success"] is True
+        assert result["job"]["script"] == "monitor.py"
+
+    def test_update_strips_leading_scripts_prefix(self, cron_env, monkeypatch):
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        (cron_env / "scripts" / "fresh.py").write_text('print("ok")\n')
+
+        create_result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+        ))
+        job_id = create_result["job_id"]
+
+        update_result = json.loads(cronjob(
+            action="update",
+            job_id=job_id,
+            script="scripts/fresh.py",
+        ))
+        assert update_result["success"] is True
+        assert update_result["job"]["script"] == "fresh.py"
+
+    def test_create_only_strips_first_segment(self, cron_env, monkeypatch):
+        """A nested ``foo/scripts/bar.py`` must keep its full path intact."""
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        nested = cron_env / "scripts" / "foo" / "scripts"
+        nested.mkdir(parents=True)
+        (nested / "bar.py").write_text('print("nested")\n')
+
+        result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+            script="foo/scripts/bar.py",
+        ))
+        assert result["success"] is True
+        assert result["job"]["script"] == "foo/scripts/bar.py"
+
+
+class TestCronjobScriptExistenceWarning:
+    """Regression tests for #26595: create-time existence validation."""
+
+    def test_create_missing_script_emits_warning(self, cron_env, monkeypatch):
+        """A non-existent script must surface a warning at create time."""
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+            script="does_not_exist.py",
+        ))
+        # The job still saves (warning, not block) — but the user must hear
+        # about the typo *now*, not at the first scheduled fire.
+        assert result["success"] is True
+        assert "warning" in result, (
+            "expected create-time warning for missing script, got: "
+            f"{result!r}"
+        )
+        assert "does_not_exist.py" in result["warning"]
+
+    def test_create_existing_script_no_warning(self, cron_env, monkeypatch):
+        """An existing script must NOT produce a warning."""
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        (cron_env / "scripts" / "real.py").write_text('print("hi")\n')
+
+        result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+            script="real.py",
+        ))
+        assert result["success"] is True
+        assert "warning" not in result
+
+    def test_create_double_prefix_warning_uses_stripped_form(self, cron_env, monkeypatch):
+        """``scripts/missing.py`` typo must warn about ``missing.py``.
+
+        Confirms the warning is computed *after* the leading ``scripts/``
+        strip, so the user sees the canonical resolved path rather than the
+        bogus doubled form.
+        """
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+            script="scripts/missing.py",
+        ))
+        assert result["success"] is True
+        assert "warning" in result
+        # Warning must reference the stripped path, never the double form.
+        assert "scripts/scripts" not in result["warning"]
+
+    def test_update_missing_script_emits_warning(self, cron_env, monkeypatch):
+        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        from tools.cronjob_tools import cronjob
+
+        create_result = json.loads(cronjob(
+            action="create",
+            schedule="every 1h",
+            prompt="Monitor things",
+        ))
+        job_id = create_result["job_id"]
+
+        update_result = json.loads(cronjob(
+            action="update",
+            job_id=job_id,
+            script="still_missing.py",
+        ))
+        assert update_result["success"] is True
+        assert "warning" in update_result
+        assert "still_missing.py" in update_result["warning"]
+
+
 class TestRunJobEnvVarCleanup:
     """Test that run_job() env vars are cleaned up even on early failure."""
 

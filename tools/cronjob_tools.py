@@ -208,6 +208,34 @@ def _normalize_deliver_param(value: Any) -> Optional[str]:
     return text or None
 
 
+def _normalize_cron_script_path(script: Optional[str]) -> Optional[str]:
+    """Strip a redundant leading ``scripts/`` segment from a cron script path.
+
+    Issue #26595: ``_run_job_script`` resolves relative paths against
+    ``~/.hermes/scripts/`` already, so a value like ``scripts/foo.py`` becomes
+    ``~/.hermes/scripts/scripts/foo.py`` — a silent double-directory trap.
+    Both ``scripts/foo.py`` and ``foo.py`` should refer to the same file under
+    ``~/.hermes/scripts/``. Strip the prefix here so the stored value, the
+    validator, and the runtime all agree on the canonical form.
+
+    Returns ``None`` for empty / None input; otherwise the trimmed script
+    path with any single leading ``scripts/`` (POSIX) or ``scripts\\``
+    (Windows) segment removed.
+    """
+    if not script:
+        return None
+    raw = str(script).strip()
+    if not raw:
+        return None
+    # Only strip when ``scripts/`` is the literal first segment — never when
+    # it sits inside a subdir name (``scripts2/x.py``) or further down the
+    # path (``foo/scripts/bar.py``).
+    for prefix in ("scripts/", "scripts\\"):
+        if raw.startswith(prefix):
+            return raw[len(prefix):] or None
+    return raw
+
+
 def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
     """Validate a cron job script path at the API boundary.
 
@@ -244,6 +272,45 @@ def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
             f"Script path escapes the scripts directory via traversal: {raw!r}"
         )
 
+    return None
+
+
+def _check_cron_script_exists(script: Optional[str]) -> Optional[str]:
+    """Return a human-readable warning if a cron script path doesn't exist.
+
+    Issue #26595: cronjob ``create`` / ``update`` previously accepted any
+    string for ``script`` without checking whether the resolved file existed,
+    so typos and double-``scripts/`` paths only surfaced at fire time. This
+    is a *warning*, not a hard block — the user may legitimately create the
+    job before placing the script — but it surfaces the problem at the time
+    the user can still fix it.
+
+    Returns the warning string when the resolved path is missing or not a
+    file, else ``None``. Callers should have already passed the value through
+    :func:`_normalize_cron_script_path` so the check matches what
+    ``_run_job_script`` will see at runtime.
+    """
+    if not script or not script.strip():
+        return None
+    from hermes_constants import get_hermes_home
+
+    raw = script.strip()
+    scripts_dir = get_hermes_home() / "scripts"
+    if raw.startswith(("/", "~")) or (len(raw) >= 2 and raw[1] == ":"):
+        # Absolute / ~ paths are rejected upstream by the validator, so this
+        # helper only sees relative paths in practice. Be defensive anyway.
+        return None
+    candidate = (scripts_dir / raw)
+    if not candidate.exists():
+        return (
+            f"Script {raw!r} not found at {candidate}. The job was saved, "
+            f"but will fail at fire time until the script exists."
+        )
+    if not candidate.is_file():
+        return (
+            f"Script {raw!r} resolves to {candidate}, which is not a regular "
+            f"file. The job will fail at fire time."
+        )
     return None
 
 
@@ -337,10 +404,18 @@ def cronjob(
                     return tool_error(scan_error, success=False)
 
             # Validate script path before storing
+            script_warning: Optional[str] = None
             if script:
+                # #26595: collapse the silent ``scripts/scripts/foo.py`` trap
+                # before validation so both the stored value and the runtime
+                # resolution see the canonical form.
+                script = _normalize_cron_script_path(script)
                 script_error = _validate_cron_script_path(script)
                 if script_error:
                     return tool_error(script_error, success=False)
+                # #26595: surface missing scripts at create time so typos
+                # don't lurk until the first scheduled fire.
+                script_warning = _check_cron_script_exists(script)
 
             # Validate context_from references existing jobs
             if context_from:
@@ -371,22 +446,24 @@ def cronjob(
                 workdir=_normalize_optional_job_value(workdir),
                 no_agent=_no_agent,
             )
-            return json.dumps(
-                {
-                    "success": True,
-                    "job_id": job["id"],
-                    "name": job["name"],
-                    "skill": job.get("skill"),
-                    "skills": job.get("skills", []),
-                    "schedule": job["schedule_display"],
-                    "repeat": _repeat_display(job),
-                    "deliver": job.get("deliver", "local"),
-                    "next_run_at": job["next_run_at"],
-                    "job": _format_job(job),
-                    "message": f"Cron job '{job['name']}' created.",
-                },
-                indent=2,
-            )
+            create_response: Dict[str, Any] = {
+                "success": True,
+                "job_id": job["id"],
+                "name": job["name"],
+                "skill": job.get("skill"),
+                "skills": job.get("skills", []),
+                "schedule": job["schedule_display"],
+                "repeat": _repeat_display(job),
+                "deliver": job.get("deliver", "local"),
+                "next_run_at": job["next_run_at"],
+                "job": _format_job(job),
+                "message": f"Cron job '{job['name']}' created.",
+            }
+            if script_warning:
+                # #26595: non-fatal heads-up that the resolved script is
+                # missing — the job is still saved.
+                create_response["warning"] = script_warning
+            return json.dumps(create_response, indent=2)
 
         if normalized == "list":
             jobs = [_format_job(job) for job in list_jobs(include_disabled=include_disabled)]
@@ -472,12 +549,18 @@ def cronjob(
                 updates["provider"] = _normalize_optional_job_value(provider)
             if base_url is not None:
                 updates["base_url"] = _normalize_optional_job_value(base_url, strip_trailing_slash=True)
+            update_script_warning: Optional[str] = None
             if script is not None:
                 # Pass empty string to clear an existing script
                 if script:
+                    # #26595: strip a redundant leading ``scripts/`` segment
+                    # before validation so update mirrors create and the
+                    # canonical form is what gets stored.
+                    script = _normalize_cron_script_path(script)
                     script_error = _validate_cron_script_path(script)
                     if script_error:
                         return tool_error(script_error, success=False)
+                    update_script_warning = _check_cron_script_exists(script)
                 updates["script"] = _normalize_optional_job_value(script) if script else None
             if context_from is not None:
                 # Empty string / empty list clears the field; otherwise validate
@@ -533,7 +616,11 @@ def cronjob(
             if not updates:
                 return tool_error("No updates provided.", success=False)
             updated = update_job(job_id, updates)
-            return json.dumps({"success": True, "job": _format_job(updated)}, indent=2)
+            update_response: Dict[str, Any] = {"success": True, "job": _format_job(updated)}
+            if update_script_warning:
+                # #26595: non-fatal heads-up that the resolved script is missing.
+                update_response["warning"] = update_script_warning
+            return json.dumps(update_response, indent=2)
 
         return tool_error(f"Unknown cron action '{action}'", success=False)
 
