@@ -679,6 +679,9 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
         t0 = time.perf_counter()
         try:
             self._ensure_loaded()
+            if self._pc is None:
+                fallback = self._delegate_to_fallback(tool_name, tool_args, content, question)
+                return dataclasses.replace(fallback, fell_back=True)
             compressed = compress_with_wrapper(self._pc, content, rate, q)
             _validate_compression(content, compressed)
         except Exception as e:

@@ -664,6 +664,22 @@ class TestLLMLinguaLocalCompressor:
         # And subsequent calls don't keep retrying — model_load_failed sticks
         assert c._model_load_failed is True
 
+    def test_sticky_import_failure_falls_back_without_none_compressor_noise(self, caplog):
+        c = self._make(min_output_chars=100)
+        body = "y" * 500
+
+        with patch.dict("sys.modules", {"llmlingua": None}):
+            r1 = c.compress("web_extract", "{}", body)
+        assert r1.fell_back is True
+        assert c._model_load_failed is True
+
+        caplog.clear()
+        r2 = c.compress("web_extract", "{}", body + "second")
+
+        assert r2.fell_back is True
+        assert "NoneType" not in caplog.text
+        assert "compress_prompt" not in caplog.text
+
     def test_model_construction_failure_marks_load_failed_sticky(self):
         # Regression: PromptCompressor() construction can fail even after
         # a successful import (HF download, bad model name, runtime

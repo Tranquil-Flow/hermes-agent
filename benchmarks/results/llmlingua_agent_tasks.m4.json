@@ -1,0 +1,1792 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-05-20T10:14:28.993093+00:00",
+  "duration_s": 4.671,
+  "modes": [
+    "full",
+    "drop",
+    "llmlingua_default"
+  ],
+  "task_count": 12,
+  "tasks": [
+    {
+      "id": "web_security_advisory",
+      "category": "web_research",
+      "tool_name": "web_extract",
+      "tool_args": "{\"urls\": [\"https://example.org/security/hs-2026-17\"]}",
+      "question": "Which product versions are affected, what CVE is fixed, and what mitigation is recommended?",
+      "content": "HermesShield Security Advisory HS-2026-17\nAffected versions: HermesShield Gateway 4.8.0 through 4.8.6.\nFixed in: HermesShield Gateway 4.8.7.\nIdentifier: CVE-2026-4242.\nMitigation: rotate webhook signing secrets and disable legacy callback forwarding.\nUnaffected distractor: HermesVault 2.1.0 was patched for CVE-2026-1111.\n\nBackground note 1: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 19: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 20: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "affected_versions",
+          "pattern": "4\\.\\s*8\\.\\s*0\\s+through\\s+4\\.\\s*8\\.\\s*6",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "fixed_version",
+          "pattern": "4\\.\\s*8\\.\\s*7",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "cve",
+          "pattern": "CVE\\s*-\\s*2026\\s*-\\s*4242",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "mitigation",
+          "pattern": "rotate webhook signing secrets",
+          "required": true,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "api_migration_docs",
+      "category": "docs_research",
+      "tool_name": "web_extract",
+      "tool_args": "{\"urls\": [\"https://docs.example.dev/migration/v3\"]}",
+      "question": "How do we migrate the export API to v3 without breaking idempotency?",
+      "content": "Export API v3 Migration Guide\nEndpoint change: POST /v2/exports becomes POST /v3/jobs/export.\nRequired header: Idempotency-Key must be a UUIDv7 value.\nDeprecated field: callback_url is replaced by webhook.destination_url.\nSafe rollout: send X-Export-Dry-Run: true for the first 24 hours.\nDistractor: Import API v3 still accepts UUIDv4 keys until 2027.\n\nBackground note 1: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 19: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 20: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 21: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 22: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "endpoint",
+          "pattern": "POST\\s*/\\s*v3\\s*/\\s*jobs\\s*/\\s*export",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "idempotency",
+          "pattern": "Idempotency\\s*-\\s*Key\\s+must\\s+(?:be\\s+)?(?:a\\s+)?UUIDv7",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "callback_replacement",
+          "pattern": "webhook\\s*\\.\\s*destination\\s*_\\s*url",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "dry_run",
+          "pattern": "X\\s*-\\s*Export\\s*-\\s*Dry\\s*-\\s*Run\\s*:\\s*true",
+          "required": true,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "pricing_policy_research",
+      "category": "web_research",
+      "tool_name": "web_extract",
+      "tool_args": "{\"urls\": [\"https://example.com/pricing/enterprise\"]}",
+      "question": "What are the enterprise pricing constraints and overage policy?",
+      "content": "Enterprise Pricing Policy 2026\nBase plan: 2,000,000 included tool-call tokens per month.\nOverage: $0.42 per additional 10,000 tool-call tokens.\nHard cap: customers may set a monthly spend ceiling in dollars.\nException: education tenants receive a 30% overage credit.\nDistractor: the Pro plan includes 200,000 tokens and a $0.60 overage.\n\nBackground note 1: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 19: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "included_tokens",
+          "pattern": "2,\\s*000,\\s*000 included tool\\s*-\\s*call tokens",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "overage",
+          "pattern": "\\$\\s*0\\.\\s*42 per additional 10,\\s*000",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "hard_cap",
+          "pattern": "monthly spend ceiling",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "education_credit",
+          "pattern": "30\\s*% overage credit",
+          "required": false,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "browser_checkout_snapshot",
+      "category": "browser_snapshot",
+      "tool_name": "browser_snapshot",
+      "tool_args": "{}",
+      "question": "Which checkout error should the agent report to the user?",
+      "content": "Accessibility snapshot for checkout page\n[@e11] textbox 'Email' value='evi@example.com'\n[@e12] combobox 'Country' value='France'\n[@e21] alert 'Payment failed: card requires 3-D Secure authentication.'\n[@e22] button 'Retry payment' enabled=true\n[@e23] link 'Use another payment method'\nDistractor alert: Shipping estimate delayed by 1 day.\n\nBackground note 1: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "payment_failed",
+          "pattern": "Payment failed",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "3ds",
+          "pattern": "3\\s*-\\s*D Secure authentication",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "retry_button",
+          "pattern": "Retry payment",
+          "required": false,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "web_search_release_notes",
+      "category": "web_search",
+      "tool_name": "web_search",
+      "tool_args": "{\"query\": \"AstraDB local-first release notes 1.14\"}",
+      "question": "Which release added encrypted local-first sync and where is the changelog?",
+      "content": "{\n  \"data\": {\n    \"web\": [\n      {\n        \"title\": \"AstraDB 1.14 Release Notes\",\n        \"url\": \"https://astradb.example/releases/1.14\",\n        \"description\": \"Adds encrypted local-first sync using XChaCha20-Poly1305 and background conflict repair.\"\n      },\n      {\n        \"title\": \"AstraDB 1.13 Maintenance\",\n        \"url\": \"https://astradb.example/releases/1.13\",\n        \"description\": \"Improves compaction and query planner hints.\"\n      }\n    ]\n  }\n}\n\nBackground note 1: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the release search team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "version",
+          "pattern": "AstraDB 1\\.\\s*14",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "feature",
+          "pattern": "encrypted local\\s*-\\s*first sync",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "cipher",
+          "pattern": "XChaCha20\\s*-\\s*Poly1305",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "url",
+          "pattern": "https://astradb\\.example/releases/1\\.14",
+          "required": true,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "incident_feed_json",
+      "category": "api_json_via_web",
+      "tool_name": "web_extract",
+      "tool_args": "{\"urls\": [\"https://status.example.net/api/incidents\"]}",
+      "question": "What is the active incident, which region is affected, and what is the ETA?",
+      "content": "{\n  \"incidents\": [\n    {\n      \"id\": \"inc_9af31\",\n      \"status\": \"active\",\n      \"title\": \"Webhook delivery delays\",\n      \"region\": \"eu-west-3\",\n      \"eta_minutes\": 45,\n      \"workaround\": \"switch callbacks to polling fallback\"\n    },\n    {\n      \"id\": \"inc_old_771\",\n      \"status\": \"resolved\",\n      \"title\": \"Dashboard CSS regression\",\n      \"region\": \"us-east-1\",\n      \"eta_minutes\": 0\n    }\n  ]\n}\n\nBackground note 1: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the incident status feed team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "incident_id",
+          "pattern": "inc\\s*_\\s*9af31",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "title",
+          "pattern": "Webhook delivery delays",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "region",
+          "pattern": "eu\\s*-\\s*west\\s*-\\s*3",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "eta",
+          "pattern": "45",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "workaround",
+          "pattern": "polling fallback",
+          "required": false,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "terminal_failure_log_excluded",
+      "category": "structured_excluded",
+      "tool_name": "terminal",
+      "tool_args": "{\"command\": \"pytest tests/gateway/test_webhooks.py -q\"}",
+      "question": "Which test failed and why?",
+      "content": "============================= test session starts =============================\nFAILED tests/gateway/test_webhooks.py::test_signature_rejects_replayed_timestamp\nE   AssertionError: expected HTTP 401 but got HTTP 204\nCaptured log: replay window was 900 seconds, expected 300 seconds\nexit_code: 1\nnoise line 0: unrelated passing test output\nnoise line 1: unrelated passing test output\nnoise line 2: unrelated passing test output\nnoise line 3: unrelated passing test output\nnoise line 4: unrelated passing test output\nnoise line 5: unrelated passing test output\nnoise line 6: unrelated passing test output\nnoise line 7: unrelated passing test output\nnoise line 8: unrelated passing test output\nnoise line 9: unrelated passing test output\nnoise line 10: unrelated passing test output\nnoise line 11: unrelated passing test output\nnoise line 12: unrelated passing test output\nnoise line 13: unrelated passing test output\nnoise line 14: unrelated passing test output\nnoise line 15: unrelated passing test output\nnoise line 16: unrelated passing test output\nnoise line 17: unrelated passing test output\nnoise line 18: unrelated passing test output\nnoise line 19: unrelated passing test output\nnoise line 20: unrelated passing test output\nnoise line 21: unrelated passing test output\nnoise line 22: unrelated passing test output\nnoise line 23: unrelated passing test output\nnoise line 24: unrelated passing test output\nnoise line 25: unrelated passing test output\nnoise line 26: unrelated passing test output\nnoise line 27: unrelated passing test output\nnoise line 28: unrelated passing test output\nnoise line 29: unrelated passing test output\nnoise line 30: unrelated passing test output\nnoise line 31: unrelated passing test output\nnoise line 32: unrelated passing test output\nnoise line 33: unrelated passing test output\nnoise line 34: unrelated passing test output\nnoise line 35: unrelated passing test output\nnoise line 36: unrelated passing test output\nnoise line 37: unrelated passing test output\nnoise line 38: unrelated passing test output\nnoise line 39: unrelated passing test output\nnoise line 40: unrelated passing test output\nnoise line 41: unrelated passing test output\nnoise line 42: unrelated passing test output\nnoise line 43: unrelated passing test output\nnoise line 44: unrelated passing test output\nnoise line 45: unrelated passing test output\nnoise line 46: unrelated passing test output\nnoise line 47: unrelated passing test output\nnoise line 48: unrelated passing test output\nnoise line 49: unrelated passing test output\nnoise line 50: unrelated passing test output\nnoise line 51: unrelated passing test output\nnoise line 52: unrelated passing test output\nnoise line 53: unrelated passing test output\nnoise line 54: unrelated passing test output\nnoise line 55: unrelated passing test output\nnoise line 56: unrelated passing test output\nnoise line 57: unrelated passing test output\nnoise line 58: unrelated passing test output\nnoise line 59: unrelated passing test output\nnoise line 60: unrelated passing test output\nnoise line 61: unrelated passing test output\nnoise line 62: unrelated passing test output\nnoise line 63: unrelated passing test output\nnoise line 64: unrelated passing test output\nnoise line 65: unrelated passing test output\nnoise line 66: unrelated passing test output\nnoise line 67: unrelated passing test output\nnoise line 68: unrelated passing test output\nnoise line 69: unrelated passing test output\nnoise line 70: unrelated passing test output\nnoise line 71: unrelated passing test output\nnoise line 72: unrelated passing test output\nnoise line 73: unrelated passing test output\nnoise line 74: unrelated passing test output\nnoise line 75: unrelated passing test output\nnoise line 76: unrelated passing test output\nnoise line 77: unrelated passing test output\nnoise line 78: unrelated passing test output\nnoise line 79: unrelated passing test output\nnoise line 80: unrelated passing test output\nnoise line 81: unrelated passing test output\nnoise line 82: unrelated passing test output\nnoise line 83: unrelated passing test output\nnoise line 84: unrelated passing test output\nnoise line 85: unrelated passing test output\nnoise line 86: unrelated passing test output\nnoise line 87: unrelated passing test output\nnoise line 88: unrelated passing test output\nnoise line 89: unrelated passing test output\nnoise line 90: unrelated passing test output\nnoise line 91: unrelated passing test output\nnoise line 92: unrelated passing test output\nnoise line 93: unrelated passing test output\nnoise line 94: unrelated passing test output\nnoise line 95: unrelated passing test output\nnoise line 96: unrelated passing test output\nnoise line 97: unrelated passing test output\nnoise line 98: unrelated passing test output\nnoise line 99: unrelated passing test output\nnoise line 100: unrelated passing test output\nnoise line 101: unrelated passing test output\nnoise line 102: unrelated passing test output\nnoise line 103: unrelated passing test output\nnoise line 104: unrelated passing test output\nnoise line 105: unrelated passing test output\nnoise line 106: unrelated passing test output\nnoise line 107: unrelated passing test output\nnoise line 108: unrelated passing test output\nnoise line 109: unrelated passing test output\nnoise line 110: unrelated passing test output\nnoise line 111: unrelated passing test output\nnoise line 112: unrelated passing test output\nnoise line 113: unrelated passing test output\nnoise line 114: unrelated passing test output\nnoise line 115: unrelated passing test output\nnoise line 116: unrelated passing test output\nnoise line 117: unrelated passing test output\nnoise line 118: unrelated passing test output\nnoise line 119: unrelated passing test output\nnoise line 120: unrelated passing test output\nnoise line 121: unrelated passing test output\nnoise line 122: unrelated passing test output\nnoise line 123: unrelated passing test output\nnoise line 124: unrelated passing test output\nnoise line 125: unrelated passing test output\nnoise line 126: unrelated passing test output\nnoise line 127: unrelated passing test output\nnoise line 128: unrelated passing test output\nnoise line 129: unrelated passing test output\nnoise line 130: unrelated passing test output\nnoise line 131: unrelated passing test output\nnoise line 132: unrelated passing test output\nnoise line 133: unrelated passing test output\nnoise line 134: unrelated passing test output\nnoise line 135: unrelated passing test output\nnoise line 136: unrelated passing test output\nnoise line 137: unrelated passing test output\nnoise line 138: unrelated passing test output\nnoise line 139: unrelated passing test output\nnoise line 140: unrelated passing test output\nnoise line 141: unrelated passing test output\nnoise line 142: unrelated passing test output\nnoise line 143: unrelated passing test output\nnoise line 144: unrelated passing test output\nnoise line 145: unrelated passing test output\nnoise line 146: unrelated passing test output\nnoise line 147: unrelated passing test output\nnoise line 148: unrelated passing test output\nnoise line 149: unrelated passing test output\nnoise line 150: unrelated passing test output\nnoise line 151: unrelated passing test output\nnoise line 152: unrelated passing test output\nnoise line 153: unrelated passing test output\nnoise line 154: unrelated passing test output\nnoise line 155: unrelated passing test output\nnoise line 156: unrelated passing test output\nnoise line 157: unrelated passing test output\nnoise line 158: unrelated passing test output\nnoise line 159: unrelated passing test output\nnoise line 160: unrelated passing test output\nnoise line 161: unrelated passing test output\nnoise line 162: unrelated passing test output\nnoise line 163: unrelated passing test output\nnoise line 164: unrelated passing test output\nnoise line 165: unrelated passing test output\nnoise line 166: unrelated passing test output\nnoise line 167: unrelated passing test output\nnoise line 168: unrelated passing test output\nnoise line 169: unrelated passing test output\nnoise line 170: unrelated passing test output\nnoise line 171: unrelated passing test output\nnoise line 172: unrelated passing test output\nnoise line 173: unrelated passing test output\nnoise line 174: unrelated passing test output\nnoise line 175: unrelated passing test output\nnoise line 176: unrelated passing test output\nnoise line 177: unrelated passing test output\nnoise line 178: unrelated passing test output\nnoise line 179: unrelated passing test output\nnoise line 180: unrelated passing test output\nnoise line 181: unrelated passing test output\nnoise line 182: unrelated passing test output\nnoise line 183: unrelated passing test output\nnoise line 184: unrelated passing test output\nnoise line 185: unrelated passing test output\nnoise line 186: unrelated passing test output\nnoise line 187: unrelated passing test output\nnoise line 188: unrelated passing test output\nnoise line 189: unrelated passing test output\nnoise line 190: unrelated passing test output\nnoise line 191: unrelated passing test output\nnoise line 192: unrelated passing test output\nnoise line 193: unrelated passing test output\nnoise line 194: unrelated passing test output\nnoise line 195: unrelated passing test output\nnoise line 196: unrelated passing test output\nnoise line 197: unrelated passing test output\nnoise line 198: unrelated passing test output\nnoise line 199: unrelated passing test output\nnoise line 200: unrelated passing test output\nnoise line 201: unrelated passing test output\nnoise line 202: unrelated passing test output\nnoise line 203: unrelated passing test output\nnoise line 204: unrelated passing test output\nnoise line 205: unrelated passing test output\nnoise line 206: unrelated passing test output\nnoise line 207: unrelated passing test output\nnoise line 208: unrelated passing test output\nnoise line 209: unrelated passing test output\nnoise line 210: unrelated passing test output\nnoise line 211: unrelated passing test output\nnoise line 212: unrelated passing test output\nnoise line 213: unrelated passing test output\nnoise line 214: unrelated passing test output\nnoise line 215: unrelated passing test output\nnoise line 216: unrelated passing test output\nnoise line 217: unrelated passing test output\nnoise line 218: unrelated passing test output\nnoise line 219: unrelated passing test output\nnoise line 220: unrelated passing test output\nnoise line 221: unrelated passing test output\nnoise line 222: unrelated passing test output\nnoise line 223: unrelated passing test output\nnoise line 224: unrelated passing test output\nnoise line 225: unrelated passing test output\nnoise line 226: unrelated passing test output\nnoise line 227: unrelated passing test output\nnoise line 228: unrelated passing test output\nnoise line 229: unrelated passing test output\nnoise line 230: unrelated passing test output\nnoise line 231: unrelated passing test output\nnoise line 232: unrelated passing test output\nnoise line 233: unrelated passing test output\nnoise line 234: unrelated passing test output\nnoise line 235: unrelated passing test output\nnoise line 236: unrelated passing test output\nnoise line 237: unrelated passing test output\nnoise line 238: unrelated passing test output\nnoise line 239: unrelated passing test output\nnoise line 240: unrelated passing test output\nnoise line 241: unrelated passing test output\nnoise line 242: unrelated passing test output\nnoise line 243: unrelated passing test output\nnoise line 244: unrelated passing test output\nnoise line 245: unrelated passing test output\nnoise line 246: unrelated passing test output\nnoise line 247: unrelated passing test output\nnoise line 248: unrelated passing test output\nnoise line 249: unrelated passing test output\nnoise line 250: unrelated passing test output\nnoise line 251: unrelated passing test output\nnoise line 252: unrelated passing test output\nnoise line 253: unrelated passing test output\nnoise line 254: unrelated passing test output\nnoise line 255: unrelated passing test output\nnoise line 256: unrelated passing test output\nnoise line 257: unrelated passing test output\nnoise line 258: unrelated passing test output\nnoise line 259: unrelated passing test output\nnoise line 260: unrelated passing test output\nnoise line 261: unrelated passing test output\nnoise line 262: unrelated passing test output\nnoise line 263: unrelated passing test output\nnoise line 264: unrelated passing test output\nnoise line 265: unrelated passing test output\nnoise line 266: unrelated passing test output\nnoise line 267: unrelated passing test output\nnoise line 268: unrelated passing test output\nnoise line 269: unrelated passing test output\nnoise line 270: unrelated passing test output\nnoise line 271: unrelated passing test output\nnoise line 272: unrelated passing test output\nnoise line 273: unrelated passing test output\nnoise line 274: unrelated passing test output\nnoise line 275: unrelated passing test output\nnoise line 276: unrelated passing test output\nnoise line 277: unrelated passing test output\nnoise line 278: unrelated passing test output\nnoise line 279: unrelated passing test output\nnoise line 280: unrelated passing test output\nnoise line 281: unrelated passing test output\nnoise line 282: unrelated passing test output\nnoise line 283: unrelated passing test output\nnoise line 284: unrelated passing test output\nnoise line 285: unrelated passing test output\nnoise line 286: unrelated passing test output\nnoise line 287: unrelated passing test output\nnoise line 288: unrelated passing test output\nnoise line 289: unrelated passing test output\nnoise line 290: unrelated passing test output\nnoise line 291: unrelated passing test output\nnoise line 292: unrelated passing test output\nnoise line 293: unrelated passing test output\nnoise line 294: unrelated passing test output\nnoise line 295: unrelated passing test output\nnoise line 296: unrelated passing test output\nnoise line 297: unrelated passing test output\nnoise line 298: unrelated passing test output\nnoise line 299: unrelated passing test output\nnoise line 300: unrelated passing test output\nnoise line 301: unrelated passing test output\nnoise line 302: unrelated passing test output\nnoise line 303: unrelated passing test output\nnoise line 304: unrelated passing test output\nnoise line 305: unrelated passing test output\nnoise line 306: unrelated passing test output\nnoise line 307: unrelated passing test output\nnoise line 308: unrelated passing test output\nnoise line 309: unrelated passing test output\nnoise line 310: unrelated passing test output\nnoise line 311: unrelated passing test output\nnoise line 312: unrelated passing test output\nnoise line 313: unrelated passing test output\nnoise line 314: unrelated passing test output\nnoise line 315: unrelated passing test output\nnoise line 316: unrelated passing test output\nnoise line 317: unrelated passing test output\nnoise line 318: unrelated passing test output\nnoise line 319: unrelated passing test output\nnoise line 320: unrelated passing test output\nnoise line 321: unrelated passing test output\nnoise line 322: unrelated passing test output\nnoise line 323: unrelated passing test output\nnoise line 324: unrelated passing test output\nnoise line 325: unrelated passing test output\nnoise line 326: unrelated passing test output\nnoise line 327: unrelated passing test output\nnoise line 328: unrelated passing test output\nnoise line 329: unrelated passing test output\nnoise line 330: unrelated passing test output\nnoise line 331: unrelated passing test output\nnoise line 332: unrelated passing test output\nnoise line 333: unrelated passing test output\nnoise line 334: unrelated passing test output\nnoise line 335: unrelated passing test output\nnoise line 336: unrelated passing test output\nnoise line 337: unrelated passing test output\nnoise line 338: unrelated passing test output\nnoise line 339: unrelated passing test output\nnoise line 340: unrelated passing test output\nnoise line 341: unrelated passing test output\nnoise line 342: unrelated passing test output\nnoise line 343: unrelated passing test output\nnoise line 344: unrelated passing test output\nnoise line 345: unrelated passing test output\nnoise line 346: unrelated passing test output\nnoise line 347: unrelated passing test output\nnoise line 348: unrelated passing test output\nnoise line 349: unrelated passing test output\nnoise line 350: unrelated passing test output\nnoise line 351: unrelated passing test output\nnoise line 352: unrelated passing test output\nnoise line 353: unrelated passing test output\nnoise line 354: unrelated passing test output\nnoise line 355: unrelated passing test output\nnoise line 356: unrelated passing test output\nnoise line 357: unrelated passing test output\nnoise line 358: unrelated passing test output\nnoise line 359: unrelated passing test output\nnoise line 360: unrelated passing test output\nnoise line 361: unrelated passing test output\nnoise line 362: unrelated passing test output\nnoise line 363: unrelated passing test output\nnoise line 364: unrelated passing test output\nnoise line 365: unrelated passing test output\nnoise line 366: unrelated passing test output\nnoise line 367: unrelated passing test output\nnoise line 368: unrelated passing test output\nnoise line 369: unrelated passing test output\nnoise line 370: unrelated passing test output\nnoise line 371: unrelated passing test output\nnoise line 372: unrelated passing test output\nnoise line 373: unrelated passing test output\nnoise line 374: unrelated passing test output\nnoise line 375: unrelated passing test output\nnoise line 376: unrelated passing test output\nnoise line 377: unrelated passing test output\nnoise line 378: unrelated passing test output\nnoise line 379: unrelated passing test output\nnoise line 380: unrelated passing test output\nnoise line 381: unrelated passing test output\nnoise line 382: unrelated passing test output\nnoise line 383: unrelated passing test output\nnoise line 384: unrelated passing test output\nnoise line 385: unrelated passing test output\nnoise line 386: unrelated passing test output\nnoise line 387: unrelated passing test output\nnoise line 388: unrelated passing test output\nnoise line 389: unrelated passing test output\nnoise line 390: unrelated passing test output\nnoise line 391: unrelated passing test output\nnoise line 392: unrelated passing test output\nnoise line 393: unrelated passing test output\nnoise line 394: unrelated passing test output\nnoise line 395: unrelated passing test output\nnoise line 396: unrelated passing test output\nnoise line 397: unrelated passing test output\nnoise line 398: unrelated passing test output\nnoise line 399: unrelated passing test output",
+      "facts": [
+        {
+          "id": "test_name",
+          "pattern": "test_signature_rejects_replayed_timestamp",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "expected",
+          "pattern": "expected HTTP 401",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "actual",
+          "pattern": "got HTTP 204",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "window",
+          "pattern": "900 seconds, expected 300 seconds",
+          "required": true,
+          "description": ""
+        }
+      ],
+      "notes": "Structured terminal output is intentionally outside the default LLMLingua allowlist."
+    },
+    {
+      "id": "code_search_result_excluded",
+      "category": "structured_excluded",
+      "tool_name": "search_files",
+      "tool_args": "{\"pattern\": \"trust_external_endpoint\", \"path\": \"agent\"}",
+      "question": "Which file and line enforces the external endpoint trust flag?",
+      "content": "agent/tool_result_compressor.py:768:        if self.config.trust_external_endpoint:\nagent/tool_result_compressor.py:771:            'refusing to send tool-result text over the network'\nwebsite/docs/user-guide/configuration.md:722: trust_external_endpoint must be explicitly enabled.\ndocs/noise_0.md:0: unrelated endpoint mention\ndocs/noise_1.md:1: unrelated endpoint mention\ndocs/noise_2.md:2: unrelated endpoint mention\ndocs/noise_3.md:3: unrelated endpoint mention\ndocs/noise_4.md:4: unrelated endpoint mention\ndocs/noise_5.md:5: unrelated endpoint mention\ndocs/noise_6.md:6: unrelated endpoint mention\ndocs/noise_7.md:7: unrelated endpoint mention\ndocs/noise_8.md:8: unrelated endpoint mention\ndocs/noise_9.md:9: unrelated endpoint mention\ndocs/noise_10.md:10: unrelated endpoint mention\ndocs/noise_11.md:11: unrelated endpoint mention\ndocs/noise_12.md:12: unrelated endpoint mention\ndocs/noise_13.md:13: unrelated endpoint mention\ndocs/noise_14.md:14: unrelated endpoint mention\ndocs/noise_15.md:15: unrelated endpoint mention\ndocs/noise_16.md:16: unrelated endpoint mention\ndocs/noise_17.md:17: unrelated endpoint mention\ndocs/noise_18.md:18: unrelated endpoint mention\ndocs/noise_19.md:19: unrelated endpoint mention\ndocs/noise_20.md:20: unrelated endpoint mention\ndocs/noise_21.md:21: unrelated endpoint mention\ndocs/noise_22.md:22: unrelated endpoint mention\ndocs/noise_23.md:23: unrelated endpoint mention\ndocs/noise_24.md:24: unrelated endpoint mention\ndocs/noise_25.md:25: unrelated endpoint mention\ndocs/noise_26.md:26: unrelated endpoint mention\ndocs/noise_27.md:27: unrelated endpoint mention\ndocs/noise_28.md:28: unrelated endpoint mention\ndocs/noise_29.md:29: unrelated endpoint mention\ndocs/noise_30.md:30: unrelated endpoint mention\ndocs/noise_31.md:31: unrelated endpoint mention\ndocs/noise_32.md:32: unrelated endpoint mention\ndocs/noise_33.md:33: unrelated endpoint mention\ndocs/noise_34.md:34: unrelated endpoint mention\ndocs/noise_35.md:35: unrelated endpoint mention\ndocs/noise_36.md:36: unrelated endpoint mention\ndocs/noise_37.md:37: unrelated endpoint mention\ndocs/noise_38.md:38: unrelated endpoint mention\ndocs/noise_39.md:39: unrelated endpoint mention\ndocs/noise_40.md:40: unrelated endpoint mention\ndocs/noise_41.md:41: unrelated endpoint mention\ndocs/noise_42.md:42: unrelated endpoint mention\ndocs/noise_43.md:43: unrelated endpoint mention\ndocs/noise_44.md:44: unrelated endpoint mention\ndocs/noise_45.md:45: unrelated endpoint mention\ndocs/noise_46.md:46: unrelated endpoint mention\ndocs/noise_47.md:47: unrelated endpoint mention\ndocs/noise_48.md:48: unrelated endpoint mention\ndocs/noise_49.md:49: unrelated endpoint mention\ndocs/noise_50.md:50: unrelated endpoint mention\ndocs/noise_51.md:51: unrelated endpoint mention\ndocs/noise_52.md:52: unrelated endpoint mention\ndocs/noise_53.md:53: unrelated endpoint mention\ndocs/noise_54.md:54: unrelated endpoint mention\ndocs/noise_55.md:55: unrelated endpoint mention\ndocs/noise_56.md:56: unrelated endpoint mention\ndocs/noise_57.md:57: unrelated endpoint mention\ndocs/noise_58.md:58: unrelated endpoint mention\ndocs/noise_59.md:59: unrelated endpoint mention\ndocs/noise_60.md:60: unrelated endpoint mention\ndocs/noise_61.md:61: unrelated endpoint mention\ndocs/noise_62.md:62: unrelated endpoint mention\ndocs/noise_63.md:63: unrelated endpoint mention\ndocs/noise_64.md:64: unrelated endpoint mention\ndocs/noise_65.md:65: unrelated endpoint mention\ndocs/noise_66.md:66: unrelated endpoint mention\ndocs/noise_67.md:67: unrelated endpoint mention\ndocs/noise_68.md:68: unrelated endpoint mention\ndocs/noise_69.md:69: unrelated endpoint mention\ndocs/noise_70.md:70: unrelated endpoint mention\ndocs/noise_71.md:71: unrelated endpoint mention\ndocs/noise_72.md:72: unrelated endpoint mention\ndocs/noise_73.md:73: unrelated endpoint mention\ndocs/noise_74.md:74: unrelated endpoint mention\ndocs/noise_75.md:75: unrelated endpoint mention\ndocs/noise_76.md:76: unrelated endpoint mention\ndocs/noise_77.md:77: unrelated endpoint mention\ndocs/noise_78.md:78: unrelated endpoint mention\ndocs/noise_79.md:79: unrelated endpoint mention\ndocs/noise_80.md:80: unrelated endpoint mention\ndocs/noise_81.md:81: unrelated endpoint mention\ndocs/noise_82.md:82: unrelated endpoint mention\ndocs/noise_83.md:83: unrelated endpoint mention\ndocs/noise_84.md:84: unrelated endpoint mention\ndocs/noise_85.md:85: unrelated endpoint mention\ndocs/noise_86.md:86: unrelated endpoint mention\ndocs/noise_87.md:87: unrelated endpoint mention\ndocs/noise_88.md:88: unrelated endpoint mention\ndocs/noise_89.md:89: unrelated endpoint mention\ndocs/noise_90.md:90: unrelated endpoint mention\ndocs/noise_91.md:91: unrelated endpoint mention\ndocs/noise_92.md:92: unrelated endpoint mention\ndocs/noise_93.md:93: unrelated endpoint mention\ndocs/noise_94.md:94: unrelated endpoint mention\ndocs/noise_95.md:95: unrelated endpoint mention\ndocs/noise_96.md:96: unrelated endpoint mention\ndocs/noise_97.md:97: unrelated endpoint mention\ndocs/noise_98.md:98: unrelated endpoint mention\ndocs/noise_99.md:99: unrelated endpoint mention\ndocs/noise_100.md:100: unrelated endpoint mention\ndocs/noise_101.md:101: unrelated endpoint mention\ndocs/noise_102.md:102: unrelated endpoint mention\ndocs/noise_103.md:103: unrelated endpoint mention\ndocs/noise_104.md:104: unrelated endpoint mention\ndocs/noise_105.md:105: unrelated endpoint mention\ndocs/noise_106.md:106: unrelated endpoint mention\ndocs/noise_107.md:107: unrelated endpoint mention\ndocs/noise_108.md:108: unrelated endpoint mention\ndocs/noise_109.md:109: unrelated endpoint mention\ndocs/noise_110.md:110: unrelated endpoint mention\ndocs/noise_111.md:111: unrelated endpoint mention\ndocs/noise_112.md:112: unrelated endpoint mention\ndocs/noise_113.md:113: unrelated endpoint mention\ndocs/noise_114.md:114: unrelated endpoint mention\ndocs/noise_115.md:115: unrelated endpoint mention\ndocs/noise_116.md:116: unrelated endpoint mention\ndocs/noise_117.md:117: unrelated endpoint mention\ndocs/noise_118.md:118: unrelated endpoint mention\ndocs/noise_119.md:119: unrelated endpoint mention\ndocs/noise_120.md:120: unrelated endpoint mention\ndocs/noise_121.md:121: unrelated endpoint mention\ndocs/noise_122.md:122: unrelated endpoint mention\ndocs/noise_123.md:123: unrelated endpoint mention\ndocs/noise_124.md:124: unrelated endpoint mention\ndocs/noise_125.md:125: unrelated endpoint mention\ndocs/noise_126.md:126: unrelated endpoint mention\ndocs/noise_127.md:127: unrelated endpoint mention\ndocs/noise_128.md:128: unrelated endpoint mention\ndocs/noise_129.md:129: unrelated endpoint mention\ndocs/noise_130.md:130: unrelated endpoint mention\ndocs/noise_131.md:131: unrelated endpoint mention\ndocs/noise_132.md:132: unrelated endpoint mention\ndocs/noise_133.md:133: unrelated endpoint mention\ndocs/noise_134.md:134: unrelated endpoint mention\ndocs/noise_135.md:135: unrelated endpoint mention\ndocs/noise_136.md:136: unrelated endpoint mention\ndocs/noise_137.md:137: unrelated endpoint mention\ndocs/noise_138.md:138: unrelated endpoint mention\ndocs/noise_139.md:139: unrelated endpoint mention\ndocs/noise_140.md:140: unrelated endpoint mention\ndocs/noise_141.md:141: unrelated endpoint mention\ndocs/noise_142.md:142: unrelated endpoint mention\ndocs/noise_143.md:143: unrelated endpoint mention\ndocs/noise_144.md:144: unrelated endpoint mention\ndocs/noise_145.md:145: unrelated endpoint mention\ndocs/noise_146.md:146: unrelated endpoint mention\ndocs/noise_147.md:147: unrelated endpoint mention\ndocs/noise_148.md:148: unrelated endpoint mention\ndocs/noise_149.md:149: unrelated endpoint mention\ndocs/noise_150.md:150: unrelated endpoint mention\ndocs/noise_151.md:151: unrelated endpoint mention\ndocs/noise_152.md:152: unrelated endpoint mention\ndocs/noise_153.md:153: unrelated endpoint mention\ndocs/noise_154.md:154: unrelated endpoint mention\ndocs/noise_155.md:155: unrelated endpoint mention\ndocs/noise_156.md:156: unrelated endpoint mention\ndocs/noise_157.md:157: unrelated endpoint mention\ndocs/noise_158.md:158: unrelated endpoint mention\ndocs/noise_159.md:159: unrelated endpoint mention\ndocs/noise_160.md:160: unrelated endpoint mention\ndocs/noise_161.md:161: unrelated endpoint mention\ndocs/noise_162.md:162: unrelated endpoint mention\ndocs/noise_163.md:163: unrelated endpoint mention\ndocs/noise_164.md:164: unrelated endpoint mention\ndocs/noise_165.md:165: unrelated endpoint mention\ndocs/noise_166.md:166: unrelated endpoint mention\ndocs/noise_167.md:167: unrelated endpoint mention\ndocs/noise_168.md:168: unrelated endpoint mention\ndocs/noise_169.md:169: unrelated endpoint mention\ndocs/noise_170.md:170: unrelated endpoint mention\ndocs/noise_171.md:171: unrelated endpoint mention\ndocs/noise_172.md:172: unrelated endpoint mention\ndocs/noise_173.md:173: unrelated endpoint mention\ndocs/noise_174.md:174: unrelated endpoint mention\ndocs/noise_175.md:175: unrelated endpoint mention\ndocs/noise_176.md:176: unrelated endpoint mention\ndocs/noise_177.md:177: unrelated endpoint mention\ndocs/noise_178.md:178: unrelated endpoint mention\ndocs/noise_179.md:179: unrelated endpoint mention\ndocs/noise_180.md:180: unrelated endpoint mention\ndocs/noise_181.md:181: unrelated endpoint mention\ndocs/noise_182.md:182: unrelated endpoint mention\ndocs/noise_183.md:183: unrelated endpoint mention\ndocs/noise_184.md:184: unrelated endpoint mention\ndocs/noise_185.md:185: unrelated endpoint mention\ndocs/noise_186.md:186: unrelated endpoint mention\ndocs/noise_187.md:187: unrelated endpoint mention\ndocs/noise_188.md:188: unrelated endpoint mention\ndocs/noise_189.md:189: unrelated endpoint mention\ndocs/noise_190.md:190: unrelated endpoint mention\ndocs/noise_191.md:191: unrelated endpoint mention\ndocs/noise_192.md:192: unrelated endpoint mention\ndocs/noise_193.md:193: unrelated endpoint mention\ndocs/noise_194.md:194: unrelated endpoint mention\ndocs/noise_195.md:195: unrelated endpoint mention\ndocs/noise_196.md:196: unrelated endpoint mention\ndocs/noise_197.md:197: unrelated endpoint mention\ndocs/noise_198.md:198: unrelated endpoint mention\ndocs/noise_199.md:199: unrelated endpoint mention\ndocs/noise_200.md:200: unrelated endpoint mention\ndocs/noise_201.md:201: unrelated endpoint mention\ndocs/noise_202.md:202: unrelated endpoint mention\ndocs/noise_203.md:203: unrelated endpoint mention\ndocs/noise_204.md:204: unrelated endpoint mention\ndocs/noise_205.md:205: unrelated endpoint mention\ndocs/noise_206.md:206: unrelated endpoint mention\ndocs/noise_207.md:207: unrelated endpoint mention\ndocs/noise_208.md:208: unrelated endpoint mention\ndocs/noise_209.md:209: unrelated endpoint mention\ndocs/noise_210.md:210: unrelated endpoint mention\ndocs/noise_211.md:211: unrelated endpoint mention\ndocs/noise_212.md:212: unrelated endpoint mention\ndocs/noise_213.md:213: unrelated endpoint mention\ndocs/noise_214.md:214: unrelated endpoint mention\ndocs/noise_215.md:215: unrelated endpoint mention\ndocs/noise_216.md:216: unrelated endpoint mention\ndocs/noise_217.md:217: unrelated endpoint mention\ndocs/noise_218.md:218: unrelated endpoint mention\ndocs/noise_219.md:219: unrelated endpoint mention\ndocs/noise_220.md:220: unrelated endpoint mention\ndocs/noise_221.md:221: unrelated endpoint mention\ndocs/noise_222.md:222: unrelated endpoint mention\ndocs/noise_223.md:223: unrelated endpoint mention\ndocs/noise_224.md:224: unrelated endpoint mention\ndocs/noise_225.md:225: unrelated endpoint mention\ndocs/noise_226.md:226: unrelated endpoint mention\ndocs/noise_227.md:227: unrelated endpoint mention\ndocs/noise_228.md:228: unrelated endpoint mention\ndocs/noise_229.md:229: unrelated endpoint mention\ndocs/noise_230.md:230: unrelated endpoint mention\ndocs/noise_231.md:231: unrelated endpoint mention\ndocs/noise_232.md:232: unrelated endpoint mention\ndocs/noise_233.md:233: unrelated endpoint mention\ndocs/noise_234.md:234: unrelated endpoint mention\ndocs/noise_235.md:235: unrelated endpoint mention\ndocs/noise_236.md:236: unrelated endpoint mention\ndocs/noise_237.md:237: unrelated endpoint mention\ndocs/noise_238.md:238: unrelated endpoint mention\ndocs/noise_239.md:239: unrelated endpoint mention\ndocs/noise_240.md:240: unrelated endpoint mention\ndocs/noise_241.md:241: unrelated endpoint mention\ndocs/noise_242.md:242: unrelated endpoint mention\ndocs/noise_243.md:243: unrelated endpoint mention\ndocs/noise_244.md:244: unrelated endpoint mention\ndocs/noise_245.md:245: unrelated endpoint mention\ndocs/noise_246.md:246: unrelated endpoint mention\ndocs/noise_247.md:247: unrelated endpoint mention\ndocs/noise_248.md:248: unrelated endpoint mention\ndocs/noise_249.md:249: unrelated endpoint mention\ndocs/noise_250.md:250: unrelated endpoint mention\ndocs/noise_251.md:251: unrelated endpoint mention\ndocs/noise_252.md:252: unrelated endpoint mention\ndocs/noise_253.md:253: unrelated endpoint mention\ndocs/noise_254.md:254: unrelated endpoint mention\ndocs/noise_255.md:255: unrelated endpoint mention\ndocs/noise_256.md:256: unrelated endpoint mention\ndocs/noise_257.md:257: unrelated endpoint mention\ndocs/noise_258.md:258: unrelated endpoint mention\ndocs/noise_259.md:259: unrelated endpoint mention\ndocs/noise_260.md:260: unrelated endpoint mention\ndocs/noise_261.md:261: unrelated endpoint mention\ndocs/noise_262.md:262: unrelated endpoint mention\ndocs/noise_263.md:263: unrelated endpoint mention\ndocs/noise_264.md:264: unrelated endpoint mention\ndocs/noise_265.md:265: unrelated endpoint mention\ndocs/noise_266.md:266: unrelated endpoint mention\ndocs/noise_267.md:267: unrelated endpoint mention\ndocs/noise_268.md:268: unrelated endpoint mention\ndocs/noise_269.md:269: unrelated endpoint mention\ndocs/noise_270.md:270: unrelated endpoint mention\ndocs/noise_271.md:271: unrelated endpoint mention\ndocs/noise_272.md:272: unrelated endpoint mention\ndocs/noise_273.md:273: unrelated endpoint mention\ndocs/noise_274.md:274: unrelated endpoint mention\ndocs/noise_275.md:275: unrelated endpoint mention\ndocs/noise_276.md:276: unrelated endpoint mention\ndocs/noise_277.md:277: unrelated endpoint mention\ndocs/noise_278.md:278: unrelated endpoint mention\ndocs/noise_279.md:279: unrelated endpoint mention\ndocs/noise_280.md:280: unrelated endpoint mention\ndocs/noise_281.md:281: unrelated endpoint mention\ndocs/noise_282.md:282: unrelated endpoint mention\ndocs/noise_283.md:283: unrelated endpoint mention\ndocs/noise_284.md:284: unrelated endpoint mention\ndocs/noise_285.md:285: unrelated endpoint mention\ndocs/noise_286.md:286: unrelated endpoint mention\ndocs/noise_287.md:287: unrelated endpoint mention\ndocs/noise_288.md:288: unrelated endpoint mention\ndocs/noise_289.md:289: unrelated endpoint mention\ndocs/noise_290.md:290: unrelated endpoint mention\ndocs/noise_291.md:291: unrelated endpoint mention\ndocs/noise_292.md:292: unrelated endpoint mention\ndocs/noise_293.md:293: unrelated endpoint mention\ndocs/noise_294.md:294: unrelated endpoint mention\ndocs/noise_295.md:295: unrelated endpoint mention\ndocs/noise_296.md:296: unrelated endpoint mention\ndocs/noise_297.md:297: unrelated endpoint mention\ndocs/noise_298.md:298: unrelated endpoint mention\ndocs/noise_299.md:299: unrelated endpoint mention",
+      "facts": [
+        {
+          "id": "file",
+          "pattern": "agent/tool_result_compressor\\.py",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "line",
+          "pattern": ":768:",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "flag",
+          "pattern": "trust_external_endpoint",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "warning",
+          "pattern": "refusing to send tool-result text",
+          "required": true,
+          "description": ""
+        }
+      ],
+      "notes": "Search/code output is intentionally outside the default LLMLingua allowlist."
+    },
+    {
+      "id": "browser_dashboard_status",
+      "category": "browser_snapshot",
+      "tool_name": "browser_snapshot",
+      "tool_args": "{}",
+      "question": "What health issue does the dashboard show and which queue is affected?",
+      "content": "Dashboard snapshot\n[@e4] heading 'Operations'\n[@e9] status 'ingest-normal priority queue: degraded'\n[@e10] text 'Oldest pending job age: 37 minutes'\n[@e11] text 'Error rate: 6.2% over the last 15 minutes'\n[@e12] button 'Drain queue'\nDistractor: batch-low queue healthy, 0.1% errors.\n\nBackground note 1: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "queue",
+          "pattern": "ingest\\s*-\\s*normal priority queue",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "status",
+          "pattern": "degraded",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "age",
+          "pattern": "37 minutes",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "error_rate",
+          "pattern": "6\\.\\s*2\\s*%",
+          "required": true,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "oidc_docs",
+      "category": "docs_research",
+      "tool_name": "web_extract",
+      "tool_args": "{\"urls\": [\"https://identity.example.dev/oidc\"]}",
+      "question": "What OIDC settings should the agent configure?",
+      "content": "OIDC Integration Reference\nIssuer URL: https://identity.example.dev/oauth2/default\nJWKS endpoint: https://identity.example.dev/oauth2/default/.well-known/jwks.json\nAudience: hermes-agent-prod\nClock skew allowance: 120 seconds.\nRequired scope: agent.gateway.write\nDistractor: staging audience is hermes-agent-staging.\n\nBackground note 1: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 19: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 20: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 21: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "issuer",
+          "pattern": "https://identity\\.example\\.dev/oauth2/default",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "jwks",
+          "pattern": "jwks\\.json",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "audience",
+          "pattern": "hermes\\s*-\\s*agent\\s*-\\s*prod",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "skew",
+          "pattern": "120 seconds",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "scope",
+          "pattern": "agent\\s*\\.\\s*gateway\\s*\\.\\s*write",
+          "required": false,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "regulatory_policy_article",
+      "category": "web_research",
+      "tool_name": "web_extract",
+      "tool_args": "{\"urls\": [\"https://policy.example.eu/ai-records\"]}",
+      "question": "What retention policy applies to model audit records?",
+      "content": "AI Records Policy Summary\nHigh-impact automated decision systems must retain model audit records for 7 years.\nRecords must include prompt templates, model version, reviewer identity, and appeal outcome.\nDeletion exception: user content may be redacted after 30 days if audit hashes remain verifiable.\nDistractor: low-risk chatbots keep analytics for 13 months.\n\nBackground note 1: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 19: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 20: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "retention",
+          "pattern": "7 years",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "records",
+          "pattern": "prompt templates\\W+model version\\W+reviewer identity\\W+(?:and\\W+)?appeal outcome",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "redaction",
+          "pattern": "redacted after 30 days",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "hashes",
+          "pattern": "audit hashes remain verifiable",
+          "required": true,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "package_changelog",
+      "category": "docs_research",
+      "tool_name": "web_extract",
+      "tool_args": "{\"urls\": [\"https://packages.example.dev/vega-agent/changelog\"]}",
+      "question": "Which changelog entry fixes the streaming cancel bug?",
+      "content": "vega-agent changelog\nVersion 0.9.12: fixes streaming cancellation leak where cancelled SSE tasks kept provider sockets open.\nPatch note: cleanup now awaits aclose() with a 2 second timeout.\nRegression test: test_stream_cancel_closes_provider_socket.\nDistractor: version 0.9.11 fixed markdown table rendering.\n\nBackground note 1: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 2: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 3: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 4: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 5: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 6: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 7: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 8: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 9: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 10: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 11: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 12: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 13: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 14: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 15: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 16: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 17: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.\n\nBackground note 18: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs are intentionally similar enough to act as noise, but they do not answer the benchmark question.",
+      "facts": [
+        {
+          "id": "version",
+          "pattern": "Version 0\\.\\s*9\\.\\s*12",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "bug",
+          "pattern": "streaming cancellation leak",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "fix",
+          "pattern": "awaits aclose\\s*\\(\\s*\\)\\s*(?:with\\s+a\\s+)?2 second timeout",
+          "required": true,
+          "description": ""
+        },
+        {
+          "id": "test",
+          "pattern": "test\\s*_\\s*stream\\s*_\\s*cancel\\s*_\\s*closes\\s*_\\s*provider\\s*_\\s*socket",
+          "required": false,
+          "description": ""
+        }
+      ],
+      "notes": ""
+    }
+  ],
+  "results": {
+    "full": [
+      {
+        "id": "web_security_advisory",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 6693,
+        "compressed_chars": 6693,
+        "input_tokens_est": 1674,
+        "compressed_tokens_est": 1674,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "HermesShield Security Advisory HS-2026-17\\nAffected versions: HermesShield Gateway 4.8.0 through 4.8.6.\\nFixed in: HermesShield Gateway 4.8.7.\\nIdentifier: CVE-2026-4242.\\nMitigation: rotate webhook signing secrets and disable legacy callback forwarding.\\nUnaffected distractor: HermesVault 2.1.0 was patched for CVE-2026-1111.\\n\\nBackground note 1: the security advisory team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, an",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "affected_versions",
+          "fixed_version",
+          "cve",
+          "mitigation"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "api_migration_docs",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 7272,
+        "compressed_chars": 7272,
+        "input_tokens_est": 1818,
+        "compressed_tokens_est": 1818,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Export API v3 Migration Guide\\nEndpoint change: POST /v2/exports becomes POST /v3/jobs/export.\\nRequired header: Idempotency-Key must be a UUIDv7 value.\\nDeprecated field: callback_url is replaced by webhook.destination_url.\\nSafe rollout: send X-Export-Dry-Run: true for the first 24 hours.\\nDistractor: Import API v3 still accepts UUIDv4 keys until 2027.\\n\\nBackground note 1: the API migration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetin",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "endpoint",
+          "idempotency",
+          "callback_replacement",
+          "dry_run"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "pricing_policy_research",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 6331,
+        "compressed_chars": 6331,
+        "input_tokens_est": 1583,
+        "compressed_tokens_est": 1583,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Enterprise Pricing Policy 2026\\nBase plan: 2,000,000 included tool-call tokens per month.\\nOverage: $0.42 per additional 10,000 tool-call tokens.\\nHard cap: customers may set a monthly spend ceiling in dollars.\\nException: education tenants receive a 30% overage credit.\\nDistractor: the Pro plan includes 200,000 tokens and a $0.60 overage.\\n\\nBackground note 1: the pricing policy team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale scre",
+        "required_found": 3,
+        "required_total": 3,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "included_tokens",
+          "overage",
+          "hard_cap"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "education_credit"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "browser_checkout_snapshot",
+        "category": "browser_snapshot",
+        "tool_name": "browser_snapshot",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 5963,
+        "compressed_chars": 5963,
+        "input_tokens_est": 1491,
+        "compressed_tokens_est": 1491,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Accessibility snapshot for checkout page\\n[@e11] textbox 'Email' value='evi@example.com'\\n[@e12] combobox 'Country' value='France'\\n[@e21] alert 'Payment failed: card requires 3-D Secure authentication.'\\n[@e22] button 'Retry payment' enabled=true\\n[@e23] link 'Use another payment method'\\nDistractor alert: Shipping estimate delayed by 1 day.\\n\\nBackground note 1: the checkout UI team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale scree",
+        "required_found": 2,
+        "required_total": 2,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "payment_failed",
+          "3ds"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "retry_button"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "web_search_release_notes",
+        "category": "web_search",
+        "tool_name": "web_search",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 5506,
+        "compressed_chars": 5506,
+        "input_tokens_est": 1377,
+        "compressed_tokens_est": 1377,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "{\\n  \"data\": {\\n    \"web\": [\\n      {\\n        \"title\": \"AstraDB 1.14 Release Notes\",\\n        \"url\": \"https://astradb.example/releases/1.14\",\\n        \"description\": \"Adds encrypted local-first sync using XChaCha20-Poly1305 and background conflict repair.\"\\n      },\\n      {\\n        \"title\": \"AstraDB 1.13 Maintenance\",\\n        \"url\": \"https://astradb.example/releases/1.13\",\\n        \"description\": \"Improves compaction and query planner hints.\"\\n      }\\n    ]\\n  }\\n}\\n\\nBackground note 1: the release search t",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "version",
+          "feature",
+          "cipher",
+          "url"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "incident_feed_json",
+        "category": "api_json_via_web",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 6192,
+        "compressed_chars": 6192,
+        "input_tokens_est": 1548,
+        "compressed_tokens_est": 1548,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "{\\n  \"incidents\": [\\n    {\\n      \"id\": \"inc_9af31\",\\n      \"status\": \"active\",\\n      \"title\": \"Webhook delivery delays\",\\n      \"region\": \"eu-west-3\",\\n      \"eta_minutes\": 45,\\n      \"workaround\": \"switch callbacks to polling fallback\"\\n    },\\n    {\\n      \"id\": \"inc_old_771\",\\n      \"status\": \"resolved\",\\n      \"title\": \"Dashboard CSS regression\",\\n      \"region\": \"us-east-1\",\\n      \"eta_minutes\": 0\\n    }\\n  ]\\n}\\n\\nBackground note 1: the incident status feed team also discussed unrelated rollout details, mi",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "incident_id",
+          "title",
+          "region",
+          "eta"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "workaround"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "terminal_failure_log_excluded",
+        "category": "structured_excluded",
+        "tool_name": "terminal",
+        "default_llmlingua_candidate": false,
+        "mode": "full",
+        "input_chars": 18584,
+        "compressed_chars": 18584,
+        "input_tokens_est": 4646,
+        "compressed_tokens_est": 4646,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "============================= test session starts =============================\\nFAILED tests/gateway/test_webhooks.py::test_signature_rejects_replayed_timestamp\\nE   AssertionError: expected HTTP 401 but got HTTP 204\\nCaptured log: replay window was 900 seconds, expected 300 seconds\\nexit_code: 1\\nnoise line 0: unrelated passing test output\\nnoise line 1: unrelated passing test output\\nnoise line 2: unrelated passing test output\\nnoise line 3: unrelated passing test output\\nnoise line 4: unrelated passi",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "test_name",
+          "expected",
+          "actual",
+          "window"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "code_search_result_excluded",
+        "category": "structured_excluded",
+        "tool_name": "search_files",
+        "default_llmlingua_candidate": false,
+        "mode": "full",
+        "input_chars": 15062,
+        "compressed_chars": 15062,
+        "input_tokens_est": 3766,
+        "compressed_tokens_est": 3766,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "agent/tool_result_compressor.py:768:        if self.config.trust_external_endpoint:\\nagent/tool_result_compressor.py:771:            'refusing to send tool-result text over the network'\\nwebsite/docs/user-guide/configuration.md:722: trust_external_endpoint must be explicitly enabled.\\ndocs/noise_0.md:0: unrelated endpoint mention\\ndocs/noise_1.md:1: unrelated endpoint mention\\ndocs/noise_2.md:2: unrelated endpoint mention\\ndocs/noise_3.md:3: unrelated endpoint mention\\ndocs/noise_4.md:4: unrelated endp",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "file",
+          "line",
+          "flag",
+          "warning"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "browser_dashboard_status",
+        "category": "browser_snapshot",
+        "tool_name": "browser_snapshot",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 5943,
+        "compressed_chars": 5943,
+        "input_tokens_est": 1486,
+        "compressed_tokens_est": 1486,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Dashboard snapshot\\n[@e4] heading 'Operations'\\n[@e9] status 'ingest-normal priority queue: degraded'\\n[@e10] text 'Oldest pending job age: 37 minutes'\\n[@e11] text 'Error rate: 6.2% over the last 15 minutes'\\n[@e12] button 'Drain queue'\\nDistractor: batch-low queue healthy, 0.1% errors.\\n\\nBackground note 1: the ops dashboard team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedback summaries. These paragraphs ",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "queue",
+          "status",
+          "age",
+          "error_rate"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "oidc_docs",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 7027,
+        "compressed_chars": 7027,
+        "input_tokens_est": 1757,
+        "compressed_tokens_est": 1757,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "OIDC Integration Reference\\nIssuer URL: https://identity.example.dev/oauth2/default\\nJWKS endpoint: https://identity.example.dev/oauth2/default/.well-known/jwks.json\\nAudience: hermes-agent-prod\\nClock skew allowance: 120 seconds.\\nRequired scope: agent.gateway.write\\nDistractor: staging audience is hermes-agent-staging.\\n\\nBackground note 1: the OIDC configuration team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and use",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "issuer",
+          "jwks",
+          "audience",
+          "skew"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "scope"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "regulatory_policy_article",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 6751,
+        "compressed_chars": 6751,
+        "input_tokens_est": 1688,
+        "compressed_tokens_est": 1688,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "AI Records Policy Summary\\nHigh-impact automated decision systems must retain model audit records for 7 years.\\nRecords must include prompt templates, model version, reviewer identity, and appeal outcome.\\nDeletion exception: user content may be redacted after 30 days if audit hashes remain verifiable.\\nDistractor: low-risk chatbots keep analytics for 13 months.\\n\\nBackground note 1: the regulatory records team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "retention",
+          "records",
+          "redaction",
+          "hashes"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "package_changelog",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "full",
+        "input_chars": 6041,
+        "compressed_chars": 6041,
+        "input_tokens_est": 1511,
+        "compressed_tokens_est": 1511,
+        "compression_ratio": 1.0,
+        "token_compression_ratio": 1.0,
+        "latency_ms": 0.0,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "vega-agent changelog\\nVersion 0.9.12: fixes streaming cancellation leak where cancelled SSE tasks kept provider sockets open.\\nPatch note: cleanup now awaits aclose() with a 2 second timeout.\\nRegression test: test_stream_cancel_closes_provider_socket.\\nDistractor: version 0.9.11 fixed markdown table rendering.\\n\\nBackground note 1: the package changelog team also discussed unrelated rollout details, migration windows, telemetry dashboards, internal review meetings, stale screenshots, and user feedbac",
+        "required_found": 3,
+        "required_total": 3,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "version",
+          "bug",
+          "fix"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "test"
+        ],
+        "missing_optional": []
+      }
+    ],
+    "drop": [
+      {
+        "id": "web_security_advisory",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 6693,
+        "compressed_chars": 67,
+        "input_tokens_est": 1674,
+        "compressed_tokens_est": 17,
+        "compression_ratio": 99.8955223880597,
+        "token_compression_ratio": 98.47058823529412,
+        "latency_ms": 0.026749999960884452,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_extract] https://example.org/security/hs-2026-17 (6,693 chars)",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "affected_versions",
+          "fixed_version",
+          "cve",
+          "mitigation"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "api_migration_docs",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 7272,
+        "compressed_chars": 65,
+        "input_tokens_est": 1818,
+        "compressed_tokens_est": 17,
+        "compression_ratio": 111.87692307692308,
+        "token_compression_ratio": 106.94117647058823,
+        "latency_ms": 0.006416987162083387,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_extract] https://docs.example.dev/migration/v3 (7,272 chars)",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "endpoint",
+          "idempotency",
+          "callback_replacement",
+          "dry_run"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "pricing_policy_research",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 6331,
+        "compressed_chars": 66,
+        "input_tokens_est": 1583,
+        "compressed_tokens_est": 17,
+        "compression_ratio": 95.92424242424242,
+        "token_compression_ratio": 93.11764705882354,
+        "latency_ms": 0.004375004209578037,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_extract] https://example.com/pricing/enterprise (6,331 chars)",
+        "required_found": 0,
+        "required_total": 3,
+        "optional_found": 0,
+        "optional_total": 1,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "included_tokens",
+          "overage",
+          "hard_cap"
+        ],
+        "found_optional": [],
+        "missing_optional": [
+          "education_credit"
+        ]
+      },
+      {
+        "id": "browser_checkout_snapshot",
+        "category": "browser_snapshot",
+        "tool_name": "browser_snapshot",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 5963,
+        "compressed_chars": 32,
+        "input_tokens_est": 1491,
+        "compressed_tokens_est": 8,
+        "compression_ratio": 186.34375,
+        "token_compression_ratio": 186.375,
+        "latency_ms": 0.003958994057029486,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[browser_snapshot] (5,963 chars)",
+        "required_found": 0,
+        "required_total": 2,
+        "optional_found": 0,
+        "optional_total": 1,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "payment_failed",
+          "3ds"
+        ],
+        "found_optional": [],
+        "missing_optional": [
+          "retry_button"
+        ]
+      },
+      {
+        "id": "web_search_release_notes",
+        "category": "web_search",
+        "tool_name": "web_search",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 5506,
+        "compressed_chars": 80,
+        "input_tokens_est": 1377,
+        "compressed_tokens_est": 20,
+        "compression_ratio": 68.825,
+        "token_compression_ratio": 68.85,
+        "latency_ms": 0.0051670067477971315,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_search] query='AstraDB local-first release notes 1.14' (5,506 chars result)",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "version",
+          "feature",
+          "cipher",
+          "url"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "incident_feed_json",
+        "category": "api_json_via_web",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 6192,
+        "compressed_chars": 68,
+        "input_tokens_est": 1548,
+        "compressed_tokens_est": 17,
+        "compression_ratio": 91.05882352941177,
+        "token_compression_ratio": 91.05882352941177,
+        "latency_ms": 0.0035410048440098763,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_extract] https://status.example.net/api/incidents (6,192 chars)",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 1,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "incident_id",
+          "title",
+          "region",
+          "eta"
+        ],
+        "found_optional": [],
+        "missing_optional": [
+          "workaround"
+        ]
+      },
+      {
+        "id": "terminal_failure_log_excluded",
+        "category": "structured_excluded",
+        "tool_name": "terminal",
+        "default_llmlingua_candidate": false,
+        "mode": "drop",
+        "input_chars": 18584,
+        "compressed_chars": 85,
+        "input_tokens_est": 4646,
+        "compressed_tokens_est": 22,
+        "compression_ratio": 218.63529411764705,
+        "token_compression_ratio": 211.1818181818182,
+        "latency_ms": 0.04975000047124922,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[terminal] ran `pytest tests/gateway/test_webhooks.py -q` -> exit ?, 405 lines output",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "test_name",
+          "expected",
+          "actual",
+          "window"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "code_search_result_excluded",
+        "category": "structured_excluded",
+        "tool_name": "search_files",
+        "default_llmlingua_candidate": false,
+        "mode": "drop",
+        "input_chars": 15062,
+        "compressed_chars": 81,
+        "input_tokens_est": 3766,
+        "compressed_tokens_est": 21,
+        "compression_ratio": 185.9506172839506,
+        "token_compression_ratio": 179.33333333333334,
+        "latency_ms": 0.037915975553914905,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[search_files] content search for 'trust_external_endpoint' in agent -> ? matches",
+        "required_found": 1,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.25,
+        "required_recall": 0.25,
+        "answerable": false,
+        "found_required": [
+          "flag"
+        ],
+        "missing_required": [
+          "file",
+          "line",
+          "warning"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "browser_dashboard_status",
+        "category": "browser_snapshot",
+        "tool_name": "browser_snapshot",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 5943,
+        "compressed_chars": 32,
+        "input_tokens_est": 1486,
+        "compressed_tokens_est": 8,
+        "compression_ratio": 185.71875,
+        "token_compression_ratio": 185.75,
+        "latency_ms": 0.0045000051613897085,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[browser_snapshot] (5,943 chars)",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "queue",
+          "status",
+          "age",
+          "error_rate"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "oidc_docs",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 7027,
+        "compressed_chars": 61,
+        "input_tokens_est": 1757,
+        "compressed_tokens_est": 16,
+        "compression_ratio": 115.19672131147541,
+        "token_compression_ratio": 109.8125,
+        "latency_ms": 0.0043339969124644995,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_extract] https://identity.example.dev/oidc (7,027 chars)",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 1,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "issuer",
+          "jwks",
+          "audience",
+          "skew"
+        ],
+        "found_optional": [],
+        "missing_optional": [
+          "scope"
+        ]
+      },
+      {
+        "id": "regulatory_policy_article",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 6751,
+        "compressed_chars": 64,
+        "input_tokens_est": 1688,
+        "compressed_tokens_est": 16,
+        "compression_ratio": 105.484375,
+        "token_compression_ratio": 105.5,
+        "latency_ms": 0.003416993422433734,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_extract] https://policy.example.eu/ai-records (6,751 chars)",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "retention",
+          "records",
+          "redaction",
+          "hashes"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "package_changelog",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "drop",
+        "input_chars": 6041,
+        "compressed_chars": 77,
+        "input_tokens_est": 1511,
+        "compressed_tokens_est": 20,
+        "compression_ratio": 78.45454545454545,
+        "token_compression_ratio": 75.55,
+        "latency_ms": 0.0033329997677356005,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[web_extract] https://packages.example.dev/vega-agent/changelog (6,041 chars)",
+        "required_found": 0,
+        "required_total": 3,
+        "optional_found": 0,
+        "optional_total": 1,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "version",
+          "bug",
+          "fix"
+        ],
+        "found_optional": [],
+        "missing_optional": [
+          "test"
+        ]
+      }
+    ],
+    "llmlingua_default": [
+      {
+        "id": "web_security_advisory",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 6693,
+        "compressed_chars": 3841,
+        "input_tokens_est": 1674,
+        "compressed_tokens_est": 961,
+        "compression_ratio": 1.7425149700598803,
+        "token_compression_ratio": 1.7419354838709677,
+        "latency_ms": 3007.6200000185054,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "HermesShield Security Advisory HS - 2026 - 17 \\n Affected versions : HermesShield Gateway 4. 8. 0 through 4. 8. 6. \\n Fixed in HermesShield Gateway 4. 8. 7. \\n Identifier : CVE - 2026 - 4242. \\n Mitigation : rotate webhook signing secrets disable legacy callback forwarding. \\n Unaffected distractor : HermesVault 2. 1. 0 patched for CVE - 2026 - 1111. \\n \\n Background note 1 discussed unrelated rollout details migration windows telemetry dashboards internal review meetings screenshots user feedback summ",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "affected_versions",
+          "fixed_version",
+          "cve",
+          "mitigation"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "api_migration_docs",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 7272,
+        "compressed_chars": 4171,
+        "input_tokens_est": 1818,
+        "compressed_tokens_est": 1043,
+        "compression_ratio": 1.743466794533685,
+        "token_compression_ratio": 1.7430488974113134,
+        "latency_ms": 234.18749999837019,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Export API v3 Migration Guide \\n Endpoint change : POST / v2 / exports becomes POST / v3 / jobs / export. \\n Required header : Idempotency - Key must be UUIDv7 value. \\n Deprecated field : callback _ url replaced by webhook. destination _ url. \\n Safe rollout : send X - Export - Dry - Run : true for first 24 hours. \\n Distractor : Import API v3 accepts UUIDv4 keys until 2027. \\n \\n Background note 1 API migration discussed unrelated rollout details migration windows telemetry dashboards review meetings",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "endpoint",
+          "idempotency",
+          "callback_replacement",
+          "dry_run"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "pricing_policy_research",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 6331,
+        "compressed_chars": 3592,
+        "input_tokens_est": 1583,
+        "compressed_tokens_est": 898,
+        "compression_ratio": 1.7625278396436526,
+        "token_compression_ratio": 1.7628062360801782,
+        "latency_ms": 173.3912500203587,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Enterprise Pricing Policy 2026 \\n Base plan : 2, 000, 000 included tool - call tokens per month. \\n Overage : $ 0. 42 per additional 10, 000 tool - call tokens. \\n Hard cap : customers may set monthly spend ceiling in dollars. \\n Exception : education tenants receive 30 % overage credit. \\n Distractor : Pro plan includes 200, 000 tokens $ 0. 60 overage. \\n \\n Background note 1 pricing policy team discussed unrelated rollout details migration windows telemetry review meetings user feedback summaries. si",
+        "required_found": 3,
+        "required_total": 3,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "included_tokens",
+          "overage",
+          "hard_cap"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "education_credit"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "browser_checkout_snapshot",
+        "category": "browser_snapshot",
+        "tool_name": "browser_snapshot",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 5963,
+        "compressed_chars": 3396,
+        "input_tokens_est": 1491,
+        "compressed_tokens_est": 849,
+        "compression_ratio": 1.755889281507656,
+        "token_compression_ratio": 1.756183745583039,
+        "latency_ms": 172.06524999346584,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Accessibility snapshot for checkout page \\n [ @ e11 ] textbox ' Email ' value = ' evi @ example. com ' \\n [ @ e12 ] combobox ' Country ' value = ' France ' \\n [ @ e21 ] alert ' Payment failed : card requires 3 - D Secure authentication. ' \\n [ @ e22 ] button ' Retry payment ' enabled = true \\n [ @ e23 ] link ' Use another payment method ' \\n Distractor alert : Shipping estimate delayed by 1 day. \\n \\n Background note 1 discussed unrelated rollout details migration windows telemetry dashboards internal r",
+        "required_found": 2,
+        "required_total": 2,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "payment_failed",
+          "3ds"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "retry_button"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "web_search_release_notes",
+        "category": "web_search",
+        "tool_name": "web_search",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 5506,
+        "compressed_chars": 3193,
+        "input_tokens_est": 1377,
+        "compressed_tokens_est": 799,
+        "compression_ratio": 1.72439711869715,
+        "token_compression_ratio": 1.7234042553191489,
+        "latency_ms": 169.66445799334906,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "\\n data \" \\n web \" \\n \\n title AstraDB 1. 14 Release Notes \" \\n url https://astradb.example/releases/1.14 \" \\n description Adds encrypted local - first sync using XChaCha20 - Poly1305 background conflict repair. \\n \\n \\n title AstraDB 1. 13 Maintenance \" \\n url https://astradb.example/releases/1.13 \" \\n description Improves compaction query planner hints. \\n \\n \\n \\n \\n \\n Background note 1 release search discussed unrelated rollout details migration windows telemetry dashboards internal review meetings screensh",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "version",
+          "feature",
+          "cipher",
+          "url"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "incident_feed_json",
+        "category": "api_json_via_web",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 6192,
+        "compressed_chars": 3564,
+        "input_tokens_est": 1548,
+        "compressed_tokens_est": 891,
+        "compression_ratio": 1.7373737373737375,
+        "token_compression_ratio": 1.7373737373737375,
+        "latency_ms": 169.0237500006333,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "\\n incidents \" \\n \\n id inc _ 9af31 \" \\n status active \" \\n title Webhook delivery delays \" \\n region eu - west - 3 \" \\n eta _ minutes 45 \\n workaround switch callbacks to polling fallback \\n \\n \\n id inc _ old _ 771 \" \\n status resolved \" \\n title Dashboard CSS regression \" \\n region us - east - 1 \" \\n eta _ minutes \" 0 \\n \\n \\n \\n \\n Background note 1 incident discussed unrelated rollout details migration windows telemetry dashboards internal review meetings stale screenshots user feedback summaries. similar nois",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "incident_id",
+          "title",
+          "region",
+          "eta"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "workaround"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "terminal_failure_log_excluded",
+        "category": "structured_excluded",
+        "tool_name": "terminal",
+        "default_llmlingua_candidate": false,
+        "mode": "llmlingua_default",
+        "input_chars": 18584,
+        "compressed_chars": 85,
+        "input_tokens_est": 4646,
+        "compressed_tokens_est": 22,
+        "compression_ratio": 218.63529411764705,
+        "token_compression_ratio": 211.1818181818182,
+        "latency_ms": 0.07512501906603575,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[terminal] ran `pytest tests/gateway/test_webhooks.py -q` -> exit ?, 405 lines output",
+        "required_found": 0,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.0,
+        "required_recall": 0.0,
+        "answerable": false,
+        "found_required": [],
+        "missing_required": [
+          "test_name",
+          "expected",
+          "actual",
+          "window"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "code_search_result_excluded",
+        "category": "structured_excluded",
+        "tool_name": "search_files",
+        "default_llmlingua_candidate": false,
+        "mode": "llmlingua_default",
+        "input_chars": 15062,
+        "compressed_chars": 81,
+        "input_tokens_est": 3766,
+        "compressed_tokens_est": 21,
+        "compression_ratio": 185.9506172839506,
+        "token_compression_ratio": 179.33333333333334,
+        "latency_ms": 0.0431660155300051,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "[search_files] content search for 'trust_external_endpoint' in agent -> ? matches",
+        "required_found": 1,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 0.25,
+        "required_recall": 0.25,
+        "answerable": false,
+        "found_required": [
+          "flag"
+        ],
+        "missing_required": [
+          "file",
+          "line",
+          "warning"
+        ],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "browser_dashboard_status",
+        "category": "browser_snapshot",
+        "tool_name": "browser_snapshot",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 5943,
+        "compressed_chars": 3366,
+        "input_tokens_est": 1486,
+        "compressed_tokens_est": 842,
+        "compression_ratio": 1.7655971479500892,
+        "token_compression_ratio": 1.7648456057007127,
+        "latency_ms": 174.1444999934174,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "Dashboard snapshot \\n [ @ e4 ] heading ' Operations ' \\n @ e9 ] status ' ingest - normal priority queue : degraded ' \\n @ e10 ] text ' Oldest pending job age : 37 minutes ' \\n @ e11 ] text ' Error rate : 6. 2 % over last 15 minutes ' \\n @ e12 ] button ' Drain queue ' \\n Distractor : batch - low queue healthy, 0. 1 % errors. \\n \\n Background note 1 discussed unrelated rollout details migration windows telemetry review meetings screenshots user feedback summaries. paragraphs similar noise answer benchmark",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "queue",
+          "status",
+          "age",
+          "error_rate"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "oidc_docs",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 7027,
+        "compressed_chars": 3961,
+        "input_tokens_est": 1757,
+        "compressed_tokens_est": 991,
+        "compression_ratio": 1.7740469578389295,
+        "token_compression_ratio": 1.7729566094853684,
+        "latency_ms": 225.28291601338424,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "OIDC Integration Reference \\n Issuer URL : https://identity.example.dev/oauth2/default \\n JWKS endpoint : https://identity.example.dev/oauth2/default/.well-known/jwks.json \\n Audience : hermes - agent - prod \\n Clock skew allowance : 120 seconds. \\n Required scope : agent. gateway. write \\n Distractor : staging audience hermes - agent - staging. \\n \\n Background note 1 discussed unrelated rollout details migration windows telemetry dashboards internal review meetings screenshots user feedback summaries.",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "issuer",
+          "jwks",
+          "audience",
+          "skew"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "scope"
+        ],
+        "missing_optional": []
+      },
+      {
+        "id": "regulatory_policy_article",
+        "category": "web_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 6751,
+        "compressed_chars": 3913,
+        "input_tokens_est": 1688,
+        "compressed_tokens_est": 979,
+        "compression_ratio": 1.7252747252747254,
+        "token_compression_ratio": 1.7242083758937692,
+        "latency_ms": 168.9963750250172,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "AI Records Policy Summary \\n High - impact automated decision systems retain model audit records for 7 years. \\n Records include prompt templates model version reviewer identity appeal outcome. \\n Deletion exception : user content redacted after 30 days if audit hashes remain verifiable. \\n Distractor : low - risk chatbots keep analytics for 13 months. \\n \\n Background note 1 regulatory discussed unrelated rollout details migration windows telemetry dashboards internal review meetings screenshots user",
+        "required_found": 4,
+        "required_total": 4,
+        "optional_found": 0,
+        "optional_total": 0,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "retention",
+          "records",
+          "redaction",
+          "hashes"
+        ],
+        "missing_required": [],
+        "found_optional": [],
+        "missing_optional": []
+      },
+      {
+        "id": "package_changelog",
+        "category": "docs_research",
+        "tool_name": "web_extract",
+        "default_llmlingua_candidate": true,
+        "mode": "llmlingua_default",
+        "input_chars": 6041,
+        "compressed_chars": 3436,
+        "input_tokens_est": 1511,
+        "compressed_tokens_est": 859,
+        "compression_ratio": 1.7581490104772992,
+        "token_compression_ratio": 1.7590221187427242,
+        "latency_ms": 165.72608400019817,
+        "fell_back": false,
+        "cache_hit": false,
+        "compressed_preview": "vega - agent changelog \\n Version 0. 9. 12 fixes streaming cancellation leak where cancelled SSE tasks kept provider sockets open. \\n Patch note : cleanup awaits aclose ( ) 2 second timeout. \\n Regression test : test _ stream _ cancel _ closes _ provider _ socket. \\n Distractor : version 0. 9. 11 fixed markdown table rendering. \\n \\n Background note 1 package discussed unrelated rollout details migration windows telemetry dashboards internal review meetings stale screenshots user feedback summaries. s",
+        "required_found": 3,
+        "required_total": 3,
+        "optional_found": 1,
+        "optional_total": 1,
+        "fact_recall": 1.0,
+        "required_recall": 1.0,
+        "answerable": true,
+        "found_required": [
+          "version",
+          "bug",
+          "fix"
+        ],
+        "missing_required": [],
+        "found_optional": [
+          "test"
+        ],
+        "missing_optional": []
+      }
+    ]
+  },
+  "summary": {
+    "full": {
+      "tasks": 12,
+      "answerable": 12,
+      "answerability": 1.0,
+      "fact_recall_mean": 1.0,
+      "required_recall_mean": 1.0,
+      "input_tokens_est": 24345,
+      "compressed_tokens_est": 24345,
+      "token_compression_ratio": 1.0,
+      "chars_in": 97365,
+      "chars_out": 97365,
+      "char_compression_ratio": 1.0,
+      "latency_ms_mean": 0.0,
+      "fell_back_count": 0,
+      "default_llmlingua_candidates": {
+        "tasks": 10,
+        "answerable": 10,
+        "answerability": 1.0,
+        "fact_recall_mean": 1.0,
+        "required_recall_mean": 1.0,
+        "input_tokens_est": 15933,
+        "compressed_tokens_est": 15933,
+        "token_compression_ratio": 1.0,
+        "chars_in": 63719,
+        "chars_out": 63719,
+        "char_compression_ratio": 1.0,
+        "latency_ms_mean": 0.0,
+        "fell_back_count": 0
+      },
+      "default_llmlingua_excluded": {
+        "tasks": 2,
+        "answerable": 2,
+        "answerability": 1.0,
+        "fact_recall_mean": 1.0,
+        "required_recall_mean": 1.0,
+        "input_tokens_est": 8412,
+        "compressed_tokens_est": 8412,
+        "token_compression_ratio": 1.0,
+        "chars_in": 33646,
+        "chars_out": 33646,
+        "char_compression_ratio": 1.0,
+        "latency_ms_mean": 0.0,
+        "fell_back_count": 0
+      }
+    },
+    "drop": {
+      "tasks": 12,
+      "answerable": 0,
+      "answerability": 0.0,
+      "fact_recall_mean": 0.020833333333333332,
+      "required_recall_mean": 0.020833333333333332,
+      "input_tokens_est": 24345,
+      "compressed_tokens_est": 199,
+      "token_compression_ratio": 122.33668341708542,
+      "chars_in": 97365,
+      "chars_out": 778,
+      "char_compression_ratio": 125.1478149100257,
+      "latency_ms_mean": 0.012788247355880836,
+      "fell_back_count": 0,
+      "default_llmlingua_candidates": {
+        "tasks": 10,
+        "answerable": 0,
+        "answerability": 0.0,
+        "fact_recall_mean": 0.0,
+        "required_recall_mean": 0.0,
+        "input_tokens_est": 15933,
+        "compressed_tokens_est": 156,
+        "token_compression_ratio": 102.13461538461539,
+        "chars_in": 63719,
+        "chars_out": 612,
+        "char_compression_ratio": 104.11601307189542,
+        "latency_ms_mean": 0.006579299224540591,
+        "fell_back_count": 0
+      },
+      "default_llmlingua_excluded": {
+        "tasks": 2,
+        "answerable": 0,
+        "answerability": 0.0,
+        "fact_recall_mean": 0.125,
+        "required_recall_mean": 0.125,
+        "input_tokens_est": 8412,
+        "compressed_tokens_est": 43,
+        "token_compression_ratio": 195.62790697674419,
+        "chars_in": 33646,
+        "chars_out": 166,
+        "char_compression_ratio": 202.6867469879518,
+        "latency_ms_mean": 0.043832988012582064,
+        "fell_back_count": 0
+      }
+    },
+    "llmlingua_default": {
+      "tasks": 12,
+      "answerable": 10,
+      "answerability": 0.8333333333333334,
+      "fact_recall_mean": 0.8541666666666666,
+      "required_recall_mean": 0.8541666666666666,
+      "input_tokens_est": 24345,
+      "compressed_tokens_est": 9155,
+      "token_compression_ratio": 2.659202621518296,
+      "chars_in": 97365,
+      "chars_out": 36599,
+      "char_compression_ratio": 2.660318587939561,
+      "latency_ms_mean": 388.3516978409413,
+      "fell_back_count": 0,
+      "default_llmlingua_candidates": {
+        "tasks": 10,
+        "answerable": 10,
+        "answerability": 1.0,
+        "fact_recall_mean": 1.0,
+        "required_recall_mean": 1.0,
+        "input_tokens_est": 15933,
+        "compressed_tokens_est": 9112,
+        "token_compression_ratio": 1.7485733099209833,
+        "chars_in": 63719,
+        "chars_out": 36433,
+        "char_compression_ratio": 1.748936403809733,
+        "latency_ms_mean": 466.01020830566995,
+        "fell_back_count": 0
+      },
+      "default_llmlingua_excluded": {
+        "tasks": 2,
+        "answerable": 0,
+        "answerability": 0.0,
+        "fact_recall_mean": 0.125,
+        "required_recall_mean": 0.125,
+        "input_tokens_est": 8412,
+        "compressed_tokens_est": 43,
+        "token_compression_ratio": 195.62790697674419,
+        "chars_in": 33646,
+        "chars_out": 166,
+        "char_compression_ratio": 202.6867469879518,
+        "latency_ms_mean": 0.05914551729802042,
+        "fell_back_count": 0
+      }
+    }
+  }
+}
