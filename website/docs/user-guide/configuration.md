@@ -715,7 +715,6 @@ tool_compression:
   method: llmlingua2_remote
   endpoint: http://your-compressor-host:8080/compress
   timeout_secs: 15
-  fallback_method: drop               # what to do when the sidecar is unreachable
 ```
 
 :::danger[Security — remote endpoint privacy]

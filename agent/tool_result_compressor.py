@@ -406,7 +406,6 @@ class LLMLinguaConfig:
     # Remote-only:
     endpoint: str = ""
     timeout_secs: float = 15.0
-    fallback_method: str = "drop"
     trust_external_endpoint: bool = False
 
 
@@ -964,7 +963,6 @@ def make_tool_result_compressor(
           cache_size: 256
           endpoint: http://your-compressor-host:8080/compress    # remote only
           timeout_secs: 15
-          fallback_method: drop
 
     ``method: auto`` (the default) resolves to:
 
