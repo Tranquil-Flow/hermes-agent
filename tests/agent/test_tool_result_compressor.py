@@ -228,17 +228,24 @@ class TestFactory:
         c = make_tool_result_compressor({"method": "drop"})
         assert isinstance(c, DropBodyCompressor)
 
-    def test_default_method_is_auto(self):
-        # No method specified → resolves via the auto path. The exact result
-        # depends on whether [llmlingua] is installed in the test env, so
-        # just check the resolution lands on one of the two valid outcomes.
-        # More targeted tests below pin each branch via mocking.
-        c = make_tool_result_compressor({})
-        assert isinstance(c, (DropBodyCompressor, LLMLinguaLocalCompressor))
+    def test_default_method_is_drop_even_when_llmlingua_installed(self):
+        # No method specified must preserve historical Hermes behaviour.
+        # Installing an optional extra must not silently alter production
+        # context-pruning semantics.
+        with patch(
+            "agent.tool_result_compressor._llmlingua_extra_installed",
+            return_value=True,
+        ):
+            c = make_tool_result_compressor({})
+        assert isinstance(c, DropBodyCompressor)
 
-    def test_default_when_no_config_resolves_via_auto(self):
-        c = make_tool_result_compressor(None)
-        assert isinstance(c, (DropBodyCompressor, LLMLinguaLocalCompressor))
+    def test_default_when_no_config_is_drop_even_when_llmlingua_installed(self):
+        with patch(
+            "agent.tool_result_compressor._llmlingua_extra_installed",
+            return_value=True,
+        ):
+            c = make_tool_result_compressor(None)
+        assert isinstance(c, DropBodyCompressor)
 
     def test_auto_resolves_to_local_when_llmlingua_installed(self):
         with patch(

@@ -949,10 +949,10 @@ def make_tool_result_compressor(
     Config schema (full schema documented in the design spec)::
 
         tool_compression:
-          method: auto                    # default — see resolution below
-          # method: drop                  # never compress (pre-PR behaviour)
-          # method: llmlingua2_local      # always use in-process LLMLingua-2
-          # method: llmlingua2_remote     # always use sidecar HTTP
+          method: drop                    # default — historical Hermes behaviour
+          # method: auto                  # explicit best-available opt-in
+          # method: llmlingua2_local      # explicit in-process LLMLingua-2 opt-in
+          # method: llmlingua2_remote     # explicit sidecar HTTP opt-in
           model: microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank
           device: cpu
           only_tools: [web_extract, web_search, browser_snapshot, ...]
@@ -967,20 +967,21 @@ def make_tool_result_compressor(
           endpoint: http://your-compressor-host:8080/compress    # remote only
           timeout_secs: 15
 
-    ``method: auto`` (the default) resolves to:
+    ``method: drop`` is the default and preserves historical Hermes pruning:
+    long tool bodies are replaced with one-line summaries.  Installing the
+    heavy optional ``[llmlingua]`` extra must not silently alter behaviour.
+
+    ``method: auto`` is an explicit opt-in convenience and resolves to:
 
       * ``llmlingua2_local`` if the ``[llmlingua]`` extra is installed
         (i.e. the user ran ``pip install hermes-agent[llmlingua]``)
-      * ``drop`` otherwise — preserves the pre-PR behaviour for any
-        user who hasn't installed the heavy optional dep
+      * ``drop`` otherwise
 
-    This mirrors the ``provider: auto`` idiom used elsewhere in hermes
-    (auxiliary.compression / auxiliary.vision / auxiliary.web_extract):
-    sensible default that picks the best available option and falls
-    back gracefully when a dep is missing.
+    This mirrors the ``provider: auto`` idiom used elsewhere in Hermes,
+    but only after the user deliberately selects ``method: auto``.
     """
     config = config or {}
-    method = config.get("method", "auto")
+    method = config.get("method", "drop")
 
     if method == "auto":
         if _llmlingua_extra_installed():
