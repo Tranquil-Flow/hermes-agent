@@ -588,16 +588,31 @@ def _validate_compression(original: str, compressed: str) -> None:
 class LLMLinguaLocalCompressor(ToolResultCompressor):
     """In-process LLMLingua-2 compressor.
 
-    Loads a small token-classifier (~280MB) on first ``compress()`` call,
-    then keeps it resident for the process lifetime. Compresses tool
-    results from ``config.only_tools`` whose body is at least
-    ``config.min_output_chars``; everything else is delegated to
-    DropBodyCompressor.
+    Loads a small token-classifier (~680 MB) lazily and asynchronously on
+    first ``compress()`` call, then keeps it resident for the process
+    lifetime.  Compresses tool results from ``config.only_tools`` whose
+    body is at least ``config.min_output_chars``; everything else is
+    delegated to DropBodyCompressor.
 
-    The backing model is loaded lazily so the module imports cleanly even
-    when the ``[llmlingua]`` extra is not installed — the import only
-    fails on first compress(), and is caught and falls back to drop-body.
+    **Background loading.**  The model is loaded in a daemon thread so
+    ``compress()`` never blocks.  While the model is loading (typically
+    30-300 s depending on disk speed), eligible tool results fall back to
+    drop-body (the historical Hermes behaviour).  Once the model is ready,
+    future calls use LLMLingua-2 automatically.  If loading fails the
+    compressor falls back to drop-body permanently (sticky failure flag).
+
+    **Inline compression (Pass 1).**  During the LOADING state,
+    ``compress_inline()`` returns the original content *unchanged* so that
+    fresh tool results are never dropped before the LLM sees them.
     """
+
+    # ------------------------------------------------------------------
+    # Background-load state machine
+    # ------------------------------------------------------------------
+    _LOAD_UNLOADED = 0   # never attempted
+    _LOAD_LOADING = 1    # background thread running
+    _LOAD_READY = 2      # model loaded, self._pc is set
+    _LOAD_DEAD = 3       # loading crashed, drop-body forever
 
     def __init__(self, config: LLMLinguaConfig):
         self.config = config
@@ -607,10 +622,27 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
         # If we ever fail to load the model, remember and fall back forever
         # rather than retrying on every call.
         self._model_load_failed = False
+        self._load_state = self._LOAD_UNLOADED
+        self._load_lock = threading.Lock()
+
+    # ------------------------------------------------------------------
+    # Public API — _ensure_loaded (replaced by state machine)
+    # ------------------------------------------------------------------
 
     def _ensure_loaded(self) -> None:
+        """Legacy synchronous load path — kept for tests only.
+
+        Production callers use the state machine (compress / compress_inline)
+        which never blocks on model load.  This method exists so existing
+        unit tests that mock _ensure_loaded or call it directly continue
+        to work.
+        """
         if self._pc is not None or self._model_load_failed:
             return
+        self._load_model_sync()
+
+    def _load_model_sync(self) -> None:
+        """Block the calling thread until the model is loaded or failed."""
         try:
             from llmlingua import PromptCompressor  # type: ignore
         except ImportError as e:
@@ -640,6 +672,43 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
                 type(e).__name__, e,
             )
             raise
+
+    def _start_background_load(self) -> None:
+        """Spawn a daemon thread that loads the model without blocking.
+
+        Idempotent — if already loading, loaded, or dead this is a no-op.
+        Must be called with ``_load_lock`` NOT held (it acquires the lock
+        internally for the state transition).
+        """
+        with self._load_lock:
+            if self._load_state != self._LOAD_UNLOADED:
+                return
+            self._load_state = self._LOAD_LOADING
+
+        def _load_worker() -> None:
+            try:
+                self._load_model_sync()
+            except Exception:
+                # _load_model_sync already logged and set _model_load_failed
+                with self._load_lock:
+                    self._load_state = self._LOAD_DEAD
+                return
+            with self._load_lock:
+                if self._pc is not None:
+                    self._load_state = self._LOAD_READY
+                    logger.info(
+                        "LLMLingua-2 model loaded successfully (%s on %s)",
+                        self.config.model, self.config.device,
+                    )
+                else:
+                    self._load_state = self._LOAD_DEAD
+
+        t = threading.Thread(target=_load_worker, daemon=True, name="llmlingua-loader")
+        t.start()
+
+    # ------------------------------------------------------------------
+    # Compression
+    # ------------------------------------------------------------------
 
     def _rate_for_size(self, char_count: int) -> float:
         if self.config.rate is not None:
@@ -675,13 +744,24 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
         if cached is not None:
             return dataclasses.replace(cached, cache_hit=True)
 
-        # 4. Compress with fallback on any failure
+        # 4. Ensure model is loading or loaded (non-blocking)
+        with self._load_lock:
+            state = self._load_state
+            pc_ready = self._pc is not None
+        if not pc_ready and state == self._LOAD_UNLOADED:
+            self._start_background_load()
+            with self._load_lock:
+                state = self._load_state
+
+        if not pc_ready and state != self._LOAD_READY:
+            # Not ready yet — use drop-body (same as today's Hermes).
+            # fell_back=True for both LOADING (temporary) and DEAD (permanent).
+            fallback = self._delegate_to_fallback(tool_name, tool_args, content, question)
+            return dataclasses.replace(fallback, fell_back=True)
+
+        # 5. Compress with fallback on any failure
         t0 = time.perf_counter()
         try:
-            self._ensure_loaded()
-            if self._pc is None:
-                fallback = self._delegate_to_fallback(tool_name, tool_args, content, question)
-                return dataclasses.replace(fallback, fell_back=True)
             compressed = compress_with_wrapper(self._pc, content, rate, q)
             _validate_compression(content, compressed)
         except Exception as e:
@@ -702,6 +782,45 @@ class LLMLinguaLocalCompressor(ToolResultCompressor):
         )
         self._cache.put(key, result)
         return result
+
+    def compress_inline(
+        self,
+        tool_name: str,
+        tool_args: str,
+        content: str,
+        question: Optional[str] = None,
+    ) -> CompressionResult:
+        """Pass-1 inline compression — preserves fresh results during loading.
+
+        Overrides the base ``compress_inline()`` (which delegates to
+        ``compress()``) so that during the LOADING state we return the
+        original content *unchanged* instead of falling back to drop-body.
+        This prevents freshly-produced tool results from being summarised
+        before the LLM sees them just because the compression model isn't
+        ready yet.
+
+        Once the model is loaded (READY), delegates to ``compress()`` as
+        normal so inline results get LLMLingua-2 compression.
+        """
+        with self._load_lock:
+            state = self._load_state
+        if state == self._LOAD_UNLOADED:
+            self._start_background_load()
+        if state in (self._LOAD_UNLOADED, self._LOAD_LOADING):
+            # Model not ready — pass through unchanged so the LLM
+            # sees the full tool result.  This is the same behaviour
+            # as Hermes without any compression enabled.
+            return CompressionResult(
+                compressed_text=content,
+                original_tokens=count_tokens(content),
+                compressed_tokens=count_tokens(content),
+                latency_ms=0.0,
+                cache_hit=False,
+                fell_back=False,
+            )
+        # READY or DEAD — delegate to compress() which either uses
+        # LLMLingua or falls back to drop-body as appropriate.
+        return self.compress(tool_name, tool_args, content, question)
 
 
 _REMOTE_BACKOFF_SECS = 60.0  # cooldown after a remote failure before retrying

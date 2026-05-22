@@ -516,6 +516,13 @@ def run_task(task: TaskCase, compressor: ToolResultCompressor, *, mode: str | No
     }
 
 
+def _p90(values: Sequence[float]) -> float:
+    """90th percentile — returns 0.0 for empty input."""
+    if not values:
+        return 0.0
+    return sorted(values)[int(len(values) * 0.9)]
+
+
 def _aggregate_subset(rows: Sequence[dict]) -> dict:
     if not rows:
         return {
@@ -531,6 +538,8 @@ def _aggregate_subset(rows: Sequence[dict]) -> dict:
             "chars_out": 0,
             "char_compression_ratio": 0.0,
             "latency_ms_mean": 0.0,
+            "latency_ms_median": 0.0,
+            "latency_ms_p90": 0.0,
             "fell_back_count": 0,
         }
     return {
@@ -549,6 +558,8 @@ def _aggregate_subset(rows: Sequence[dict]) -> dict:
         "chars_out": sum(r["compressed_chars"] for r in rows),
         "char_compression_ratio": sum(r["input_chars"] for r in rows) / max(sum(r["compressed_chars"] for r in rows), 1),
         "latency_ms_mean": statistics.fmean(r["latency_ms"] for r in rows),
+        "latency_ms_median": statistics.median(r["latency_ms"] for r in rows),
+        "latency_ms_p90": _p90([r["latency_ms"] for r in rows]),
         "fell_back_count": sum(1 for r in rows if r["fell_back"]),
     }
 
@@ -564,12 +575,22 @@ def aggregate(rows: Sequence[dict]) -> dict:
 
 
 def run_benchmark(modes: Sequence[str], tasks: Sequence[TaskCase]) -> dict:
-    """Run all requested lanes."""
+    """Run all requested lanes.
+
+    LLMLingua-based lanes receive a warmup call before timing to avoid
+    cold-start model-load latency inflating the per-task mean.  The
+    warmup content is a representative tool body that is discarded.
+    """
     all_tools = tuple(t.tool_name for t in tasks)
+    WARMUP_BODY = "Warmup: the agent should check the release notes for version 0.1.0.\n" * 200
     results: dict[str, list[dict]] = {}
     started = time.perf_counter()
     for mode in modes:
         compressor = build_compressor(mode, force_all_tools=all_tools)
+        # Warmup for LLMLingua lanes -- triggers the background model load
+        # so per-task timings reflect steady-state compression.
+        if isinstance(compressor, LLMLinguaLocalCompressor):
+            _ = compressor.compress("web_extract", "{}", WARMUP_BODY)
         rows = [run_task(task, compressor, mode=mode) for task in tasks]
         results[mode] = rows
     return {
@@ -590,8 +611,8 @@ def print_table(payload: dict) -> None:
     print("=" * 72)
     print(f"Tasks: {payload['task_count']}   Duration: {payload['duration_s']}s")
     print()
-    print(f"{'Mode':20s} {'Answerable':>12s} {'FactRecall':>11s} {'ReqRecall':>10s} {'TokRatio':>9s} {'Fallbacks':>9s} {'Latency':>9s}")
-    print("-" * 92)
+    print(f"{'Mode':20s} {'Answerable':>12s} {'FactRecall':>11s} {'ReqRecall':>10s} {'TokRatio':>9s} {'Fallbacks':>9s} {'Latency(mean/median/p90)':>30s}")
+    print("-" * 112)
     for mode in payload["modes"]:
         s = payload["summary"].get(mode, {})
         print(
@@ -601,7 +622,7 @@ def print_table(payload: dict) -> None:
             f"{s.get('required_recall_mean', 0):>9.1%} "
             f"{s.get('token_compression_ratio', 0):>8.2f}x "
             f"{s.get('fell_back_count', 0):>9} "
-            f"{s.get('latency_ms_mean', 0):>8.1f}ms"
+            f"{s.get('latency_ms_mean', 0):.0f}/{s.get('latency_ms_median', 0):.0f}/{s.get('latency_ms_p90', 0):.0f}ms:>30s"
         )
 
     print("\nDefault-allowlist subset (web/browser outputs LLMLingua is meant to preserve)")
@@ -615,7 +636,7 @@ def print_table(payload: dict) -> None:
             f"{s.get('required_recall_mean', 0):>9.1%} "
             f"{s.get('token_compression_ratio', 0):>8.2f}x "
             f"{s.get('fell_back_count', 0):>9} "
-            f"{s.get('latency_ms_mean', 0):>8.1f}ms"
+            f"{s.get('latency_ms_mean', 0):.0f}/{s.get('latency_ms_median', 0):.0f}/{s.get('latency_ms_p90', 0):.0f}ms:>30s"
         )
 
     print("\nPer-task deltas (drop → llmlingua_default)")
@@ -644,7 +665,7 @@ def write_markdown_report(payload: dict, path: Path) -> None:
         "",
         "## Summary",
         "",
-        "| Mode | Answerable | Fact recall | Required recall | Token compression | Fallbacks | Mean latency |",
+        "| Mode | Answerable | Fact recall | Required recall | Token compression | Fallbacks | Latency (mean / median / p90) |",
         "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for mode in payload["modes"]:
@@ -653,7 +674,7 @@ def write_markdown_report(payload: dict, path: Path) -> None:
             f"| {mode} | {s['answerable']}/{s['tasks']} ({s['answerability']:.1%}) "
             f"| {s['fact_recall_mean']:.1%} | {s['required_recall_mean']:.1%} "
             f"| {s['token_compression_ratio']:.2f}x | {s['fell_back_count']} "
-            f"| {s['latency_ms_mean']:.1f} ms |"
+            f"| {s['latency_ms_mean']:.0f} / {s['latency_ms_median']:.0f} / {s['latency_ms_p90']:.0f} ms |"
         )
     lines.extend([
         "",
@@ -663,7 +684,7 @@ def write_markdown_report(payload: dict, path: Path) -> None:
         "Structured outputs such as terminal and code search are intentionally "
         "delegated to the historical drop-body compressor by default.",
         "",
-        "| Mode | Answerable | Fact recall | Required recall | Token compression | Fallbacks | Mean latency |",
+        "| Mode | Answerable | Fact recall | Required recall | Token compression | Fallbacks | Latency (mean / median / p90) |",
         "|---|---:|---:|---:|---:|---:|---:|",
     ])
     for mode in payload["modes"]:
@@ -672,7 +693,7 @@ def write_markdown_report(payload: dict, path: Path) -> None:
             f"| {mode} | {s['answerable']}/{s['tasks']} ({s['answerability']:.1%}) "
             f"| {s['fact_recall_mean']:.1%} | {s['required_recall_mean']:.1%} "
             f"| {s['token_compression_ratio']:.2f}x | {s['fell_back_count']} "
-            f"| {s['latency_ms_mean']:.1f} ms |"
+            f"| {s['latency_ms_mean']:.0f} / {s['latency_ms_median']:.0f} / {s['latency_ms_p90']:.0f} ms |"
         )
     lines.extend([
         "",
