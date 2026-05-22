@@ -574,23 +574,27 @@ def aggregate(rows: Sequence[dict]) -> dict:
     return all_rows
 
 
-def run_benchmark(modes: Sequence[str], tasks: Sequence[TaskCase]) -> dict:
-    """Run all requested lanes.
+def _prepare_compressor_for_benchmark(compressor: ToolResultCompressor) -> None:
+    """Prepare a compressor lane so benchmark timings are steady-state.
 
-    LLMLingua-based lanes receive a warmup call before timing to avoid
-    cold-start model-load latency inflating the per-task mean.  The
-    warmup content is a representative tool body that is discarded.
+    Production LLMLingua compression deliberately starts model loading in a
+    background thread so agent turns do not block.  The benchmark is different:
+    it is trying to measure evidence survival *after* LLMLingua is available,
+    not the temporary loading-state fallback.  Force the synchronous test hook
+    here so the first measured task is a real compression attempt.
     """
+    if isinstance(compressor, LLMLinguaLocalCompressor):
+        compressor._ensure_loaded()
+
+
+def run_benchmark(modes: Sequence[str], tasks: Sequence[TaskCase]) -> dict:
+    """Run all requested lanes."""
     all_tools = tuple(t.tool_name for t in tasks)
-    WARMUP_BODY = "Warmup: the agent should check the release notes for version 0.1.0.\n" * 200
     results: dict[str, list[dict]] = {}
     started = time.perf_counter()
     for mode in modes:
         compressor = build_compressor(mode, force_all_tools=all_tools)
-        # Warmup for LLMLingua lanes -- triggers the background model load
-        # so per-task timings reflect steady-state compression.
-        if isinstance(compressor, LLMLinguaLocalCompressor):
-            _ = compressor.compress("web_extract", "{}", WARMUP_BODY)
+        _prepare_compressor_for_benchmark(compressor)
         rows = [run_task(task, compressor, mode=mode) for task in tasks]
         results[mode] = rows
     return {

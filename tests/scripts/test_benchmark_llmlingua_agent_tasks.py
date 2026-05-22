@@ -1,6 +1,9 @@
 from scripts.benchmark_llmlingua_agent_tasks import (
     Fact,
+    LLMLinguaConfig,
+    LLMLinguaLocalCompressor,
     TaskCase,
+    _prepare_compressor_for_benchmark,
     build_compressor,
     evaluate_text,
     run_task,
@@ -87,3 +90,19 @@ def test_full_mode_is_oracle_and_preserves_required_facts():
     assert result["answerable"] is True
     assert result["compressed_chars"] == result["input_chars"]
     assert result["compression_ratio"] == 1.0
+
+
+def test_benchmark_prepares_llmlingua_synchronously():
+    class RecordingLLMLinguaCompressor(LLMLinguaLocalCompressor):
+        def __init__(self):
+            super().__init__(LLMLinguaConfig())
+            self.loaded_for_benchmark = False
+
+        def _ensure_loaded(self) -> None:
+            self.loaded_for_benchmark = True
+
+    compressor = RecordingLLMLinguaCompressor()
+
+    _prepare_compressor_for_benchmark(compressor)
+
+    assert compressor.loaded_for_benchmark is True
