@@ -174,8 +174,10 @@ def run_oneshot(
     # Redirect stderr AND stdout to devnull for the entire call tree.
     # We'll print the final response to the real stdout at the end.
     real_stdout = sys.stdout
+    real_stderr = sys.stderr
     devnull = open(os.devnull, "w", encoding="utf-8")
 
+    response: str = ""
     try:
         with redirect_stdout(devnull), redirect_stderr(devnull):
             response = _run_agent(
@@ -185,6 +187,15 @@ def run_oneshot(
                 toolsets=explicit_toolsets,
                 use_config_toolsets=use_config_toolsets,
             )
+    except Exception as exc:
+        # Report the error to the real stderr so the caller knows what
+        # went wrong.  The return value is the exit code.
+        try:
+            real_stderr.write(f"hermes -z: {exc}\\n")
+            real_stderr.flush()
+        except Exception:
+            pass
+        return 1
     finally:
         try:
             devnull.close()
@@ -192,10 +203,20 @@ def run_oneshot(
             pass
 
     if response:
-        real_stdout.write(response)
-        if not response.endswith("\n"):
-            real_stdout.write("\n")
-        real_stdout.flush()
+        try:
+            real_stdout.write(response)
+            if not response.endswith("\\n"):
+                real_stdout.write("\\n")
+            real_stdout.flush()
+        except (OSError, ValueError) as exc:
+            # Broken pipe, closed fd, or encoding error — non-fatal;
+            # the agent did its work, the sink just can't consume it.
+            try:
+                real_stderr.write(f"hermes -z: output write failed: {exc}\\n")
+                real_stderr.flush()
+            except Exception:
+                pass
+            return 1
     return 0
 
 
