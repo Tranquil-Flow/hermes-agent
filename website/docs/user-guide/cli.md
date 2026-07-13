@@ -369,6 +369,7 @@ Long conversations are automatically summarized when approaching context limits:
 compression:
   enabled: true
   threshold: 0.50    # Compress at 50% of context limit by default
+  require_memory_checkpoint: false
 
 # Summarization model configured under auxiliary:
 auxiliary:
@@ -377,6 +378,11 @@ auxiliary:
 ```
 
 When compression triggers, middle turns are summarized while the first 3 and last 20 turns are always preserved.
+
+Set `require_memory_checkpoint: true` when an active memory provider must
+return a non-empty durable reference before Hermes may drop context. If the
+provider fails, returns no reference, or the configured context engine cannot
+preserve it, compression aborts without dropping messages.
 
 ## Background Sessions
 

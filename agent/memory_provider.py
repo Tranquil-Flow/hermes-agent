@@ -205,9 +205,12 @@ class MemoryProvider(ABC):
         Use to extract insights from messages about to be compressed.
         messages is the list that will be summarized/discarded.
 
-        Return text to include in the compression summary prompt so the
-        compressor preserves provider-extracted insights. Return empty
-        string for no contribution (backwards-compatible default).
+        Return text for the context engine to preserve in its compressed
+        handoff. The built-in compressor appends it deterministically so
+        checkpoint references do not depend on the summarizer reproducing
+        them. Return empty string for no contribution (backwards-compatible
+        default). When ``compression.require_memory_checkpoint`` is enabled,
+        an empty return prevents compaction and leaves messages unchanged.
         """
         return ""
 

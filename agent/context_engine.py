@@ -84,6 +84,8 @@ class ContextEngine(ABC):
         messages: List[Dict[str, Any]],
         current_tokens: int = None,
         focus_topic: str = None,
+        force: bool = False,
+        pre_compress_context: str = "",
     ) -> List[Dict[str, Any]]:
         """Compact the message list and return the new message list.
 
@@ -98,6 +100,11 @@ class ContextEngine(ABC):
                 Engines that support guided compression should prioritise
                 preserving information related to this topic.  Engines that
                 don't support it may simply ignore this argument.
+            force: Whether to bypass an engine's compression-failure cooldown
+                for an explicit manual retry.
+            pre_compress_context: Optional text returned by active memory
+                providers immediately before compaction. Preserve it in the
+                durable handoff instead of relying on summarization.
         """
 
     # -- Optional: pre-flight check ----------------------------------------
@@ -124,6 +131,23 @@ class ContextEngine(ABC):
         to return False when the transcript is still entirely protected.
         """
         return True
+
+    def messages_to_compress(
+        self,
+        messages: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Return messages this engine expects to summarize or discard.
+
+        Memory providers receive this preview in ``on_pre_compress`` so they
+        checkpoint the drop window rather than the protected head and tail.
+        Engines that cannot expose a precise window retain the historical
+        full-history behavior by inheriting this default.
+
+        Implementations must not mutate ``messages`` or persistent engine
+        state. Returned messages are defensively copied before providers can
+        inspect them.
+        """
+        return messages
 
     # -- Optional: session lifecycle ---------------------------------------
 

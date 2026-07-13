@@ -10,6 +10,7 @@ the first 6 and last 4 characters for debuggability.
 import logging
 import os
 import re
+from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,25 @@ _SENSITIVE_QUERY_PARAMS = frozenset({
     "signature",      # pre-signed URL signatures
     "x-amz-signature",
 })
+
+_STRICT_SENSITIVE_URL_PARAMS = frozenset(
+    name.replace("-", "_")
+    for name in _SENSITIVE_QUERY_PARAMS | frozenset({
+        "access-token",
+        "refresh-token",
+        "id-token",
+        "api-key",
+        "passwd",
+        "authorization",
+        "magic",
+        "credential",
+        "sig",
+        "x-amz-credential",
+        "x-amz-security-token",
+        "x-goog-credential",
+        "x-goog-signature",
+    })
+)
 
 # Sensitive form-urlencoded / JSON body key names (case-insensitive exact match).
 # Exact match, NOT substring — "token_count" and "session_id" must NOT match.
@@ -176,6 +196,19 @@ _URL_USERINFO_RE = re.compile(
     r"(https?|wss?|ftp)://([^/\s:@]+):([^/\s@]+)@",
 )
 
+# Strict durable-boundary redaction. Unlike ``_URL_WITH_QUERY_RE`` and
+# ``_URL_USERINFO_RE``, these intentionally cover relative query/fragment
+# references and token-only userinfo for any URI scheme.
+_STRICT_URL_QUERY_PARAM_RE = re.compile(
+    r"(?i)([?&#;])([^=&#;\s]+)=([^&#;\s]*)"
+)
+_STRICT_URL_USERINFO_RE = re.compile(
+    r"(?i)((?:\b[a-z][a-z0-9+.-]*:)?//)([^/@\s]+)@"
+)
+_STRICT_INLINE_SECRET_RE = re.compile(
+    r"(?i)(?<![\w-])([a-z0-9_%.-]+)(\s*[:=]\s*)([^\s,;&]+)"
+)
+
 # HTTP access logs often use a relative request target rather than a full URL:
 # `"POST /webhook?password=... HTTP/1.1"`. The full-URL redactor above only
 # sees strings containing `://`, so handle request-target query strings too.
@@ -300,6 +333,44 @@ def _redact_url_userinfo(text: str) -> str:
         lambda m: f"{m.group(1)}://{m.group(2)}:***@",
         text,
     )
+
+
+def redact_url_credentials(value: object, *, force: bool = False) -> str:
+    """Mask all URL credentials at a durable or otherwise strict boundary.
+
+    The global :func:`redact_sensitive_text` deliberately preserves some URL
+    values for OAuth, magic-link, and browser workflows. Callers persisting
+    text or feeding it back into model context must opt into this stricter
+    helper instead.
+    """
+    text = redact_sensitive_text("" if value is None else str(value), force=force)
+    if not text:
+        return text
+
+    def _normalized_param_name(encoded_name: str) -> str:
+        decoded_name = encoded_name
+        for _ in range(3):
+            next_name = unquote(decoded_name)
+            if next_name == decoded_name:
+                break
+            decoded_name = next_name
+        return decoded_name.casefold().replace("-", "_")
+
+    def _redact_strict_query_param(match: re.Match) -> str:
+        encoded_name = match.group(2)
+        if _normalized_param_name(encoded_name) not in _STRICT_SENSITIVE_URL_PARAMS:
+            return match.group(0)
+        return f"{match.group(1)}{encoded_name}=***"
+
+    text = _STRICT_URL_QUERY_PARAM_RE.sub(_redact_strict_query_param, text)
+    text = _STRICT_URL_USERINFO_RE.sub(r"\1***@", text)
+
+    def _redact_inline_secret(match: re.Match) -> str:
+        if _normalized_param_name(match.group(1)) not in _STRICT_SENSITIVE_URL_PARAMS:
+            return match.group(0)
+        return f"{match.group(1)}{match.group(2)}***"
+
+    return _STRICT_INLINE_SECRET_RE.sub(_redact_inline_secret, text)
 
 
 def _redact_http_request_target_query_params(text: str) -> str:

@@ -1229,6 +1229,9 @@ def init_agent(
     compression_abort_on_summary_failure = str(
         _compression_cfg.get("abort_on_summary_failure", False)
     ).lower() in {"true", "1", "yes"}
+    compression_memory_checkpoint_required = str(
+        _compression_cfg.get("require_memory_checkpoint", False)
+    ).lower() in {"true", "1", "yes"}
 
     # Read optional explicit context_length override for the auxiliary
     # compression model. Custom endpoints often cannot report this via
@@ -1448,6 +1451,9 @@ def init_agent(
             abort_on_summary_failure=compression_abort_on_summary_failure,
         )
     agent.compression_enabled = compression_enabled
+    agent.compression_memory_checkpoint_required = (
+        compression_memory_checkpoint_required
+    )
 
     # Reject models whose context window is below the minimum required
     # for reliable tool-calling workflows (64K tokens).

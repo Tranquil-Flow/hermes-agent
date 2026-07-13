@@ -1197,7 +1197,7 @@ def _compress_session_history(
     approx_tokens: int | None = None,
     before_messages: list | None = None,
     history_version: int | None = None,
-) -> tuple[int, dict]:
+) -> tuple[int, dict, bool]:
     from agent.model_metadata import estimate_request_tokens_rough
 
     agent = session["agent"]
@@ -1212,7 +1212,7 @@ def _compress_session_history(
     history = before_messages
     if len(history) < 4:
         usage = _get_usage(agent)
-        return 0, usage
+        return 0, usage, False
     if approx_tokens is None:
         # Include system prompt + tool schemas so the figure reflects real
         # request pressure, not a transcript-only underestimate (#6217).
@@ -1232,16 +1232,19 @@ def _compress_session_history(
         approx_tokens=approx_tokens,
         focus_topic=focus_topic or None,
     )
+    if compressed is history:
+        usage = _get_usage(agent)
+        return 0, usage, False
     with session["history_lock"]:
         if int(session.get("history_version", 0)) != history_version:
             # External mutation during compaction — drop the compressed
             # result so we don't clobber concurrent edits.
             usage = _get_usage(agent)
-            return 0, usage
+            return 0, usage, False
         session["history"] = compressed
         session["history_version"] = history_version + 1
     usage = _get_usage(agent)
-    return len(history) - len(compressed), usage
+    return len(history) - len(compressed), usage, True
 
 
 def _sync_session_key_after_compress(
@@ -2660,6 +2663,7 @@ def _(rid, params: dict) -> dict:
     session, err = _sess(params, rid)
     if err:
         return err
+    assert session is not None
     if session.get("running"):
         return _err(
             rid, 4009, "session busy — /interrupt the current turn before /compress"
@@ -2685,17 +2689,8 @@ def _(rid, params: dict) -> dict:
             else 0
         )
 
-        if before_count >= 4:
-            focus_suffix = f', focus: "{focus_topic}"' if focus_topic else ""
-            _status_update(
-                sid,
-                "compressing",
-                f"⠋ compressing {before_count} messages "
-                f"(~{before_tokens:,} tok){focus_suffix}…",
-            )
-
         try:
-            removed, usage = _compress_session_history(
+            removed, usage, changed = _compress_session_history(
                 session,
                 focus_topic,
                 approx_tokens=before_tokens,
@@ -2721,7 +2716,8 @@ def _(rid, params: dict) -> dict:
                 else 0
             )
             agent = session["agent"]
-            _sync_session_key_after_compress(sid, session)
+            if changed:
+                _sync_session_key_after_compress(sid, session)
             summary = summarize_manual_compression(
                 before_messages, messages, before_tokens, after_tokens
             )
@@ -2730,7 +2726,7 @@ def _(rid, params: dict) -> dict:
             return _ok(
                 rid,
                 {
-                    "status": "compressed",
+                    "status": "compressed" if changed else "unchanged",
                     "removed": removed,
                     "before_messages": before_count,
                     "after_messages": after_count,
@@ -5645,8 +5641,9 @@ def _mirror_slash_side_effects(sid: str, session: dict, command: str) -> str:
             agent.ephemeral_system_prompt = new_prompt or None
             agent._cached_system_prompt = None
         elif name == "compress" and agent:
-            _compress_session_history(session, arg)
-            _sync_session_key_after_compress(sid, session)
+            _removed, _usage, changed = _compress_session_history(session, arg)
+            if changed:
+                _sync_session_key_after_compress(sid, session)
             _emit("session.info", sid, _session_info(agent))
         elif name == "fast" and agent:
             mode = arg.lower()

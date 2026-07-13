@@ -25,9 +25,10 @@ Usage in run_agent.py:
 
 from __future__ import annotations
 
+import copy
+import inspect
 import logging
 import re
-import inspect
 from typing import Any, Dict, List, Optional
 
 from agent.memory_provider import MemoryProvider
@@ -492,19 +493,19 @@ class MemoryManager:
     def on_pre_compress(self, messages: List[Dict[str, Any]]) -> str:
         """Notify all providers before context compression.
 
-        Returns combined text from providers to include in the compression
-        summary prompt. Empty string if no provider contributes.
+        Returns combined text for the context engine to preserve in its
+        compressed handoff. Empty string if no provider contributes.
         """
         parts = []
         for provider in self._providers:
             try:
-                result = provider.on_pre_compress(messages)
+                result = provider.on_pre_compress(copy.deepcopy(messages))
                 if result and result.strip():
                     parts.append(result)
             except Exception as e:
                 logger.debug(
-                    "Memory provider '%s' on_pre_compress failed: %s",
-                    provider.name, e,
+                    "Memory provider '%s' on_pre_compress failed (%s)",
+                    provider.name, type(e).__name__,
                 )
         return "\n\n".join(parts)
 

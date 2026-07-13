@@ -28,6 +28,8 @@ these paths see no behavioural change.
 
 from __future__ import annotations
 
+import copy
+import inspect
 import logging
 import os
 import tempfile
@@ -37,8 +39,91 @@ from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
 from agent.model_metadata import estimate_request_tokens_rough
+from agent.redact import redact_sensitive_text
 
 logger = logging.getLogger(__name__)
+
+_PRE_COMPRESS_CONTEXT_MAX_CHARS = 16_000
+
+
+def _accepts_keyword(
+    callable_obj: Any,
+    keyword: str,
+    *,
+    allow_var_keyword: bool = True,
+) -> bool:
+    """Return whether *callable_obj* accepts *keyword* without invoking it."""
+    try:
+        parameters = inspect.signature(callable_obj).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(
+        parameter.name == keyword
+        and parameter.kind
+        in {
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }
+        for parameter in parameters
+    ) or (
+        allow_var_keyword
+        and any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters
+        )
+    )
+
+
+def _collect_pre_compress_context(
+    agent: Any,
+    messages: list,
+) -> Tuple[str, Optional[str]]:
+    """Collect provider context and enforce the optional checkpoint policy."""
+    required = bool(
+        getattr(agent, "compression_memory_checkpoint_required", False)
+    )
+    manager = getattr(agent, "_memory_manager", None)
+    if manager is None:
+        if required:
+            return "", "required memory checkpoint has no active provider"
+        return "", None
+
+    try:
+        result = manager.on_pre_compress(messages)
+    except Exception as exc:
+        if required:
+            return "", (
+                "required memory checkpoint failed "
+                f"({type(exc).__name__})"
+            )
+        logger.debug(
+            "memory manager on_pre_compress failed (%s)",
+            type(exc).__name__,
+        )
+        return "", None
+
+    if not isinstance(result, str):
+        if required:
+            return "", "required memory checkpoint returned no text reference"
+        logger.debug(
+            "memory manager on_pre_compress returned non-text context: %s",
+            type(result).__name__,
+        )
+        return "", None
+
+    context = result.strip()
+    if len(context) > _PRE_COMPRESS_CONTEXT_MAX_CHARS:
+        return "", (
+            "memory checkpoint context exceeds the "
+            f"{_PRE_COMPRESS_CONTEXT_MAX_CHARS:,}-character safety limit"
+        )
+
+    from agent.context_compressor import sanitize_pre_compress_context
+
+    context = sanitize_pre_compress_context(context)
+    if required and not context:
+        return "", "required memory checkpoint returned an empty reference"
+    return context, None
 
 
 def check_compression_model_feasibility(agent: Any) -> None:
@@ -281,13 +366,71 @@ def compress_context(
         prompt — the session is NOT rotated.  Callers should detect the
         no-op via ``len(returned) == len(input)`` and stop the retry loop.
     """
-    # Lazy feasibility check — run the auxiliary-provider probe + context
-    # length lookup just-in-time on the first compression attempt instead of
-    # at AIAgent.__init__. Saves ~400ms cold off every short session that
-    # never reaches the threshold (the vast majority of ``chat -q`` runs).
-    # The check itself sets ``agent._compression_warning`` so the
-    # status-callback replay machinery still emits the warning to the user
-    # the first time it would matter.
+    compress_callable = agent.context_compressor.compress
+
+    def _abort_for_checkpoint(reason: str) -> Tuple[list, str]:
+        """Return unchanged context before any compaction side effect."""
+        safe_reason = redact_sensitive_text(reason, force=True)
+        logger.warning("compression aborted before message drop: %s", safe_reason)
+        if getattr(agent, "_last_compression_checkpoint_warning", None) != safe_reason:
+            agent._last_compression_checkpoint_warning = safe_reason
+            try:
+                agent._emit_warning(
+                    f"⚠ Compression aborted: {safe_reason}. No messages were dropped. "
+                    "Resolve the memory-provider/context-engine checkpoint path, "
+                    "then retry."
+                )
+            except Exception:
+                pass
+        existing_system_prompt = getattr(agent, "_cached_system_prompt", None)
+        if not existing_system_prompt:
+            existing_system_prompt = agent._build_system_prompt(system_message)
+        return messages, existing_system_prompt
+
+    checkpoint_messages = messages
+    preview_callable = getattr(
+        agent.context_compressor,
+        "messages_to_compress",
+        None,
+    )
+    if callable(preview_callable):
+        try:
+            preview = preview_callable(copy.deepcopy(messages))
+            if not isinstance(preview, list):
+                raise TypeError("compression preview must return a list")
+            checkpoint_messages = preview
+        except Exception as exc:
+            if getattr(agent, "compression_memory_checkpoint_required", False):
+                return _abort_for_checkpoint(
+                    "required memory checkpoint could not determine the "
+                    f"compression window ({type(exc).__name__})"
+                )
+            logger.debug(
+                "context engine compression-window preview failed (%s); "
+                "falling back to full history",
+                type(exc).__name__,
+            )
+
+    pre_compress_context, checkpoint_error = _collect_pre_compress_context(
+        agent,
+        checkpoint_messages,
+    )
+    if checkpoint_error:
+        return _abort_for_checkpoint(checkpoint_error)
+
+    accepts_pre_compress_context = _accepts_keyword(
+        compress_callable,
+        "pre_compress_context",
+        allow_var_keyword=False,
+    )
+    if pre_compress_context and not accepts_pre_compress_context:
+        return _abort_for_checkpoint(
+            "configured context engine cannot preserve memory checkpoint context"
+        )
+
+    # Probe auxiliary feasibility only after the checkpoint gate.  A failed
+    # required checkpoint must not trigger provider calls or mutate the
+    # one-time feasibility state.
     if not getattr(agent, "_compression_feasibility_checked", True):
         try:
             check_compression_model_feasibility(agent)
@@ -305,39 +448,20 @@ def compress_context(
         "🗜️ Compacting context — summarizing earlier conversation so I can continue..."
     )
 
-    # Notify external memory provider before compression discards context.
-    # The provider's on_pre_compress() may return a string of insights it
-    # wants surfaced inside the compression summary; capture and forward
-    # it to the compressor (fixes #7195 — return value was silently
-    # discarded for every plugin).
-    memory_context = ""
-    if agent._memory_manager:
-        try:
-            _maybe_ctx = agent._memory_manager.on_pre_compress(messages)
-            if isinstance(_maybe_ctx, str):
-                memory_context = _maybe_ctx
-        except Exception:
-            pass
+    candidate_kwargs: dict[str, Any] = {
+        "current_tokens": approx_tokens,
+        "focus_topic": focus_topic,
+        "force": force,
+    }
+    compress_kwargs = {
+        key: value
+        for key, value in candidate_kwargs.items()
+        if _accepts_keyword(compress_callable, key)
+    }
+    if pre_compress_context:
+        compress_kwargs["pre_compress_context"] = pre_compress_context
 
-    try:
-        compressed = agent.context_compressor.compress(
-            messages,
-            current_tokens=approx_tokens,
-            focus_topic=focus_topic,
-            force=force,
-            memory_context=memory_context,
-        )
-    except TypeError:
-        # Plugin context engine with strict signature that doesn't accept
-        # focus_topic / force / memory_context — fall back progressively.
-        try:
-            compressed = agent.context_compressor.compress(
-                messages,
-                current_tokens=approx_tokens,
-                memory_context=memory_context,
-            )
-        except TypeError:
-            compressed = agent.context_compressor.compress(messages, current_tokens=approx_tokens)
+    compressed = compress_callable(messages, **compress_kwargs)
 
     # If compression aborted (aux LLM failed to produce a usable summary)
     # the compressor returns the input messages unchanged.  Surface the
@@ -357,6 +481,14 @@ def compress_context(
         if not _existing_sp:
             _existing_sp = agent._build_system_prompt(system_message)
         return messages, _existing_sp
+
+    if compressed is messages or compressed == messages:
+        existing_system_prompt = getattr(agent, "_cached_system_prompt", None)
+        if not existing_system_prompt:
+            existing_system_prompt = agent._build_system_prompt(system_message)
+        return messages, existing_system_prompt
+
+    agent._last_compression_checkpoint_warning = None
 
     summary_error = getattr(agent.context_compressor, "_last_summary_error", None)
     if summary_error:

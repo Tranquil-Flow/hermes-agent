@@ -893,6 +893,8 @@ DEFAULT_CONFIG = {
                                       # Default False matches historical behavior; set to
                                       # True if you'd rather pause than silently lose
                                       # context turns when your aux model is flaky.
+        "require_memory_checkpoint": False,  # Require a non-empty provider
+                                      # reference before dropping context.
     },
 
     # Anthropic prompt caching (Claude via OpenRouter or native Anthropic API).

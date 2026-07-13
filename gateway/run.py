@@ -8494,10 +8494,9 @@ class GatewayRunner:
                         )
                         if _hyg_runtime.get("api_key"):
                             _hyg_msgs = [
-                                {"role": m.get("role"), "content": m.get("content")}
+                                m.copy()
                                 for m in history
-                                if m.get("role") in {"user", "assistant"}
-                                and m.get("content")
+                                if m.get("role") != "session_meta"
                             ]
 
                             if len(_hyg_msgs) >= 4:
@@ -8506,7 +8505,7 @@ class GatewayRunner:
                                     model=_hyg_model,
                                     max_iterations=4,
                                     quiet_mode=True,
-                                    skip_memory=True,
+                                    skip_memory=False,
                                     enabled_toolsets=["memory"],
                                     session_id=session_entry.session_id,
                                 )
@@ -8521,35 +8520,49 @@ class GatewayRunner:
                                             approx_tokens=_approx_tokens,
                                         ),
                                     )
+                                    _hyg_changed = _compressed is not _hyg_msgs
 
                                     # _compress_context ends the old session and creates
                                     # a new session_id.  Write compressed messages into
                                     # the NEW session so the old transcript stays intact
                                     # and searchable via session_search.
                                     _hyg_new_sid = _hyg_agent.session_id
-                                    if _hyg_new_sid != session_entry.session_id:
+                                    if (
+                                        _hyg_changed
+                                        and _hyg_new_sid != session_entry.session_id
+                                    ):
                                         session_entry.session_id = _hyg_new_sid
                                         self.session_store._save()
 
-                                    self.session_store.rewrite_transcript(
-                                        session_entry.session_id, _compressed
-                                    )
-                                    # Reset stored token count — transcript was rewritten
-                                    session_entry.last_prompt_tokens = 0
-                                    history = _compressed
+                                    if _hyg_changed:
+                                        self.session_store.rewrite_transcript(
+                                            session_entry.session_id, _compressed
+                                        )
+                                        # Reset stored token count — transcript was rewritten
+                                        session_entry.last_prompt_tokens = 0
+                                        history = _compressed
                                     _new_count = len(_compressed)
                                     _new_tokens = estimate_messages_tokens_rough(
                                         _compressed
                                     )
 
-                                    logger.info(
-                                        "Session hygiene: compressed %s → %s msgs, "
-                                        "~%s → ~%s tokens",
-                                        _msg_count, _new_count,
-                                        f"{_approx_tokens:,}", f"{_new_tokens:,}",
-                                    )
+                                    if _hyg_changed:
+                                        logger.info(
+                                            "Session hygiene: compressed %s → %s msgs, "
+                                            "~%s → ~%s tokens",
+                                            _msg_count, _new_count,
+                                            f"{_approx_tokens:,}", f"{_new_tokens:,}",
+                                        )
+                                    else:
+                                        logger.warning(
+                                            "Session hygiene: compression aborted or "
+                                            "made no changes; transcript preserved"
+                                        )
 
-                                    if _new_tokens >= _warn_token_threshold:
+                                    if (
+                                        _hyg_changed
+                                        and _new_tokens >= _warn_token_threshold
+                                    ):
                                         logger.warning(
                                             "Session hygiene: still ~%s tokens after "
                                             "compression",
@@ -8566,8 +8579,20 @@ class GatewayRunner:
                                     # /compress to retry or /reset to start
                                     # fresh.
                                     _comp = getattr(_hyg_agent, "context_compressor", None)
-                                    if _comp is not None and getattr(_comp, "_last_compress_aborted", False):
-                                        _err = getattr(_comp, "_last_summary_error", None) or "unknown error"
+                                    if not _hyg_changed:
+                                        _err = (
+                                            getattr(
+                                                _hyg_agent,
+                                                "_last_compression_checkpoint_warning",
+                                                None,
+                                            )
+                                            or getattr(
+                                                _comp,
+                                                "_last_summary_error",
+                                                None,
+                                            )
+                                            or "compression made no changes"
+                                        )
                                         _warn_msg = (
                                             "⚠️ Context compression aborted "
                                             f"({_err}). No messages were dropped — "
@@ -12185,9 +12210,9 @@ class GatewayRunner:
                 return t("gateway.compress.no_provider")
 
             msgs = [
-                {"role": m.get("role"), "content": m.get("content")}
-                for m in history
-                if m.get("role") in {"user", "assistant"} and m.get("content")
+                message.copy()
+                for message in history
+                if message.get("role") != "session_meta"
             ]
 
             tmp_agent = AIAgent(
@@ -12195,7 +12220,7 @@ class GatewayRunner:
                 model=model,
                 max_iterations=4,
                 quiet_mode=True,
-                skip_memory=True,
+                skip_memory=False,
                 enabled_toolsets=["memory"],
                 session_id=session_entry.session_id,
             )
@@ -12221,6 +12246,26 @@ class GatewayRunner:
                     None,
                     lambda: tmp_agent._compress_context(msgs, "", approx_tokens=approx_tokens, focus_topic=focus_topic, force=True)
                 )
+
+                if compressed is msgs:
+                    _checkpoint_err = getattr(
+                        tmp_agent,
+                        "_last_compression_checkpoint_warning",
+                        None,
+                    )
+                    _summary_err = getattr(
+                        compressor,
+                        "_last_summary_error",
+                        None,
+                    )
+                    return t(
+                        "gateway.compress.aborted",
+                        error=(
+                            _checkpoint_err
+                            or _summary_err
+                            or "compression made no changes"
+                        ),
+                    )
 
                 # _compress_context already calls end_session() on the old session
                 # (preserving its full transcript in SQLite) and creates a new
@@ -14973,6 +15018,7 @@ class GatewayRunner:
         ("compression", "threshold"),
         ("compression", "target_ratio"),
         ("compression", "protect_last_n"),
+        ("compression", "require_memory_checkpoint"),
         ("agent", "disabled_toolsets"),
     )
 
