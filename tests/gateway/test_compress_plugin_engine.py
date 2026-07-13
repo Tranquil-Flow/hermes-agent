@@ -130,7 +130,7 @@ async def test_compress_works_with_plugin_context_engine():
     with (
         patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "***"}),
         patch("gateway.run._resolve_gateway_model", return_value="test-model"),
-        patch("run_agent.AIAgent", return_value=agent_instance),
+        patch("run_agent.AIAgent", return_value=agent_instance) as agent_cls,
         patch("agent.model_metadata.estimate_messages_tokens_rough", return_value=100),
     ):
         result = await runner._handle_compress_command(_make_event("/compress"))
@@ -141,6 +141,40 @@ async def test_compress_works_with_plugin_context_engine():
     assert "_find_tail_cut_by_tokens" not in result
     # Happy path fired
     agent_instance._compress_context.assert_called_once()
+    assert agent_cls.call_args.kwargs["skip_memory"] is False
+
+
+@pytest.mark.asyncio
+async def test_compress_identity_noop_preserves_gateway_session_state():
+    history = _make_history()
+    runner = _make_runner(history)
+
+    agent_instance = MagicMock()
+    agent_instance.shutdown_memory_provider = MagicMock()
+    agent_instance.close = MagicMock()
+    agent_instance.context_compressor = _FakePluginEngine()
+    agent_instance.session_id = "sess-1"
+    agent_instance._last_compression_checkpoint_warning = (
+        "required memory checkpoint unavailable"
+    )
+    agent_instance._compress_context.side_effect = (
+        lambda messages, *_args, **_kwargs: (messages, "")
+    )
+
+    with (
+        patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "***"}),
+        patch("gateway.run._resolve_gateway_model", return_value="test-model"),
+        patch("run_agent.AIAgent", return_value=agent_instance) as agent_cls,
+        patch("agent.model_metadata.estimate_messages_tokens_rough", return_value=100),
+    ):
+        result = await runner._handle_compress_command(_make_event("/compress"))
+
+    assert "aborted" in result.lower()
+    assert "required memory checkpoint unavailable" in result
+    assert agent_cls.call_args.kwargs["skip_memory"] is False
+    getattr(runner.session_store.rewrite_transcript, "assert_not_called")()
+    getattr(runner.session_store.update_session, "assert_not_called")()
+    getattr(runner.session_store._save, "assert_not_called")()
 
 
 @pytest.mark.asyncio

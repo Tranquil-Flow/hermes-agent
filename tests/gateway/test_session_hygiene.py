@@ -299,7 +299,9 @@ class TestTokenEstimation:
 
 
 @pytest.mark.asyncio
-async def test_session_hygiene_messages_stay_in_originating_topic(monkeypatch, tmp_path):
+async def test_session_hygiene_preserves_full_transcript_in_originating_topic(
+    monkeypatch, tmp_path
+):
     fake_dotenv = types.ModuleType("dotenv")
     fake_dotenv.load_dotenv = lambda *args, **kwargs: None
     monkeypatch.setitem(sys.modules, "dotenv", fake_dotenv)
@@ -313,9 +315,11 @@ async def test_session_hygiene_messages_stay_in_originating_topic(monkeypatch, t
             self._print_fn = None
             self.shutdown_memory_provider = MagicMock()
             self.close = MagicMock()
+            self.received_messages = None
             type(self).last_instance = self
 
         def _compress_context(self, messages, *_args, **_kwargs):
+            self.received_messages = messages
             # Simulate real _compress_context: create a new session_id
             self.session_id = f"{self.session_id}_compressed"
             return ([{"role": "assistant", "content": "compressed"}], None)
@@ -344,7 +348,30 @@ async def test_session_hygiene_messages_stay_in_originating_topic(monkeypatch, t
         platform=Platform.TELEGRAM,
         chat_type="group",
     )
-    runner.session_store.load_transcript.return_value = _make_history(6, content_size=400)
+    history = _make_history(6, content_size=400)
+    history[1].update(
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "terminal", "arguments": "{}"},
+                }
+            ],
+            "reasoning": "need live evidence",
+        }
+    )
+    history.insert(
+        2,
+        {
+            "role": "tool",
+            "tool_call_id": "call-1",
+            "content": "RAW-TOOL-EVIDENCE",
+            "timestamp": "tool-time",
+        },
+    )
+    runner.session_store.load_transcript.return_value = history
     runner.session_store.has_any_sessions.return_value = True
     runner.session_store.rewrite_transcript = MagicMock()
     runner.session_store.append_to_transcript = MagicMock()
@@ -391,6 +418,7 @@ async def test_session_hygiene_messages_stay_in_originating_topic(monkeypatch, t
     # happens silently with server-side logging only.
     assert len(adapter.sent) == 0
     assert FakeCompressAgent.last_instance is not None
+    assert FakeCompressAgent.last_instance.received_messages == history
     FakeCompressAgent.last_instance.shutdown_memory_provider.assert_called_once()
     FakeCompressAgent.last_instance.close.assert_called_once()
 
@@ -408,8 +436,10 @@ async def test_session_hygiene_warns_user_when_compression_aborts(monkeypatch, t
 
     class FakeCompressAgentWithSummaryFailure:
         last_instance = None
+        last_kwargs = None
 
         def __init__(self, **kwargs):
+            type(self).last_kwargs = kwargs
             self.model = kwargs.get("model")
             self.session_id = kwargs.get("session_id", "fake-session")
             self._print_fn = None
@@ -511,6 +541,10 @@ async def test_session_hygiene_warns_user_when_compression_aborts(monkeypatch, t
     assert warn["chat_id"] == "-1001"
     assert warn["metadata"] == {"thread_id": "17585"}
 
+    assert FakeCompressAgentWithSummaryFailure.last_kwargs is not None
+    assert FakeCompressAgentWithSummaryFailure.last_kwargs["skip_memory"] is False
+    getattr(runner.session_store.rewrite_transcript, "assert_not_called")()
+    getattr(runner.session_store._save, "assert_not_called")()
     FakeCompressAgentWithSummaryFailure.last_instance.close.assert_called_once()
 
 

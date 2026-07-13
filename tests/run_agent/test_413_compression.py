@@ -420,7 +420,12 @@ class TestPreflightCompression:
         events = []
         agent.status_callback = lambda ev, msg: events.append((ev, msg))
 
-        def _fake_compress(messages, current_tokens=None, focus_topic=None):
+        def _fake_compress(
+            messages,
+            current_tokens=None,
+            focus_topic=None,
+            force=False,
+        ):
             events.append(("compress", "started"))
             return [{"role": "user", "content": f"{SUMMARY_PREFIX}\nPrevious conversation"}]
 

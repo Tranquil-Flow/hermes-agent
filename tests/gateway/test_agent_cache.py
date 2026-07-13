@@ -231,6 +231,7 @@ class TestExtractCacheBustingConfig:
                     "threshold": 0.6,
                     "target_ratio": 0.3,
                     "protect_last_n": 25,
+                    "require_memory_checkpoint": True,
                     "some_other_key": "ignored",
                 }
             }
@@ -239,6 +240,7 @@ class TestExtractCacheBustingConfig:
         assert out["compression.threshold"] == 0.6
         assert out["compression.target_ratio"] == 0.3
         assert out["compression.protect_last_n"] == 25
+        assert out["compression.require_memory_checkpoint"] is True
 
     def test_missing_keys_yield_none(self):
         """Absent config keys must produce None values (still contribute to signature)."""

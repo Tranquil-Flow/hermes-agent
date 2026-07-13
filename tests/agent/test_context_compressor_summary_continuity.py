@@ -2,7 +2,11 @@
 
 from unittest.mock import MagicMock, patch
 
-from agent.context_compressor import ContextCompressor, SUMMARY_PREFIX
+from agent.context_compressor import (
+    _SUMMARY_END_MARKER,
+    ContextCompressor,
+    SUMMARY_PREFIX,
+)
 
 
 def _compressor() -> ContextCompressor:
@@ -26,7 +30,12 @@ def _response(content: str):
 def _messages_with_handoff(summary_body: str):
     return [
         {"role": "system", "content": "system prompt"},
-        {"role": "user", "content": f"{SUMMARY_PREFIX}\n{summary_body}"},
+        {
+            "role": "user",
+            "content": (
+                f"{SUMMARY_PREFIX}\n{summary_body}\n\n{_SUMMARY_END_MARKER}"
+            ),
+        },
         {"role": "assistant", "content": "handoff acknowledged after resume"},
         {"role": "user", "content": "new user turn after resume"},
         {"role": "assistant", "content": "new assistant work after resume"},

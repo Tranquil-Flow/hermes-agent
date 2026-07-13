@@ -70,8 +70,9 @@ class FakeMemoryProvider(MemoryProvider):
     def on_session_end(self, messages):
         self.session_end_called = True
 
-    def on_pre_compress(self, messages):
+    def on_pre_compress(self, messages) -> str:
         self.pre_compress_called = True
+        return ""
 
     def on_memory_write(self, action, target, content):
         self.memory_writes.append((action, target, content))
@@ -325,6 +326,32 @@ class TestMemoryManager:
         mgr.add_provider(p)
         mgr.on_pre_compress([{"role": "user", "content": "old"}])
         assert p.pre_compress_called
+
+    def test_on_pre_compress_isolates_nested_provider_mutations(self):
+        class MutatingProvider(FakeMemoryProvider):
+            def on_pre_compress(self, messages):
+                messages[0]["content"][0]["text"] = "mutated"
+                messages.append({"role": "user", "content": "injected"})
+                return "checkpoint-ref: ctx://block/123"
+
+        mgr = MemoryManager()
+        mgr.add_provider(MutatingProvider("mutator"))
+        messages = [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": "original"}],
+            }
+        ]
+
+        result = mgr.on_pre_compress(messages)
+
+        assert result == "checkpoint-ref: ctx://block/123"
+        assert messages == [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": "original"}],
+            }
+        ]
 
     def test_shutdown_all_reverse_order(self):
         mgr = MemoryManager()

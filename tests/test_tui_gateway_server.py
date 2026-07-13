@@ -5,7 +5,7 @@ import threading
 import time
 import types
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from tui_gateway import server
 
@@ -2035,7 +2035,7 @@ def test_session_compress_uses_compress_helper(monkeypatch):
     monkeypatch.setattr(
         server,
         "_compress_session_history",
-        lambda session, focus_topic=None, **_kw: (2, {"total": 42}),
+        lambda session, focus_topic=None, **_kw: (2, {"total": 42}, True),
     )
     monkeypatch.setattr(server, "_session_info", lambda _agent: {"model": "x"})
 
@@ -2044,12 +2044,66 @@ def test_session_compress_uses_compress_helper(monkeypatch):
             {"id": "1", "method": "session.compress", "params": {"session_id": "sid"}}
         )
 
+    assert resp is not None
     assert resp["result"]["removed"] == 2
+    assert resp["result"]["status"] == "compressed"
     assert resp["result"]["usage"]["total"] == 42
     emit.assert_any_call("session.info", "sid", {"model": "x"})
     # Final status.update clears the pinned "compressing" indicator so the
     # status bar can revert to the neutral state when compaction finishes.
     emit.assert_any_call("status.update", "sid", {"kind": "status", "text": "ready"})
+
+
+def test_compress_helper_preserves_history_on_identity_noop(monkeypatch):
+    history = [
+        {"role": "user", "content": "one"},
+        {"role": "assistant", "content": "two"},
+        {"role": "user", "content": "three"},
+        {"role": "assistant", "content": "four"},
+    ]
+
+    class _Agent:
+        _cached_system_prompt = "system"
+        tools = []
+
+        def _compress_context(self, messages, *_args, **_kwargs):
+            return messages, "system"
+
+    session = _session(agent=_Agent())
+    session["history"] = history
+    session["history_version"] = 7
+    monkeypatch.setattr(server, "_get_usage", lambda _agent: {"total": 42})
+
+    removed, usage, changed = server._compress_session_history(session)
+
+    assert removed == 0
+    assert usage == {"total": 42}
+    assert changed is False
+    assert session["history"] is history
+    assert session["history_version"] == 7
+
+
+def test_session_compress_reports_identity_noop_as_unchanged(monkeypatch):
+    agent = types.SimpleNamespace()
+    server._sessions["sid"] = _session(agent=agent)
+    monkeypatch.setattr(
+        server,
+        "_compress_session_history",
+        lambda session, focus_topic=None, **_kw: (0, {"total": 42}, False),
+    )
+    monkeypatch.setattr(server, "_session_info", lambda _agent: {"model": "x"})
+    sync = MagicMock()
+    monkeypatch.setattr(server, "_sync_session_key_after_compress", sync)
+
+    with patch("tui_gateway.server._emit"):
+        resp = server.handle_request(
+            {"id": "1", "method": "session.compress", "params": {"session_id": "sid"}}
+        )
+
+    assert resp is not None
+    assert resp["result"]["status"] == "unchanged"
+    assert resp["result"]["removed"] == 0
+    sync.assert_not_called()
 
 
 def test_session_compress_syncs_session_key_after_rotation(monkeypatch):
@@ -2067,7 +2121,7 @@ def test_session_compress_syncs_session_key_after_rotation(monkeypatch):
     monkeypatch.setattr(
         server,
         "_compress_session_history",
-        lambda session, focus_topic=None, **_kw: (2, {"total": 42}),
+        lambda session, focus_topic=None, **_kw: (2, {"total": 42}, True),
     )
     monkeypatch.setattr(server, "_session_info", lambda _agent: {"model": "x"})
     restart_calls = []
@@ -3055,7 +3109,7 @@ def test_mirror_slash_side_effects_rejects_mutating_commands_while_running(monke
 
     def _fake_compress(session, focus):
         applied["compress"] = True
-        return (0, {})
+        return (0, {}, True)
 
     monkeypatch.setattr(server, "_apply_model_switch", _fake_apply_model)
     monkeypatch.setattr(server, "_compress_session_history", _fake_compress)
@@ -3113,7 +3167,7 @@ def test_mirror_slash_compress_does_not_prelock_history(monkeypatch):
     def _fake_compress(session, focus_topic=None, **_kw):
         seen["compress"] = True
         assert not session["history_lock"].locked()
-        return (0, {"total": 0})
+        return (0, {"total": 0}, True)
 
     def _fake_sync(_sid, _session):
         seen["sync"] = True
@@ -3132,6 +3186,33 @@ def test_mirror_slash_compress_does_not_prelock_history(monkeypatch):
     assert seen["compress"]
     assert seen["sync"]
     assert ("session.info", "sid", {"model": "x"}) in emitted
+
+
+def test_mirror_slash_compress_does_not_sync_identity_noop(monkeypatch):
+    import types
+
+    seen = {"sync": False}
+
+    monkeypatch.setattr(
+        server,
+        "_compress_session_history",
+        lambda *_args, **_kwargs: (0, {"total": 0}, False),
+    )
+    monkeypatch.setattr(
+        server,
+        "_sync_session_key_after_compress",
+        lambda *_args, **_kwargs: seen.__setitem__("sync", True),
+    )
+    monkeypatch.setattr(server, "_session_info", lambda _agent: {"model": "x"})
+    monkeypatch.setattr(server, "_emit", lambda *_args: None)
+
+    session = _session(running=False)
+    session["agent"] = types.SimpleNamespace(model="x")
+
+    warning = server._mirror_slash_side_effects("sid", session, "/compress")
+
+    assert warning == ""
+    assert not seen["sync"]
 
 
 # ---------------------------------------------------------------------------

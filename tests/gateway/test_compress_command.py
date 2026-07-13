@@ -90,6 +90,54 @@ async def test_compress_command_reports_noop_without_success_banner():
 
 
 @pytest.mark.asyncio
+async def test_compress_command_passes_full_fidelity_transcript():
+    history = [
+        {"role": "user", "content": "run the check", "timestamp": "t1"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "terminal", "arguments": "{}"},
+                }
+            ],
+            "reasoning": "need live evidence",
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call-1",
+            "content": "RAW-TOOL-EVIDENCE",
+        },
+        {"role": "assistant", "content": "done"},
+        {"role": "user", "content": "continue"},
+    ]
+    runner = _make_runner(history)
+    agent_instance = MagicMock()
+    agent_instance.shutdown_memory_provider = MagicMock()
+    agent_instance.close = MagicMock()
+    agent_instance._cached_system_prompt = ""
+    agent_instance.tools = None
+    agent_instance.context_compressor.has_content_to_compress.return_value = True
+    agent_instance.session_id = "sess-1"
+    agent_instance._compress_context.side_effect = (
+        lambda messages, *_args, **_kwargs: (messages, "")
+    )
+
+    with (
+        patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "***"}),
+        patch("gateway.run._resolve_gateway_model", return_value="test-model"),
+        patch("run_agent.AIAgent", return_value=agent_instance),
+        patch("agent.model_metadata.estimate_request_tokens_rough", return_value=100),
+    ):
+        await runner._handle_compress_command(_make_event())
+
+    compressed_input = agent_instance._compress_context.call_args.args[0]
+    assert compressed_input == history
+
+
+@pytest.mark.asyncio
 async def test_compress_command_explains_when_token_estimate_rises():
     history = _make_history()
     compressed = [
