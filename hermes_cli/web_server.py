@@ -3227,6 +3227,54 @@ _ACTION_COMMANDS: Dict[str, Tuple[str, ...]] = {}
 _ACTION_RESULTS: Dict[str, Dict[str, Any]] = {}
 
 
+def _action_result_path(name: str) -> Path:
+    """Return the persistent result marker path for an action name."""
+    log_file_name = _ACTION_LOG_FILES[name]
+    return _ACTION_LOG_DIR / f"{Path(log_file_name).stem}.result.json"
+
+
+def _write_action_result(name: str, exit_code: int, pid: Optional[int]) -> None:
+    """Persist a completed action result so status survives dashboard restart."""
+    try:
+        _ACTION_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        result_path = _action_result_path(name)
+        tmp_path = result_path.with_suffix(result_path.suffix + ".tmp")
+        tmp_path.write_text(
+            json.dumps({"exit_code": exit_code, "pid": pid}),
+            encoding="utf-8",
+        )
+        tmp_path.replace(result_path)
+    except OSError:
+        _log.debug("Failed to persist action result for %s", name, exc_info=True)
+
+
+def _read_action_result(name: str) -> Optional[Dict[str, Any]]:
+    """Read a persisted action result, ignoring corrupt or missing markers."""
+    try:
+        data = json.loads(_action_result_path(name).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    exit_code = data.get("exit_code")
+    pid = data.get("pid")
+    if not isinstance(exit_code, int):
+        return None
+    if pid is not None and not isinstance(pid, int):
+        return None
+    return {"exit_code": exit_code, "pid": pid}
+
+
+def _clear_action_result(name: str) -> None:
+    """Remove a stale persisted result before starting a fresh action."""
+    try:
+        _action_result_path(name).unlink()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        _log.debug("Failed to clear persisted action result for %s", name, exc_info=True)
+
+
 def _record_completed_action(name: str, message: str, exit_code: int = 1) -> None:
     """Record a non-spawned action result and write it to the action log."""
     log_file_name = _ACTION_LOG_FILES[name]
@@ -3284,6 +3332,7 @@ def _spawn_hermes_action(subcommand: List[str], name: str) -> subprocess.Popen:
     else:
         popen_kwargs["start_new_session"] = True
 
+    _clear_action_result(name)
     proc = subprocess.Popen(cmd, **popen_kwargs)
     # The child inherits its own duplicated fd for stdout/stderr, so the
     # parent's handle can be released immediately — otherwise we leak one
@@ -3954,7 +4003,7 @@ async def get_action_status(name: str, lines: int = 200):
 
     proc = _ACTION_PROCS.get(name)
     if proc is None:
-        result = _ACTION_RESULTS.get(name)
+        result = _ACTION_RESULTS.get(name) or _read_action_result(name)
         running = False
         exit_code = result.get("exit_code") if result else None
         pid = result.get("pid") if result else None
@@ -3968,6 +4017,7 @@ async def get_action_status(name: str, lines: int = 200):
             except Exception:
                 pass
             _ACTION_RESULTS[name] = {"exit_code": exit_code, "pid": pid}
+            _write_action_result(name, exit_code=exit_code, pid=pid)
             _ACTION_PROCS.pop(name, None)
             _ACTION_COMMANDS.pop(name, None)
 

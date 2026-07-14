@@ -10436,6 +10436,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
         except Exception as e:
             logger.debug("cua-driver refresh failed: %s", e)
 
+        _record_dashboard_action_success_from_env()
+
         # Write exit code *before* the gateway restart attempt.
         # When running as ``hermes update --gateway`` (spawned by the gateway's
         # /update command), this process lives inside the gateway's systemd
