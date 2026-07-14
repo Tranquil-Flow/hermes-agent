@@ -155,3 +155,66 @@ describe('Hermes REST session helpers', () => {
     )
   })
 })
+
+describe('Hermes REST cron helpers', () => {
+  let api: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    api = vi.fn().mockResolvedValue([])
+    Object.defineProperty(window, 'hermesDesktop', {
+      configurable: true,
+      value: { api }
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    Reflect.deleteProperty(window, 'hermesDesktop')
+  })
+
+  it('scopes the cron job listing to a concrete profile', async () => {
+    await getCronJobs('coder')
+
+    expect(api).toHaveBeenCalledWith({ path: '/api/cron/jobs?profile=coder' })
+  })
+
+  it('passes profile=all for the unified cron view', async () => {
+    await getCronJobs('all')
+
+    expect(api).toHaveBeenCalledWith({ path: '/api/cron/jobs?profile=all' })
+  })
+
+  it('omits the profile query when none is given (legacy default)', async () => {
+    await getCronJobs()
+
+    expect(api).toHaveBeenCalledWith({ path: '/api/cron/jobs' })
+  })
+
+  it('encodes profile names with reserved characters', async () => {
+    await getCronJobs('team a/b')
+
+    expect(api).toHaveBeenCalledWith({ path: '/api/cron/jobs?profile=team%20a%2Fb' })
+  })
+
+  it('creates a cron job in the given profile', async () => {
+    const body = { prompt: 'do thing', schedule: '0 9 * * *' }
+    await createCronJob(body, 'coder')
+
+    expect(api).toHaveBeenCalledWith({
+      path: '/api/cron/jobs?profile=coder',
+      method: 'POST',
+      body
+    })
+  })
+
+  it('creates a cron job without a profile (backend defaults to default)', async () => {
+    const body = { prompt: 'do thing', schedule: '0 9 * * *' }
+    await createCronJob(body)
+
+    expect(api).toHaveBeenCalledWith({
+      path: '/api/cron/jobs',
+      method: 'POST',
+      body
+    })
+  })
+})

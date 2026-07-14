@@ -769,9 +769,14 @@ export async function getCronJobRuns(jobId: string, limit = 20): Promise<Session
   return runs ?? []
 }
 
-export function createCronJob(body: CronJobCreatePayload): Promise<CronJob> {
+// Create in a specific profile's store. Omitting `profile` lets the backend
+// default to 'default' (~/.hermes). Callers viewing a concrete profile pass it
+// so the new job lands in — and shows up under — the profile being viewed.
+export function createCronJob(body: CronJobCreatePayload, profile?: string): Promise<CronJob> {
+  const suffix = profile ? `?profile=${encodeURIComponent(profile)}` : ''
+
   return window.hermesDesktop.api<CronJob>({
-    path: '/api/cron/jobs',
+    path: `/api/cron/jobs${suffix}`,
     method: 'POST',
     body
   })
