@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { $connection } from '@/store/session'
 import type { SessionInfo, SessionMessage } from '@/types/hermes'
 
-import { artifactImageSrc, collectArtifactsForSession } from './artifact-utils'
+import { artifactImageSrc, collectArtifactsForSession, toEpochMillis } from './artifact-utils'
 
 function makeSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
   return {
@@ -87,5 +87,47 @@ describe('collectArtifactsForSession', () => {
     expect(api).toHaveBeenCalledWith({
       path: '/api/fs/read-data-url?path=%2FUsers%2Fme%2F.hermes%2Fskills%2Fwork-esab%2Freferences%2Fimages%2Fmanual-step03.jpeg'
     })
+  })
+})
+
+describe('toEpochMillis', () => {
+  it('normalizes Unix seconds to milliseconds', () => {
+    // 1700000000 ~= 2023-11-14 in seconds
+    const sec = 1_700_000_000
+    expect(toEpochMillis(sec)).toBe(1_700_000_000_000)
+  })
+
+  it('preserves already-millisecond values', () => {
+    // 1700000000000 ~= 2023-11-14 in milliseconds
+    const ms = 1_700_000_000_000
+    expect(toEpochMillis(ms)).toBe(ms)
+  })
+
+  it('normalizes session timestamp at collection boundary (seconds in)', () => {
+    const sec = 1_700_000_000
+    const session = makeSession({ last_active: sec, started_at: sec })
+    const artifacts = collectArtifactsForSession(session, [
+      {
+        content: 'https://example.com/img.png',
+        role: 'assistant',
+        timestamp: sec
+      }
+    ])
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0].timestamp).toBe(1_700_000_000_000)
+  })
+
+  it('preserves already-millisecond timestamps at collection boundary', () => {
+    const ms = 1_700_000_000_000
+    const session = makeSession({ last_active: ms, started_at: ms })
+    const artifacts = collectArtifactsForSession(session, [
+      {
+        content: 'https://example.com/img.png',
+        role: 'assistant',
+        timestamp: ms
+      }
+    ])
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0].timestamp).toBe(ms)
   })
 })

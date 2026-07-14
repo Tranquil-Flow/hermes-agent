@@ -243,6 +243,14 @@ function collectArtifactsFromMessage(message: SessionMessage, pushValue: (value:
   }
 }
 
+const EPOCH_MILLIS_THRESHOLD = 1_000_000_000_000
+
+export function toEpochMillis(ts: number): number {
+  if (ts <= 0) return ts
+  // Values below 1e12 are Unix seconds (year ≤ 33658 in sec, year ≤ 2001 in ms).
+  return ts < EPOCH_MILLIS_THRESHOLD ? ts * 1000 : ts
+}
+
 export function collectArtifactsForSession(session: SessionInfo, messages: SessionMessage[]): ArtifactRecord[] {
   const found = new Map<string, ArtifactRecord>()
   const title = artifactSessionTitle(session)
@@ -273,7 +281,7 @@ export function collectArtifactsForSession(session: SessionInfo, messages: Sessi
         label: artifactLabel(value),
         sessionId: session.id,
         sessionTitle: title,
-        timestamp: message.timestamp || session.last_active || session.started_at || Date.now()
+        timestamp: toEpochMillis(message.timestamp || session.last_active || session.started_at || Date.now())
       })
     })
   }
