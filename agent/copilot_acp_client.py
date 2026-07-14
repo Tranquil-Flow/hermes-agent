@@ -13,6 +13,7 @@ import os
 import queue
 import re
 import shlex
+import shutil
 import subprocess
 import threading
 import time
@@ -59,12 +60,36 @@ def _is_gh_copilot_deprecation_message(stderr_text: str) -> bool:
     return any(marker in lower for marker in _DEPRECATION_MARKERS)
 
 
+def _resolve_windows_launcher(cmd: str) -> str:
+    """Resolve a bare CLI name to a Windows-native launcher when available."""
+
+    if not cmd or os.path.splitext(cmd)[1]:
+        return cmd
+
+    # On Windows, subprocess.Popen does not honour shebang (#!).
+    # Bash scripts (devin, copilot, etc.) found via env vars or PATH
+    # will fail silently.  If the resolved command has no native
+    # executable extension, try appending .cmd (the common wrapper
+    # pattern for CLI tools installed by IDEs like Windsurf/VS Code).
+    for ext in (".cmd", ".exe"):
+        candidate = cmd + ext
+        if os.path.isfile(candidate) or shutil.which(candidate):
+            return candidate
+
+    return cmd
+
+
 def _resolve_command() -> str:
-    return (
+    cmd = (
         os.getenv("HERMES_COPILOT_ACP_COMMAND", "").strip()
         or os.getenv("COPILOT_CLI_PATH", "").strip()
         or "copilot"
     )
+
+    if os.name == "nt":
+        return _resolve_windows_launcher(cmd)
+
+    return cmd
 
 
 def _resolve_args() -> list[str]:
