@@ -304,6 +304,13 @@ def check_discord_requirements() -> bool:
     return True
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _build_allowed_mentions():
     """Build Discord ``AllowedMentions`` with safe defaults, overridable via env.
 
@@ -833,10 +840,12 @@ class DiscordAdapter(BasePlatformAdapter):
         self._voice_text_channels: Dict[int, int] = {}  # guild_id -> text_channel_id
         self._voice_sources: Dict[int, Dict[str, Any]] = {}  # guild_id -> linked text channel source metadata
         self._voice_timeout_tasks: Dict[int, asyncio.Task] = {}  # guild_id -> timeout task
+        self._voice_activity_last_reset: Dict[int, float] = {}  # guild_id -> last inbound activity timer reset
         # Phase 2: voice listening
         self._voice_receivers: Dict[int, VoiceReceiver] = {}  # guild_id -> VoiceReceiver
         self._voice_listen_tasks: Dict[int, asyncio.Task] = {}  # guild_id -> listen loop
         self._voice_input_callback: Optional[Callable] = None  # set by run.py
+        self._recent_voice_transcripts: Dict[Tuple[int, int], List[Tuple[float, str]]] = {}
         self._on_voice_disconnect: Optional[Callable] = None  # set by run.py
         # Resolves the current voice-reply mode ("off"|"voice_only"|"all") for a
         # linked text-channel id; set by run.py. Lets the inactivity timer leave
@@ -2918,6 +2927,7 @@ class DiscordAdapter(BasePlatformAdapter):
             task = self._voice_timeout_tasks.pop(guild_id, None)
             if task:
                 task.cancel()
+            self._voice_activity_last_reset.pop(guild_id, None)
             self._voice_text_channels.pop(guild_id, None)
             self._voice_sources.pop(guild_id, None)
 
@@ -3019,6 +3029,22 @@ class DiscordAdapter(BasePlatformAdapter):
         self._voice_timeout_tasks[guild_id] = asyncio.ensure_future(
             self._voice_timeout_handler(guild_id)
         )
+
+    def _note_voice_activity(self, guild_id: int, *, min_interval: float = 30.0) -> None:
+        """Record inbound voice activity and keep the voice session alive.
+
+        The inactivity timeout exists to leave empty/forgotten voice channels,
+        but inbound speech is activity too.  Previously the timer was reset on
+        join/playback only, so a listen-only meeting could be disconnected
+        after VOICE_TIMEOUT even while users were actively talking.  Throttle
+        resets to avoid churning timeout tasks on every 200ms listen-loop tick.
+        """
+        now = time.monotonic()
+        last = self._voice_activity_last_reset.get(guild_id, 0.0)
+        if now - last < min_interval:
+            return
+        self._voice_activity_last_reset[guild_id] = now
+        self._reset_voice_timeout(guild_id)
 
     async def _voice_timeout_handler(self, guild_id: int) -> None:
         """Auto-disconnect after VOICE_TIMEOUT seconds of inactivity."""
@@ -3159,6 +3185,20 @@ class DiscordAdapter(BasePlatformAdapter):
                     except Exception:
                         pass
 
+                # Any recent inbound packet means the meeting is active, even
+                # before an utterance reaches silence/STT.  This prevents
+                # continuous or listen-only meetings from timing out mid-call.
+                try:
+                    with receiver._lock:
+                        recent_audio = any(
+                            now - last_t < self._KEEPALIVE_INTERVAL
+                            for last_t in receiver._last_packet_time.values()
+                        )
+                    if recent_audio:
+                        self._note_voice_activity(guild_id)
+                except Exception:
+                    pass
+
                 completed = receiver.check_silence()
                 # Voice inputs always originate from a specific guild
                 # (guild_id is in scope). Pass it so role checks are
@@ -3203,7 +3243,18 @@ class DiscordAdapter(BasePlatformAdapter):
 
             logger.info("Voice input from user %d: %s", user_id, transcript[:100])
 
-            if self._voice_input_callback:
+            if self._is_duplicate_voice_transcript(guild_id, user_id, transcript):
+                logger.info(
+                    "Suppressing duplicate voice transcript for guild=%s user=%s: %s",
+                    guild_id,
+                    user_id,
+                    transcript[:100],
+                )
+                return
+
+            await self._post_voice_transcript_to_side_chat(guild_id, user_id, transcript)
+
+            if self._voice_input_callback and self._voice_transcripts_trigger_agent_turns():
                 await self._voice_input_callback(
                     guild_id=guild_id,
                     user_id=user_id,
