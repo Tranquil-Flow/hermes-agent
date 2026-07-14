@@ -68,6 +68,7 @@ import { droppedFileInlineRefs, type SessionDragPayload, sessionInlineRef } from
 import type { ChatBarState } from './composer/types'
 import { type DroppedFile, partitionDroppedFiles } from './hooks/use-composer-actions'
 import { useFileDropZone } from './hooks/use-file-drop-zone'
+import { AgentRunInspector } from './right-rail/agent-run-inspector'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { SessionActionsMenu } from './sidebar/session-actions-menu'
 import { threadLoadingState } from './thread-loading'
@@ -187,6 +188,19 @@ interface ChatRuntimeBoundaryProps {
 }
 
 const NO_MESSAGES: ChatMessage[] = []
+
+function AgentRunInspectorBoundary(
+  props: Omit<React.ComponentProps<typeof AgentRunInspector>, 'messageCount'>
+) {
+  const messages = useStore($messages)
+
+  return (
+    <AgentRunInspector
+      {...props}
+      messageCount={messages.filter(message => !message.hidden).length}
+    />
+  )
+}
 
 /**
  * Owns the $messages subscription and the assistant-ui external-store runtime.
@@ -513,6 +527,15 @@ export function ChatView({
           <ChatDropOverlay kind={dragKind} />
           <ChatSwapOverlay profile={gatewaySwapTarget} />
         </div>
+        <AgentRunInspectorBoundary
+          awaitingResponse={awaitingResponse}
+          busy={busy}
+          gatewayOpen={gatewayOpen}
+          gatewayState={gatewayState}
+          model={currentModel}
+          provider={currentProvider}
+          sessionId={activeSessionId}
+        />
         {/* Composer renders OUTSIDE the contain:[layout paint] wrapper above:
             that wrapper is a containing block for — and clips — position:fixed
             descendants, so the popped-out (fixed) composer would anchor to the
