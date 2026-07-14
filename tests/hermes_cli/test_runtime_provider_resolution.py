@@ -412,6 +412,38 @@ def test_resolve_runtime_provider_lmstudio_uses_token_when_present(monkeypatch):
     assert resolved["base_url"] == "http://127.0.0.1:1234/v1"
 
 
+def test_resolve_runtime_provider_deepseek_ignores_persisted_local_base_url(tmp_path, monkeypatch):
+    """Persisted localhost model.base_url must not hijack direct DeepSeek routing.
+
+    Regression for a Nous/subscription → DeepSeek migration: the saved model
+    config still carried a local LiteLLM/Z.AI route, and resolver-level
+    config precedence sent DeepSeek's model slug to the stale loopback route
+    instead of DeepSeek's canonical endpoint. End-to-end through real
+    config.yaml on disk so the test exercises the persistence layer the bug
+    actually lives in, not a monkeypatched _get_model_config.
+    """
+    hermes_home = tmp_path / ".hermes"
+    hermes_home.mkdir()
+    (hermes_home / "config.yaml").write_text(
+        "model:\n"
+        "  provider: deepseek\n"
+        "  default: deepseek/deepseek-v4-pro\n"
+        "  base_url: http://localhost:8081/v1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    monkeypatch.delenv("DEEPSEEK_BASE_URL", raising=False)
+    monkeypatch.setattr(rp, "load_pool", lambda _provider: SimpleNamespace(has_credentials=lambda: False))
+
+    resolved = rp.resolve_runtime_provider(requested="deepseek")
+
+    assert resolved["provider"] == "deepseek"
+    assert resolved["api_key"] == "test-deepseek-key"
+    assert resolved["base_url"] == "https://api.deepseek.com/v1"
+
+
+
 def test_resolve_runtime_provider_lmstudio_honors_saved_base_url(monkeypatch):
     """Pre-existing configs with `provider: lmstudio` + custom base_url must keep working.
 

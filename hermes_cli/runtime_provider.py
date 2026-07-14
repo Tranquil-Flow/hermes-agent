@@ -68,6 +68,39 @@ def _loopback_hostname(host: str) -> bool:
     return h in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 
 
+def _config_base_url_trustworthy_for_api_key_provider(
+    provider: str,
+    pconfig: Any,
+    cfg_base_url: str,
+) -> bool:
+    """Decide whether ``model.base_url`` may override a direct provider endpoint.
+
+    Configured base URLs are normally authoritative for matching providers, but
+    stale loopback URLs from a previous local gateway/subscription route must
+    not hijack cloud providers such as DeepSeek. Local providers (LM Studio and
+    providers whose canonical endpoint is local/user-supplied) keep their saved
+    loopback/LAN URLs.
+    """
+    bu = (cfg_base_url or "").strip()
+    if not bu:
+        return False
+    if not _loopback_hostname(base_url_hostname(bu)):
+        return True
+    canonical = str(getattr(pconfig, "inference_base_url", "") or "").strip()
+    if not canonical:
+        return True
+    if _loopback_hostname(base_url_hostname(canonical)):
+        return True
+    logger.info(
+        "Ignoring stale loopback model.base_url %s for direct provider %s; "
+        "using provider registry endpoint instead",
+        bu,
+        provider,
+    )
+    return False
+
+
+
 def _config_base_url_trustworthy_for_bare_custom(cfg_base_url: str, cfg_provider: str) -> bool:
     """Decide whether ``model.base_url`` may back bare ``custom`` runtime resolution.
 
@@ -2028,7 +2061,31 @@ def resolve_runtime_provider(
         cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
         cfg_base_url = ""
         if cfg_provider == provider:
-            cfg_base_url = (model_cfg.get("base_url") or "").strip().rstrip("/")
+            raw_cfg_base_url = (model_cfg.get("base_url") or "").strip().rstrip("/")
+            # Ignore stale local gateway endpoints carried in model.base_url when
+            # a cloud API-key provider is selected.  Catches migrations like
+            # local LiteLLM/Z.AI -> DeepSeek where the provider changed but the
+            # persisted base_url still points at localhost.  Providers whose
+            # registry default is local (LM Studio) keep their saved loopback/LAN
+            # URLs; local Ollama resolves through the custom provider path, not
+            # this branch.
+            if (
+                raw_cfg_base_url
+                and _loopback_hostname(base_url_hostname(raw_cfg_base_url))
+                and not _loopback_hostname(base_url_hostname(pconfig.inference_base_url))
+            ):
+                logger.warning(
+                    "Ignoring local model.base_url %s for direct provider %s; "
+                    "using provider registry endpoint instead",
+                    raw_cfg_base_url,
+                    provider,
+                )
+            elif _config_base_url_trustworthy_for_api_key_provider(
+                provider,
+                pconfig,
+                raw_cfg_base_url,
+            ):
+                cfg_base_url = raw_cfg_base_url
         base_url = cfg_base_url or creds.get("base_url", "").rstrip("/")
         api_mode = "chat_completions"
         if provider == "copilot":
