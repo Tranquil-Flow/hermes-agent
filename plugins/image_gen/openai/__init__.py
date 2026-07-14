@@ -9,8 +9,8 @@ three virtual model IDs so the ``hermes tools`` model picker and the
     gpt-image-2-medium  ~40s   default — balanced
     gpt-image-2-high    ~2min  slowest, highest fidelity
 
-All three hit the same underlying API model (``gpt-image-2``) with a
-different ``quality`` parameter. Output is base64 JSON → saved under
+All three hit the same underlying API model (``gpt-image-2`` by default)
+with a different ``quality`` parameter. Output is base64 JSON → saved under
 ``$HERMES_HOME/cache/images/``.
 
 Selection precedence (first hit wins):
@@ -19,13 +19,25 @@ Selection precedence (first hit wins):
 2. ``image_gen.openai.model`` in ``config.yaml``
 3. ``image_gen.model`` in ``config.yaml`` (when it's one of our tier IDs)
 4. :data:`DEFAULT_MODEL` — ``gpt-image-2-medium``
+
+The underlying API model and base URL are also configurable:
+
+* ``OPENAI_IMAGE_API_MODEL`` or ``image_gen.openai.api_model``
+* ``OPENAI_IMAGE_BASE_URL`` / ``image_gen.openai.base_url`` /
+  ``OPENAI_BASE_URL``
+* ``OPENAI_IMAGE_API_MODE`` or ``image_gen.openai.api_mode`` (``images`` or
+  ``responses``)
 """
 
 from __future__ import annotations
 
+import base64
 import logging
+import mimetypes
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import unquote
 
 from agent.image_gen_provider import (
     DEFAULT_ASPECT_RATIO,
@@ -50,6 +62,9 @@ logger = logging.getLogger(__name__)
 # ``quality`` is the knob that changes generation time and output fidelity.
 
 API_MODEL = "gpt-image-2"
+API_MODE_IMAGES = "images"
+API_MODE_RESPONSES = "responses"
+RESPONSES_MODEL = "gpt-5.5"
 
 _MODELS: Dict[str, Dict[str, Any]] = {
     "gpt-image-2-low": {
@@ -80,6 +95,20 @@ _SIZES = {
     "portrait": "1024x1536",
 }
 
+_SUPPORTED_REFERENCE_IMAGE_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+}
+_REFERENCE_IMAGE_EXT_TO_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
+_EDIT_IMAGE_MAX_BYTES = 50 * 1024 * 1024
+_RESPONSES_INPUT_IMAGE_MAX_BYTES = 20 * 1024 * 1024
+
 
 def _load_openai_config() -> Dict[str, Any]:
     """Read ``image_gen`` from config.yaml (returns {} on any failure)."""
@@ -94,6 +123,19 @@ def _load_openai_config() -> Dict[str, Any]:
         return {}
 
 
+def _clean_str(value: Any) -> Optional[str]:
+    """Return a stripped non-empty string, or ``None``."""
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _openai_subconfig(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    openai_cfg = cfg.get("openai") if isinstance(cfg.get("openai"), dict) else {}
+    return openai_cfg if isinstance(openai_cfg, dict) else {}
+
+
 def _resolve_model() -> Tuple[str, Dict[str, Any]]:
     """Decide which tier to use and return ``(model_id, meta)``."""
     env_override = os.environ.get("OPENAI_IMAGE_MODEL")
@@ -101,12 +143,11 @@ def _resolve_model() -> Tuple[str, Dict[str, Any]]:
         return env_override, _MODELS[env_override]
 
     cfg = _load_openai_config()
-    openai_cfg = cfg.get("openai") if isinstance(cfg.get("openai"), dict) else {}
+    openai_cfg = _openai_subconfig(cfg)
     candidate: Optional[str] = None
-    if isinstance(openai_cfg, dict):
-        value = openai_cfg.get("model")
-        if isinstance(value, str) and value in _MODELS:
-            candidate = value
+    value = openai_cfg.get("model")
+    if isinstance(value, str) and value in _MODELS:
+        candidate = value
     if candidate is None:
         top = cfg.get("model")
         if isinstance(top, str) and top in _MODELS:
