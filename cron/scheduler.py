@@ -31,7 +31,7 @@ except ImportError:
         import msvcrt
     except ImportError:
         msvcrt = None
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, List, Optional
 
 # Add parent directory to path for imports BEFORE repo-level imports.
@@ -2011,33 +2011,31 @@ def _get_script_timeout() -> int:
     return _DEFAULT_SCRIPT_TIMEOUT
 
 
-# Known Git for Windows install directories (64-bit and 32-bit).  These are
-# literal Windows paths — never os.path.join'd, because on non-Windows hosts
-# that would produce forward-slash variants and the unit tests would diverge
-# from the real Windows strings.
-_GIT_BASH_DIRS = (
-    r"C:\Program Files\Git\usr\bin",
-    r"C:\Program Files (x86)\Git\usr\bin",
-)
-
-
 def _resolve_bash() -> Optional[str]:
     """Resolve the bash executable to use for .sh/.bash scripts.
 
     On Windows, ``shutil.which("bash")`` typically returns WSL's
     ``C:\\Windows\\System32\\bash.exe`` before Git for Windows' bash.
     WSL bash cannot interpret Windows paths at all — even with forward
-    slashes — so cron .sh scripts fail with exit code 127.  We therefore
-    check the two standard Git for Windows install locations first, and
-    only fall back to ``shutil.which()`` when neither is present.
+    slashes — so cron .sh scripts fail with exit code 127.
+
+    Reuses the established ``_find_bash()`` resolution from
+    ``tools.environments.local`` which checks (in order):
+    1. ``HERMES_GIT_BASH_PATH`` env var
+    2. ``shutil.which("bash")``
+    3. ``Git\\bin\\bash.exe`` in Program Files / LOCALAPPDATA
+    4. Raises ``RuntimeError`` if nothing found
 
     On non-Windows platforms ``shutil.which("bash")`` is sufficient.
     """
     if sys.platform == "win32":
-        for _dir in _GIT_BASH_DIRS:
-            _candidate = os.path.join(_dir, "bash.exe")
-            if os.path.isfile(_candidate):
-                return _candidate
+        try:
+            from tools.environments.local import _find_bash
+            return _find_bash()
+        except RuntimeError:
+            return None
+        except Exception:
+            pass
     return shutil.which("bash") or (
         "/bin/bash" if os.path.isfile("/bin/bash") else None
     )

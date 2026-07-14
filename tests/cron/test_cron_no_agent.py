@@ -335,55 +335,79 @@ def test_run_job_script_path_traversal_still_blocked(hermes_env):
 
 # ---------------------------------------------------------------------------
 # _resolve_bash: Windows Git Bash preference (issue #46332, Layer 1)
+# Reuses _find_bash() from tools.environments.local — tests mock the import.
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_bash_prefers_git_bash_over_wsl_on_windows(monkeypatch):
-    """On Windows, Git for Windows bash must be chosen before WSL bash."""
+def test_resolve_bash_uses_find_bash_on_windows(monkeypatch):
+    """On Windows, _resolve_bash delegates to _find_bash from local env."""
     from cron import scheduler as sched
 
     monkeypatch.setattr(sched.sys, "platform", "win32")
 
-    def _fake_isfile(p):
-        # Git Bash 64-bit exists; WSL bash also "exists" on PATH.
-        git_bash = os.path.join(r"C:\Program Files\Git\usr\bin", "bash.exe")
-        return p == git_bash
+    # _find_bash checks HERMES_GIT_BASH_PATH first, then which, then
+    # Git\bin locations. Mock it to return a custom path.
+    custom_path = r"C:\Tools\mybash.exe"
 
-    monkeypatch.setattr(sched.os.path, "isfile", _fake_isfile)
-    monkeypatch.setattr(sched.shutil, "which", lambda cmd: r"C:\Windows\System32\bash.exe")
+    import tools.environments.local as local_env
+    monkeypatch.setattr(local_env, "_find_bash", lambda: custom_path)
 
     result = sched._resolve_bash()
-    assert result == os.path.join(r"C:\Program Files\Git\usr\bin", "bash.exe")
+    assert result == custom_path
 
 
-def test_resolve_bash_checks_32bit_git_bash_path(monkeypatch):
-    """Fallback to 32-bit Git for Windows install path (edge case #3)."""
+def test_resolve_bash_hermes_git_bash_path_override(monkeypatch):
+    """HERMES_GIT_BASH_PATH env var is honored via _find_bash."""
+    from cron import scheduler as sched
+
+    monkeypatch.setattr(sched.sys, "platform", "win32")
+    custom = r"D:\PortableGit\bin\bash.exe"
+    monkeypatch.setenv("HERMES_GIT_BASH_PATH", custom)
+
+    import tools.environments.local as local_env
+    monkeypatch.setattr(local_env, "_IS_WINDOWS", True)
+    monkeypatch.setattr(local_env.os.path, "isfile", lambda p: p == custom)
+
+    result = sched._resolve_bash()
+    assert result == custom
+
+
+def test_resolve_bash_finds_standard_git_bin(monkeypatch):
+    """Standard Git\\bin\\bash.exe install is found via _find_bash."""
+    from cron import scheduler as sched
+
+    monkeypatch.setattr(sched.sys, "platform", "win32")
+    monkeypatch.delenv("HERMES_GIT_BASH_PATH", raising=False)
+
+    import tools.environments.local as local_env
+    monkeypatch.setattr(local_env, "_IS_WINDOWS", True)
+    monkeypatch.setattr(local_env.shutil, "which", lambda cmd: None)
+
+    git_bin_bash = os.path.join(
+        os.environ.get("ProgramFiles", r"C:\Program Files"), "Git", "bin", "bash.exe"
+    )
+
+    monkeypatch.setattr(local_env.os.path, "isfile", lambda p: p == git_bin_bash)
+
+    result = sched._resolve_bash()
+    assert result == git_bin_bash
+
+
+def test_resolve_bash_returns_none_when_find_bash_raises(monkeypatch):
+    """If _find_bash raises RuntimeError (bash not found), return None."""
     from cron import scheduler as sched
 
     monkeypatch.setattr(sched.sys, "platform", "win32")
 
-    def _fake_isfile(p):
-        git_bash_32 = os.path.join(r"C:\Program Files (x86)\Git\usr\bin", "bash.exe")
-        return p == git_bash_32
+    import tools.environments.local as local_env
 
-    monkeypatch.setattr(sched.os.path, "isfile", _fake_isfile)
-    monkeypatch.setattr(sched.shutil, "which", lambda cmd: r"C:\Windows\System32\bash.exe")
+    def _raise():
+        raise RuntimeError("Git Bash not found")
 
-    result = sched._resolve_bash()
-    assert result == os.path.join(r"C:\Program Files (x86)\Git\usr\bin", "bash.exe")
-
-
-def test_resolve_bash_falls_back_to_which_without_git_bash(monkeypatch):
-    """Without Git for Windows, fall back to shutil.which (edge case #4)."""
-    from cron import scheduler as sched
-
-    monkeypatch.setattr(sched.sys, "platform", "win32")
-    monkeypatch.setattr(sched.os.path, "isfile", lambda p: False)
-    wsl_bash = r"C:\Windows\System32\bash.exe"
-    monkeypatch.setattr(sched.shutil, "which", lambda cmd: wsl_bash)
+    monkeypatch.setattr(local_env, "_find_bash", _raise)
 
     result = sched._resolve_bash()
-    assert result == wsl_bash
+    assert result is None
 
 
 def test_resolve_bash_uses_which_on_non_windows(monkeypatch):
