@@ -48,7 +48,7 @@ from agent.tool_guardrails import (
     ToolGuardrailDecision,
 )
 from hermes_cli.config import cfg_get
-from hermes_cli.timeouts import get_provider_request_timeout
+from hermes_cli.timeouts import get_provider_request_timeout, get_effective_provider_for_timeout
 from hermes_constants import get_hermes_home
 from utils import base_url_host_matches, is_truthy_value
 
@@ -346,6 +346,7 @@ def init_agent(
     checkpoint_max_total_size_mb: int = 500,
     checkpoint_max_file_size_mb: int = 10,
     pass_session_id: bool = False,
+    requested_provider: str = None,
 ):
     """
     Initialize the AI Agent.
@@ -434,6 +435,12 @@ def init_agent(
     agent.base_url = base_url or ""
     provider_name = provider.strip().lower() if isinstance(provider, str) and provider.strip() else None
     agent.provider = provider_name or ""
+    # Preserve the original named-provider identity (e.g. "minimax") so timeout
+    # resolvers and other per-provider config lookups use the right config key
+    # even though runtime_provider resolved it to provider="custom".
+    agent.requested_provider = (
+        requested_provider.strip() if isinstance(requested_provider, str) and requested_provider.strip() else ""
+    )
     if credential_pool is not None:
         try:
             from agent.credential_pool import credential_pool_matches_provider
@@ -762,7 +769,9 @@ def init_agent(
     # every client construction path below (Anthropic native, OpenAI-wire,
     # router-based implicit auth) can apply it consistently.  Bedrock
     # Claude uses its own timeout path and is not covered here.
-    _provider_timeout = get_provider_request_timeout(agent.provider, agent.model)
+    _provider_timeout = get_provider_request_timeout(
+        get_effective_provider_for_timeout(agent), agent.model
+    )
 
     if agent.api_mode == "anthropic_messages":
         from agent.anthropic_adapter import build_anthropic_client, resolve_anthropic_token

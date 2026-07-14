@@ -31,7 +31,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from hermes_cli.timeouts import get_provider_request_timeout
+from hermes_cli.timeouts import get_provider_request_timeout, get_effective_provider_for_timeout
 from agent.prompt_builder import format_steer_marker
 from agent.tool_dispatch_helpers import _trajectory_normalize_msg, make_tool_result_message
 from agent.trajectory import convert_scratchpad_to_think
@@ -1014,7 +1014,9 @@ def try_recover_primary_transport(
             agent._anthropic_base_url = rt["anthropic_base_url"]
             agent._anthropic_client = build_anthropic_client(
                 rt["anthropic_api_key"], rt["anthropic_base_url"],
-                timeout=get_provider_request_timeout(agent.provider, agent.model),
+                timeout=get_provider_request_timeout(
+                    get_effective_provider_for_timeout(agent), agent.model
+                ),
             )
             agent._is_anthropic_oauth = rt["is_anthropic_oauth"]
             agent.client = None
@@ -1186,7 +1188,9 @@ def restore_primary_runtime(agent) -> bool:
             agent._anthropic_base_url = rt["anthropic_base_url"]
             agent._anthropic_client = build_anthropic_client(
                 rt["anthropic_api_key"], rt["anthropic_base_url"],
-                timeout=get_provider_request_timeout(agent.provider, agent.model),
+                timeout=get_provider_request_timeout(
+                    get_effective_provider_for_timeout(agent), agent.model
+                ),
             )
             agent._is_anthropic_oauth = rt["is_anthropic_oauth"]
             agent.client = None
@@ -1987,7 +1991,9 @@ def switch_model(agent, new_model, new_provider, api_key='', base_url='', api_mo
                 )
             except Exception:
                 logger.debug("custom-provider TLS resolution skipped on switch_model", exc_info=True)
-            _sm_timeout = get_provider_request_timeout(agent.provider, agent.model)
+            _sm_timeout = get_provider_request_timeout(
+                get_effective_provider_for_timeout(agent), agent.model
+            )
             if _sm_timeout is not None:
                 agent._client_kwargs["timeout"] = _sm_timeout
             # Reapply provider-specific headers (e.g. OpenRouter HTTP-Referer,

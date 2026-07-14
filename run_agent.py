@@ -120,6 +120,7 @@ from hermes_cli.env_loader import load_hermes_dotenv
 from hermes_cli.timeouts import (
     get_provider_request_timeout,
     get_provider_stale_timeout,
+    get_effective_provider_for_timeout,
 )
 
 _hermes_home = get_hermes_home()
@@ -486,6 +487,7 @@ class AIAgent:
         checkpoint_max_total_size_mb: int = 500,
         checkpoint_max_file_size_mb: int = 10,
         pass_session_id: bool = False,
+        requested_provider: str = None,
     ):
         """Forwarder — see ``agent.agent_init.init_agent``."""
         from agent.agent_init import init_agent
@@ -562,6 +564,7 @@ class AIAgent:
             checkpoint_max_total_size_mb=checkpoint_max_total_size_mb,
             checkpoint_max_file_size_mb=checkpoint_max_file_size_mb,
             pass_session_id=pass_session_id,
+            requested_provider=requested_provider,
         )
 
     def _get_session_db_for_recall(self):
@@ -1227,7 +1230,9 @@ class AIAgent:
         passed as a per-call ``timeout=`` kwarg, overriding the client-level
         timeout the AIAgent.__init__ path configured.
         """
-        cfg = get_provider_request_timeout(self.provider, self.model)
+        cfg = get_provider_request_timeout(
+            get_effective_provider_for_timeout(self), self.model
+        )
         if cfg is not None:
             return cfg
         return env_float("HERMES_API_TIMEOUT", 1800.0)
@@ -1250,7 +1255,9 @@ class AIAgent:
         explicitly configured a stale timeout, such as auto-disabling the
         detector for local endpoints.
         """
-        cfg = get_provider_stale_timeout(self.provider, self.model)
+        cfg = get_provider_stale_timeout(
+            get_effective_provider_for_timeout(self), self.model
+        )
         if cfg is not None:
             return cfg, False
 
@@ -4407,7 +4414,9 @@ class AIAgent:
             self._anthropic_client = build_anthropic_client(
                 new_token,
                 getattr(self, "_anthropic_base_url", None),
-                timeout=get_provider_request_timeout(self.provider, self.model),
+                timeout=get_provider_request_timeout(
+                    get_effective_provider_for_timeout(self), self.model
+                ),
             )
         except Exception as exc:
             logger.warning("Failed to rebuild Anthropic client after credential refresh: %s", exc)
@@ -4529,7 +4538,9 @@ class AIAgent:
             self._anthropic_base_url = runtime_base
             self._anthropic_client = build_anthropic_client(
                 runtime_key, runtime_base,
-                timeout=get_provider_request_timeout(self.provider, self.model),
+                timeout=get_provider_request_timeout(
+                    get_effective_provider_for_timeout(self), self.model
+                ),
             )
             self._is_anthropic_oauth = _is_oauth_token(runtime_key) if self.provider == "anthropic" else False
             self.api_key = runtime_key
@@ -4598,7 +4609,9 @@ class AIAgent:
             self._anthropic_client = build_anthropic_client(
                 self._anthropic_api_key,
                 getattr(self, "_anthropic_base_url", None),
-                timeout=get_provider_request_timeout(self.provider, self.model),
+                timeout=get_provider_request_timeout(
+                    get_effective_provider_for_timeout(self), self.model
+                ),
                 drop_context_1m_beta=_drop_1m,
             )
 

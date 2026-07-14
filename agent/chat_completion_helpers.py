@@ -25,7 +25,11 @@ import uuid
 from types import SimpleNamespace
 from typing import Any, Dict, Optional
 
-from hermes_cli.timeouts import get_provider_request_timeout, get_provider_stale_timeout
+from hermes_cli.timeouts import (
+    get_provider_request_timeout,
+    get_provider_stale_timeout,
+    get_effective_provider_for_timeout,
+)
 from hermes_constants import PARTIAL_STREAM_STUB_ID, FINISH_REASON_LENGTH
 from agent.error_classifier import FailoverReason
 from agent.gemini_native_adapter import is_native_gemini_base_url
@@ -2164,7 +2168,9 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
         import httpx as _httpx
         # Per-provider / per-model request_timeout_seconds (from config.yaml)
         # wins over the HERMES_API_TIMEOUT env default if the user set it.
-        _provider_timeout_cfg = get_provider_request_timeout(agent.provider, agent.model)
+        _provider_timeout_cfg = get_provider_request_timeout(
+            get_effective_provider_for_timeout(agent), agent.model
+        )
         _base_timeout = (
             _provider_timeout_cfg
             if _provider_timeout_cfg is not None
@@ -2991,7 +2997,9 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             _close_request_client_once("stream_request_complete")
 
     # Provider-configured stale timeout takes priority over env default.
-    _cfg_stale = get_provider_stale_timeout(agent.provider, agent.model)
+    _cfg_stale = get_provider_stale_timeout(
+        get_effective_provider_for_timeout(agent), agent.model
+    )
     if _cfg_stale is not None:
         _stream_stale_timeout_base = _cfg_stale
     else:

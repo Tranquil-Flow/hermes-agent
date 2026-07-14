@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
+# Sentinel for agents that don't set requested_provider.
+_UNSET = object()
+
 
 def _coerce_timeout(raw: object) -> float | None:
     try:
@@ -9,6 +14,37 @@ def _coerce_timeout(raw: object) -> float | None:
     if timeout <= 0:
         return None
     return timeout
+
+
+def get_effective_provider_for_timeout(
+    agent_or_provider: Any, model: str | None = None
+) -> str:
+    """Return the provider id that timeout config should be looked up under.
+
+    When a named custom provider (e.g. ``providers.minimax``) is configured,
+    ``runtime_provider.py`` resolves it to ``provider="custom"`` but stores the
+    original name on ``agent.requested_provider``.  Timeout lookups must use the
+    original name so per-provider ``request_timeout_seconds`` /
+    ``stale_timeout_seconds`` settings are found.
+
+    Accepts either:
+      * An agent-like object with ``.provider`` and ``.requested_provider``
+        attributes (preferred — used everywhere the agent is in scope).
+      * A bare provider string (in which case it is returned unchanged — the
+        caller already has the canonical id).
+    """
+    if isinstance(agent_or_provider, str):
+        return agent_or_provider
+
+    provider = getattr(agent_or_provider, "provider", None) or ""
+    if provider != "custom":
+        return provider
+
+    # Named-custom: fall back to requested_provider, then to "custom" itself.
+    requested = getattr(agent_or_provider, "requested_provider", _UNSET)
+    if requested is _UNSET or not requested:
+        return provider
+    return requested
 
 
 def get_provider_request_timeout(
