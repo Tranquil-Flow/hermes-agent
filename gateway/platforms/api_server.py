@@ -965,6 +965,13 @@ class APIServerAdapter(BasePlatformAdapter):
         # in-flight run by run_id.
         self._run_approval_sessions: Dict[str, str] = {}
         self._session_db: Optional[Any] = None  # Lazy-init SessionDB for session continuity
+        # Whether to emit custom tool-progress SSE events.  OpenAI-compatible
+        # clients that only accept standard delta chunks can disable these via
+        # platforms.api_server.tool_progress_events: false.
+        self._tool_progress_events: bool = _coerce_request_bool(
+            extra.get("tool_progress_events", True),
+            default=True,
+        )
         # Concurrency cap shared across all agent-serving endpoints
         # (/v1/chat/completions, /v1/responses, /v1/runs). Read from
         # config.yaml gateway.api_server.max_concurrent_runs; 0 disables
@@ -2136,6 +2143,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 _enqueue("assistant.delta", {"message_id": message_id, "delta": delta})
 
         def _tool_progress(event_type: str, tool_name: str = None, preview: str = None, args=None, **kwargs) -> None:
+            if not self._tool_progress_events:
+                return
             if event_type == "reasoning.available":
                 _enqueue("tool.progress", {"message_id": message_id, "tool_name": tool_name or "_thinking", "delta": preview or ""})
             elif event_type in {"tool.started", "tool.completed", "tool.failed"}:
@@ -2390,6 +2399,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 events (``_thinking``, …) stay off the wire — matching
                 the prior ``_on_tool_progress`` filter exactly.
                 """
+                if not self._tool_progress_events:
+                    return
                 if not tool_call_id or function_name.startswith("_"):
                     return
                 _started_tool_call_ids.add(tool_call_id)
@@ -2410,6 +2421,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 id, or never seen) so clients never get an orphaned
                 ``completed`` they can't correlate to a prior ``running``.
                 """
+                if not self._tool_progress_events:
+                    return
                 if not tool_call_id or tool_call_id not in _started_tool_call_ids:
                     return
                 _started_tool_call_ids.discard(tool_call_id)
@@ -2617,6 +2630,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 #16588 for the ``toolCallId``/``status`` lifecycle fields.
                 """
                 if isinstance(item, tuple) and len(item) == 2 and item[0] == "__tool_progress__":
+                    if not self._tool_progress_events:
+                        return time.monotonic()
                     event_data = json.dumps(item[1])
                     await response.write(
                         f"event: hermes.tool.progress\ndata: {event_data}\n\n".encode()
@@ -4297,6 +4312,9 @@ class APIServerAdapter(BasePlatformAdapter):
 
     def _make_run_event_callback(self, run_id: str, loop: "asyncio.AbstractEventLoop"):
         """Return a tool_progress_callback that pushes structured events to the run's SSE queue."""
+        if not self._tool_progress_events:
+            return lambda *args, **kwargs: None
+
         def _push(event: Dict[str, Any]) -> None:
             self._set_run_status(
                 run_id,

@@ -110,7 +110,10 @@ Uploaded files (`file` / `input_file` / `file_id`) and non-image `data:` URLs re
 
 **Tool progress in streams**:
 - **Chat Completions**: Hermes emits `event: hermes.tool.progress` for tool-start visibility without polluting persisted assistant text.
+- **Sessions / Runs**: Hermes emits tool lifecycle events on the API-server SSE surfaces so dashboards can show live tool state.
 - **Responses**: Hermes emits spec-native `function_call` and `function_call_output` output items during the SSE stream, so clients can render structured tool UI in real time.
+
+If an OpenAI-compatible client rejects unknown/custom SSE events, disable Hermes-specific tool progress events with `api_server.tool_progress_events: false` (or `platforms.api_server.tool_progress_events: false`). This suppresses custom progress events on Chat Completions, Sessions, and Runs streams while leaving final assistant responses intact.
 
 ### POST /v1/responses
 
@@ -426,9 +429,17 @@ The API server gives full access to hermes-agent's toolset, **including terminal
 
 ### config.yaml
 
+Most API server bind/auth settings still come from `API_SERVER_*` environment variables because they are deployment/runtime concerns. Compatibility toggles can live in `config.yaml`:
+
 ```yaml
-# Not yet supported — use environment variables.
-# config.yaml support coming in a future release.
+api_server:
+  # Default: true. Set false for clients that reject custom SSE events.
+  tool_progress_events: false
+
+# Equivalent nested form:
+platforms:
+  api_server:
+    tool_progress_events: false
 ```
 
 ## Security Headers

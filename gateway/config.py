@@ -508,6 +508,8 @@ class PlatformConfig:
         # and extra so YAML ``discord: gateway_restart_notification: false``
         # works without needing a separate platforms: block.
         extra = _coerce_dict(data.get("extra", {}))
+        if "tool_progress_events" in data and "tool_progress_events" not in extra:
+            extra["tool_progress_events"] = data.get("tool_progress_events")
         _grn = data.get("gateway_restart_notification")
         if _grn is None:
             _grn = extra.get("gateway_restart_notification")
@@ -1240,6 +1242,8 @@ def load_gateway_config() -> GatewayConfig:
                     bridged["gateway_restart_notification"] = platform_cfg["gateway_restart_notification"]
                 if "typing_indicator" in platform_cfg:
                     bridged["typing_indicator"] = platform_cfg["typing_indicator"]
+                if plat == Platform.API_SERVER and "tool_progress_events" in platform_cfg:
+                    bridged["tool_progress_events"] = platform_cfg["tool_progress_events"]
                 has_channel_overrides = "channel_overrides" in platform_cfg
                 if has_channel_overrides:
                     raw_overrides = platform_cfg.get("channel_overrides")
