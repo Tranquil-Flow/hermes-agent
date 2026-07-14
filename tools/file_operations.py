@@ -73,6 +73,19 @@ def _strip_terminal_fence_leaks(text: str) -> str:
     return "".join(cleaned_lines)
 
 
+def _normalize_shell_path_input(path: str) -> str:
+    """Normalize common shell-escaped spaces in plain file-tool path args.
+
+    File tools receive raw strings, not a shell command line. When callers pass
+    macOS-style shell paths such as ``~/My\\ Notes/file.md``, the ``\\ `` should
+    become a literal space in the filesystem path instead of creating a
+    backslash-named directory.
+    """
+    if not path or "\\ " not in path:
+        return path
+    return path.replace("\\ ", " ")
+
+
 def _detect_line_ending(sample: str) -> Optional[str]:
     """Return the dominant line ending in ``sample`` or None if undetermined.
 
@@ -927,6 +940,7 @@ class ShellFileOperations(FileOperations):
         This must be done BEFORE shell escaping, since ~ doesn't expand
         inside single quotes.
         """
+        path = _normalize_shell_path_input(path)
         if not path:
             return path
         

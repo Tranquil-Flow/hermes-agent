@@ -166,6 +166,21 @@ class TestWriteFileHandler:
         assert "error" in result
         assert "string" in result["error"].lower() or "content" in result["error"].lower()
 
+    @patch("tools.file_tools._get_file_ops")
+    def test_shell_escaped_spaces_are_normalized_before_dispatch(self, mock_get):
+        mock_ops = MagicMock()
+        result_obj = MagicMock()
+        result_obj.to_dict.return_value = {"status": "ok"}
+        mock_ops.write_file.return_value = result_obj
+        mock_get.return_value = mock_ops
+
+        from tools.file_tools import write_file_tool
+        result = json.loads(write_file_tool("Obsidian\\ Vault/out.txt", "hello"))
+        assert result["resolved_path"].endswith("Obsidian Vault/out.txt")
+        mock_ops.write_file.assert_called_once()
+        called_path = mock_ops.write_file.call_args.args[0]
+        assert called_path.endswith("Obsidian Vault/out.txt")
+
 
 class TestPatchHandler:
     @patch("tools.file_tools._get_file_ops")
@@ -227,6 +242,25 @@ class TestPatchHandler:
         from tools.file_tools import patch_tool
         result = json.loads(patch_tool(mode="patch", patch=None))
         assert "error" in result
+
+    @patch("tools.file_tools._get_file_ops")
+    def test_replace_mode_normalizes_shell_escaped_spaces_before_dispatch(self, mock_get):
+        mock_ops = MagicMock()
+        result_obj = MagicMock()
+        result_obj.to_dict.return_value = {"status": "ok"}
+        mock_ops.patch_replace.return_value = result_obj
+        mock_get.return_value = mock_ops
+
+        from tools.file_tools import patch_tool
+        result = json.loads(patch_tool(
+            mode="replace",
+            path="Obsidian\\ Vault/f.py",
+            old_string="foo",
+            new_string="bar",
+        ))
+        assert result["resolved_path"].endswith("Obsidian Vault/f.py")
+        called_path = mock_ops.patch_replace.call_args.args[0]
+        assert called_path.endswith("Obsidian Vault/f.py")
 
     @patch("tools.file_tools._get_file_ops")
     def test_unknown_mode_errors(self, mock_get):

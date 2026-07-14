@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 _EXPECTED_WRITE_ERRNOS = {errno.EACCES, errno.EPERM, errno.EROFS}
 
 
+def _normalize_path_input(filepath: str) -> str:
+    """Normalize common shell-escaped space sequences in file-tool paths."""
+    if not filepath or "\\ " not in filepath:
+        return filepath
+    return filepath.replace("\\ ", " ")
+
+
 def _expand_tilde(path: str) -> str:
     """Expand ``~`` using the effective profile home when available.
 
@@ -437,6 +444,7 @@ def _resolve_path_for_task(filepath: str, task_id: str = "default") -> Path | Pu
     translated to ``C:\\Users\\...`` before resolution so file tools don't
     treat them as relative ``\\c\\Users\\...`` under the process cwd.
     """
+    filepath = _normalize_path_input(filepath)
     container_paths = _uses_container_paths(task_id)
     if container_paths:
         expanded = _expand_tilde(filepath)
@@ -507,6 +515,7 @@ def _path_resolution_warning(filepath: str, resolved: Path, task_id: str = "defa
 
 def _is_blocked_device_path(path: str) -> bool:
     """Return True for concrete device/fd paths that can hang reads."""
+    path = _normalize_path_input(path)
     normalized = os.path.normpath(_expand_tilde(path))
     if normalized in _BLOCKED_DEVICE_PATHS:
         return True
@@ -542,6 +551,7 @@ def _is_blocked_device_path(path: str) -> bool:
 
 
 def _is_blocked_device(filepath: str, base_dir: str | Path | None = None) -> bool:
+    filepath = _normalize_path_input(filepath)
     """Return True if the path would hang the process (infinite output or blocking input).
 
     Check the literal path first so aliases like /dev/stdin are caught before
