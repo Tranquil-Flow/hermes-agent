@@ -7,6 +7,7 @@ Jaccard similarity reranking and trust-weighted scoring.
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,33 @@ try:
     from . import holographic as hrr
 except ImportError:
     import holographic as hrr  # type: ignore[no-redef]
+
+
+# FTS5 operators that must not be quoted
+_FTS5_OPERATORS = frozenset({"AND", "OR", "NOT", "NEAR"})
+
+# Matches unquoted tokens containing at least one hyphen (e.g., pve-01, lxc-103)
+_HYPHENATED_TOKEN_RE = re.compile(r'(?<!")\b(\w+(?:-\w+)+)\b(?!")')
+
+
+def _sanitize_fts5_query(query: str) -> str:
+    """Wrap unquoted hyphenated tokens in double quotes for FTS5.
+
+    FTS5's default unicode61 tokenizer treats ``-`` as a separator, so a
+    bare ``pve-01`` is parsed as *column* ``pve`` *operator* ``01`` and
+    raises ``OperationalError: no such column: 01``.  Quoting the token
+    (``"pve-01"``) turns it into a phrase query that works correctly.
+
+    Already-quoted phrases and FTS5 boolean operators (AND, OR, NOT, NEAR)
+    are preserved.
+    """
+    def _maybe_quote(m: re.Match) -> str:
+        token = m.group(1)
+        if token.upper() in _FTS5_OPERATORS:
+            return token
+        return f'"{token}"'
+
+    return _HYPHENATED_TOKEN_RE.sub(_maybe_quote, query)
 
 
 class FactRetriever:
@@ -499,7 +527,9 @@ class FactRetriever:
         # FTS5 defaults to AND-between-tokens, which kills recall on
         # natural-language queries ("what happened with the deployment
         # rollback"). Sanitize: drop stopwords, OR-join content tokens, so
-        # any significant term can match.
+        # any significant term can match. The sanitizer also preserves and
+        # quotes hyphenated tokens (pve-01, lxc-103) so FTS5 does not parse
+        # the hyphen as a NOT/operator boundary (#14794).
         params.append(self._sanitize_fts_query(query))
 
         if category:
@@ -599,11 +629,23 @@ class FactRetriever:
         if not query:
             return ""
         # Strip FTS5 operator characters from EACH token to avoid
-        # accidentally creating a malformed query.
-        _FTS_SPECIAL = '"()*^:-+'
+        # accidentally creating a malformed query.  Preserve ASCII-hyphenated
+        # tokens by phrase-quoting them before removing other special chars;
+        # otherwise FTS5 treats the hyphen as an operator/column boundary
+        # (e.g. pve-01 -> no such column: 01).
+        _FTS_SPECIAL = '"()*^:+ '
         tokens: list[str] = []
         for raw in query.lower().split():
-            cleaned = raw.strip(".,;:!?\"'()[]{}#@<>") .translate(
+            cleaned = raw.strip(".,;:!?\"'()[]{}#@<>")
+            if not cleaned:
+                continue
+            if cleaned in cls._FTS_STOPWORDS:
+                continue
+            hyphen_safe = _sanitize_fts5_query(cleaned)
+            if hyphen_safe != cleaned:
+                tokens.append(hyphen_safe)
+                continue
+            cleaned = cleaned.translate(
                 str.maketrans("", "", _FTS_SPECIAL)
             )
             if len(cleaned) < 2:
