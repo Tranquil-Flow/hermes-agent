@@ -415,6 +415,20 @@ def _lookup_supports_vision(
     return None
 
 
+_VISION_SLUG_RE = re.compile(
+    r"(?:^|[-_.])(?:vision|visual|vl|omni|multimodal)(?=$|[-_.]|\d)"
+)
+
+
+def _looks_like_vision_model(model: str) -> bool:
+    """Heuristically identify vision-capable models absent from models.dev."""
+    slug = (model or "").strip().lower()
+    if not slug:
+        return False
+    tail = slug.rsplit("/", 1)[-1]
+    return bool(_VISION_SLUG_RE.search(tail))
+
+
 def decide_image_input_mode(
     provider: str,
     model: str,
@@ -447,6 +461,8 @@ def decide_image_input_mode(
         return "native"
     if _explicit_aux_vision_override(cfg):
         return "text"
+    if supports is None and _looks_like_vision_model(model):
+        return "native"
     return "text"
 
 
@@ -762,4 +778,5 @@ __all__ = [
     "decide_image_input_mode",
     "build_native_content_parts",
     "extract_image_refs",
+    "_looks_like_vision_model",
 ]
