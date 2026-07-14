@@ -36,6 +36,7 @@ import { canImportHermesCli, verifyHermesCli } from './backend-probes'
 import { waitForDashboardPortAnnouncement } from './backend-ready'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { runBootstrap } from './bootstrap-runner'
+import { hasUsableActiveInstall } from './active-install'
 import {
   authModeFromStatus,
   buildGatewayWsUrl,
@@ -3023,16 +3024,23 @@ function isActiveRuntimeUsable() {
 function isBootstrapComplete() {
   const marker = readBootstrapMarker()
 
+  // Also treat a canonical source root + bundled venv as ready even when the
+  // marker is missing or stale. The bootstrap stages are idempotent, but on
+  // macOS a missing marker can make the launcher fall past the valid venv and
+  // probe /usr/bin/python3 instead; that Python is 3.9 on stock macOS and
+  // cannot import Hermes' PEP-604 syntax, causing an endless reinstall loop.
+  // We still require both source files and the venv python so broken or
+  // half-installed checkouts continue through bootstrap repair.
   if (!marker || typeof marker !== 'object') {
-    return false
+    return hasUsableActiveInstall(ACTIVE_HERMES_ROOT, VENV_ROOT)
   }
 
   if (marker.schemaVersion !== BOOTSTRAP_MARKER_SCHEMA_VERSION) {
-    return false
+    return hasUsableActiveInstall(ACTIVE_HERMES_ROOT, VENV_ROOT)
   }
 
   if (typeof marker.pinnedCommit !== 'string' || marker.pinnedCommit.length < 7) {
-    return false
+    return hasUsableActiveInstall(ACTIVE_HERMES_ROOT, VENV_ROOT)
   }
 
   // We DELIBERATELY do NOT verify that the checkout is currently at the
