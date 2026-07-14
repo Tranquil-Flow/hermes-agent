@@ -1291,6 +1291,16 @@ class CuaDriverBackend(ComputerUseBackend):
                 logger.error("cua-driver CLI re-fetch for list_windows failed: %s", cli_exc)
 
         if not windows:
+            # Fallback: retry without on_screen_only filter — the driver's
+            # is_on_screen detection can be unreliable (e.g. on certain window
+            # managers, virtual desktops, or when no window is focused).
+            lw_fallback = self._session.call_tool(
+                "list_windows",
+                {"on_screen_only": False, "session": self._session_id},
+            )
+            windows = _windows_from(lw_fallback)
+
+        if not windows:
             return CaptureResult(mode=mode, width=0, height=0, png_b64=None,
                                  elements=[], app="", window_title="", png_bytes_len=0)
 
