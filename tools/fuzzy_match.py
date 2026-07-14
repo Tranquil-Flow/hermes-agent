@@ -72,9 +72,12 @@ def fuzzy_find_and_replace(content: str, old_string: str, new_string: str,
     # Try each matching strategy in order
     strategies: List[Tuple[str, Callable]] = [
         ("exact", _strategy_exact),
+        # Prefer indentation-flexible before looser line/whitespace normalization
+        # so indentation-only drift does not get claimed by a less precise
+        # strategy (#14777).
+        ("indentation_flexible", _strategy_indentation_flexible),
         ("line_trimmed", _strategy_line_trimmed),
         ("whitespace_normalized", _strategy_whitespace_normalized),
-        ("indentation_flexible", _strategy_indentation_flexible),
         ("escape_normalized", _strategy_escape_normalized),
         ("trimmed_boundary", _strategy_trimmed_boundary),
         ("unicode_normalized", _strategy_unicode_normalized),

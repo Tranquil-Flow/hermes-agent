@@ -193,6 +193,44 @@ class TestIndentationPreservation:
         assert lines[2] == "    b = 99"
 
 
+class TestStrategyOrdering:
+    """Regression tests for fuzzy-match strategy ordering (#14777)."""
+
+    def test_indentation_only_drift_uses_indentation_flexible(self):
+        """Indentation-only drift must hit indentation_flexible before line_trimmed.
+
+        This proves indentation_flexible is reachable instead of dead code behind
+        the broader strip-each-line strategy.
+        """
+        content = "    x = 1\n    y = 2"
+        old_string = "  x = 1\n  y = 2"
+        new_string = "  a = 10\n  b = 20"
+
+        new, count, strategy, err = fuzzy_find_and_replace(
+            content, old_string, new_string,
+        )
+
+        assert err is None
+        assert count == 1
+        assert strategy == "indentation_flexible"
+        assert "    a = 10" in new
+        assert "    b = 20" in new
+
+    def test_trailing_whitespace_drift_still_uses_line_trimmed(self):
+        """If trailing whitespace also differs, line_trimmed remains fallback."""
+        content = "    x = 1   \n    y = 2   "
+        old_string = "  x = 1\n  y = 2"
+        new_string = "  a = 10\n  b = 20"
+
+        _, count, strategy, err = fuzzy_find_and_replace(
+            content, old_string, new_string,
+        )
+
+        assert err is None
+        assert count == 1
+        assert strategy == "line_trimmed"
+
+
 class TestReplaceAll:
     def test_multiple_matches_without_flag_errors(self):
         content = "aaa bbb aaa"
