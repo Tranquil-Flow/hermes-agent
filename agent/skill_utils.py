@@ -793,7 +793,16 @@ def iter_skill_index_files(skills_dir: Path, filename: str):
     """
     skills_dir_str = str(skills_dir)
     matches: list[str] = []
+    # Cycle guard: os.walk(followlinks=True) can recurse infinitely when a
+    # symlinked directory points at an ancestor. Track the real (resolved)
+    # path of every directory we descend into so each is visited at most once.
+    _seen_real_dirs: set[str] = set()
     for root, dirs, files in os.walk(skills_dir_str, followlinks=True):
+        real_root = os.path.realpath(root)
+        if real_root in _seen_real_dirs:
+            dirs[:] = []
+            continue
+        _seen_real_dirs.add(real_root)
         has_skill_md = "SKILL.md" in files
         dirs[:] = [
             d
