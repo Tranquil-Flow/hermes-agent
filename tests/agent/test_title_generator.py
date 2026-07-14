@@ -90,6 +90,23 @@ class TestGenerateTitle:
 
         assert captured_kwargs["timeout"] == 123.0
 
+    def test_requests_title_budget_of_64_tokens(self):
+        """max_tokens=64 keeps the request small without truncating a
+        reasonable 3-7 word title."""
+        captured_kwargs = {}
+
+        def mock_call_llm(**kwargs):
+            captured_kwargs.update(kwargs)
+            resp = MagicMock()
+            resp.choices = [MagicMock()]
+            resp.choices[0].message.content = "Short Title"
+            return resp
+
+        with patch("agent.title_generator.call_llm", side_effect=mock_call_llm):
+            assert generate_title("question", "answer") == "Short Title"
+
+        assert captured_kwargs["max_tokens"] == 64
+
     def test_strips_quotes(self):
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
