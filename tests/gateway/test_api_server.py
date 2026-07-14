@@ -1303,6 +1303,61 @@ class TestChatCompletionsEndpoint:
                 assert "[DONE]" in body
 
     @pytest.mark.asyncio
+    async def test_stream_emits_reasoning_content_delta(self, adapter):
+        """reasoning_callback output must stream as delta.reasoning_content."""
+        import asyncio
+        import json as _json
+
+        app = _create_app(adapter)
+        async with TestClient(TestServer(app)) as cli:
+            async def _mock_run_agent(**kwargs):
+                reasoning_cb = kwargs.get("reasoning_callback")
+                text_cb = kwargs.get("stream_delta_callback")
+                assert reasoning_cb is not None
+                reasoning_cb("I should inspect the request shape first.")
+                await asyncio.sleep(0.01)
+                if text_cb:
+                    text_cb("Final answer.")
+                return (
+                    {"final_response": "Final answer.", "messages": [], "api_calls": 1},
+                    {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+                )
+
+            with patch.object(adapter, "_run_agent", side_effect=_mock_run_agent):
+                resp = await cli.post(
+                    "/v1/chat/completions",
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": [{"role": "user", "content": "show reasoning"}],
+                        "stream": True,
+                    },
+                )
+                assert resp.status == 200
+                body = await resp.text()
+
+        chunks = []
+        for line in body.splitlines():
+            if not line.startswith("data: ") or line.strip() == "data: [DONE]":
+                continue
+            chunks.append(_json.loads(line[len("data: "):]))
+
+        deltas = [
+            choice.get("delta", {})
+            for chunk in chunks
+            if chunk.get("object") == "chat.completion.chunk"
+            for choice in chunk.get("choices", [])
+        ]
+        assert any(
+            d.get("reasoning_content") == "I should inspect the request shape first."
+            for d in deltas
+        )
+        assert any(d.get("content") == "Final answer." for d in deltas)
+        assert all(
+            d.get("content") != "I should inspect the request shape first."
+            for d in deltas
+        )
+
+    @pytest.mark.asyncio
     async def test_stream_survives_tool_call_none_sentinel(self, adapter):
         """stream_delta_callback(None) mid-stream (tool calls) must NOT kill the SSE stream.
 
