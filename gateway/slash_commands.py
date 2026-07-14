@@ -2457,6 +2457,52 @@ class GatewaySlashCommandsMixin:
 
         return t("gateway.set_home.success", name=chat_name, chat_id=chat_id)
 
+    async def _handle_workspace_command(self, event: MessageEvent) -> str:
+        """Handle /workspace -- bind this gateway session to a project cwd."""
+        source = event.source
+        session_entry = self.session_store.get_or_create_session(source)
+        session_key = session_entry.session_key
+        arg = event.get_command_args().strip()
+        global_cwd = self._global_gateway_cwd()
+
+        if not arg or arg.lower() in {"status", "show"}:
+            return t(
+                "gateway.workspace.status",
+                cwd=self._effective_gateway_cwd(session_entry.session_id),
+                source=self._workspace_source_label(session_entry.session_id),
+                global_cwd=global_cwd,
+            )
+
+        if arg.lower() in {"clear", "reset", "default"}:
+            if self._session_db:
+                try:
+                    self._session_db.update_session_cwd(session_entry.session_id, "")
+                except Exception:
+                    logger.debug("failed to clear gateway session cwd", exc_info=True)
+            self._clear_gateway_session_cwd(session_entry.session_id)
+            self._refresh_gateway_session_runtime(session_key, session_entry.session_id)
+            return t("gateway.workspace.cleared", cwd=global_cwd)
+
+        path = Path(os.path.expanduser(arg))
+        if not path.is_absolute():
+            return t("gateway.workspace.relative_rejected")
+        try:
+            resolved = path.resolve()
+        except Exception as exc:
+            return t("gateway.workspace.invalid", path=arg, error=str(exc))
+        if not resolved.is_dir():
+            return t("gateway.workspace.not_dir", path=str(resolved))
+
+        cwd = str(resolved)
+        if self._session_db:
+            try:
+                self._session_db.update_session_cwd(session_entry.session_id, cwd)
+            except Exception:
+                logger.debug("failed to persist gateway session cwd", exc_info=True)
+        self._register_gateway_session_cwd(session_entry.session_id, cwd)
+        self._refresh_gateway_session_runtime(session_key, session_entry.session_id)
+        return t("gateway.workspace.set", cwd=cwd)
+
     async def _handle_voice_command(self, event: MessageEvent) -> str:
         """Handle /voice [on|off|tts|channel|leave|status] command."""
         args = event.get_command_args().strip().lower()

@@ -1088,25 +1088,17 @@ def register_task_env_overrides(task_id: str, overrides: Dict[str, Any]):
     """
     _task_env_overrides[task_id] = overrides
 
-    # If a live environment already exists for this task, a freshly registered
-    # ``cwd`` override (e.g. the ACP client switching the editor's project root
-    # mid-session via ``session/load`` / ``session/resume``) must take effect on
-    # the cached env too. ``terminal_tool`` resolves the per-command cwd as
-    # ``workdir > env.cwd > config/override cwd`` so that ordinary in-session
-    # ``cd`` state is preserved; without syncing here the override would sit
-    # below the (already-set) ``env.cwd`` and be silently ignored once any
-    # command has run. Pushing it onto the live env keeps ``cd`` tracking intact
-    # while letting an explicit ACP cwd change win, as the client expects.
+    # If a live environment already exists under this raw task id, a freshly
+    # registered ``cwd`` override (e.g. ACP switching the editor's project root
+    # mid-session) must take effect on that cached env too. Do not update the
+    # collapsed shared "default" env for CWD-only overrides: gateway/TUI
+    # sessions share that env, so mutating it would leak one chat's workspace
+    # into every other chat. Per-command cwd resolution reads the raw task
+    # override instead.
     new_cwd = overrides.get("cwd")
     if isinstance(new_cwd, str) and new_cwd.strip():
-        # The live env is cached under the raw task_id for per-session surfaces
-        # (ACP/gateway/dashboard) and under the collapsed container id for
-        # isolation-keyed rollouts. Try the raw id first, then the container id,
-        # so a CWD-only override (which collapses to "default") still finds and
-        # updates the originating session's env.
-        container_id = _resolve_container_task_id(task_id)
         with _env_lock:
-            env = _active_environments.get(task_id) or _active_environments.get(container_id)
+            env = _active_environments.get(task_id)
         if env is not None and getattr(env, "cwd", None) is not None:
             env.cwd = new_cwd
 
@@ -1988,6 +1980,8 @@ def _resolve_command_cwd(
     workdir: Optional[str],
     env: Any,
     default_cwd: str,
+    task_cwd: str = "",
+    prefer_task_cwd: bool = False,
 ) -> str:
     """Return the cwd for a command, preferring the live session cwd.
 
@@ -2000,11 +1994,38 @@ def _resolve_command_cwd(
     if workdir:
         return workdir
 
+    if prefer_task_cwd and task_cwd:
+        return task_cwd
+
     live_cwd = getattr(env, "cwd", None)
     if isinstance(live_cwd, str) and live_cwd.strip():
         return live_cwd
 
+    if task_cwd:
+        return task_cwd
+
     return default_cwd
+
+
+def _sync_task_cwd_after_shared_env_command(
+    task_id: Optional[str],
+    env: Any,
+    *,
+    enabled: bool,
+    restore_cwd: Any,
+    had_cwd: bool,
+) -> None:
+    if not enabled:
+        return
+
+    live_cwd = getattr(env, "cwd", None)
+    if task_id and isinstance(live_cwd, str) and live_cwd.strip():
+        overrides = _task_env_overrides.get(task_id)
+        if isinstance(overrides, dict):
+            overrides["cwd"] = live_cwd
+
+    if had_cwd:
+        env.cwd = restore_cwd
 
 
 def terminal_tool(
@@ -2369,6 +2390,8 @@ def terminal_tool(
                 workdir=workdir,
                 env=env,
                 default_cwd=cwd,
+                task_cwd=task_cwd,
+                prefer_task_cwd=prefer_task_cwd,
             )
             try:
                 if env_type == "local":
@@ -2381,13 +2404,24 @@ def terminal_tool(
                         use_pty=effective_pty,
                     )
                 else:
-                    proc_session = process_registry.spawn_via_env(
-                        env=env,
-                        command=command,
-                        cwd=effective_cwd,
-                        task_id=effective_task_id,
-                        session_key=session_key,
-                    )
+                    restore_cwd = getattr(env, "cwd", None)
+                    had_cwd = hasattr(env, "cwd")
+                    try:
+                        proc_session = process_registry.spawn_via_env(
+                            env=env,
+                            command=command,
+                            cwd=effective_cwd,
+                            task_id=effective_task_id,
+                            session_key=session_key,
+                        )
+                    finally:
+                        _sync_task_cwd_after_shared_env_command(
+                            task_id,
+                            env,
+                            enabled=prefer_task_cwd,
+                            restore_cwd=restore_cwd,
+                            had_cwd=had_cwd,
+                        )
 
                 result_data = {
                     "output": "Background process started",

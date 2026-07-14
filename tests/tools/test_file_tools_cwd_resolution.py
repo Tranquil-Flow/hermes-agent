@@ -79,6 +79,18 @@ def test_live_tracking_cwd_wins_over_relative_terminal_cwd(_isolated_cwd, monkey
     assert resolved == (workspace / "target.py")
 
 
+def test_task_cwd_override_anchors_before_terminal_env_exists(_isolated_cwd, monkeypatch):
+    """Gateway/TUI session cwd should guide first-turn file tools."""
+    workspace, decoy = _isolated_cwd
+    monkeypatch.delenv("TERMINAL_CWD", raising=False)
+    monkeypatch.setattr(terminal_tool, "_task_env_overrides", {"sess-a": {"cwd": str(workspace)}})
+
+    resolved = ft._resolve_path_for_task("target.py", task_id="sess-a")
+
+    assert resolved == (workspace / "target.py")
+    assert not str(resolved).startswith(str(decoy))
+
+
 def test_absolute_terminal_cwd_used_verbatim(_isolated_cwd, monkeypatch):
     """An absolute TERMINAL_CWD is the resolution base (no live tracking)."""
     workspace, decoy = _isolated_cwd

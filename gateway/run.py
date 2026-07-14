@@ -9958,6 +9958,9 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         if canonical == "sethome":
             return await self._handle_set_home_command(event)
 
+        if canonical == "workspace":
+            return await self._handle_workspace_command(event)
+
         if canonical == "compress":
             return await self._handle_compress_command(event)
 
