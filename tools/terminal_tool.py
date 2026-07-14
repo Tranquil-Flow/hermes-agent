@@ -1908,6 +1908,83 @@ _LONG_LIVED_FOREGROUND_PATTERNS = (
 )
 
 
+# Package manager subcommands that take package-name arguments.
+_PM_INSTALL_VERBS = re.compile(
+    r"\b(?:npm|pnpm|yarn|bun)\s+(?:install|add|update|up(?:grade)?|remove|uninstall|rm)\b",
+    re.IGNORECASE,
+)
+
+
+# Shell command-segment separators. The exemption for package-manager
+# arguments is only valid when the matched keyword lives in the SAME
+# shell-command segment as the package-manager verb — otherwise a chained
+# foreground invocation like ``npm install vite && vite`` would be falsely
+# exempted because ``vite`` happens to appear after ``npm install``.
+_SHELL_SEGMENT_SEP_RE = re.compile(r"(?:&&|\|\||;|\||\(|\)|\n)")
+
+
+def _shell_segment_containing(text: str, pos: int) -> str:
+    """Return the shell-command segment of *text* that contains *pos*.
+
+    Splits on top-level ``&&``, ``||``, ``;``, ``|``, parens, and newlines so
+    that ``npm install vite && vite`` returns the left segment for the first
+    ``vite`` and the right segment for the second.
+    """
+    start = 0
+    end = len(text)
+    for sep in _SHELL_SEGMENT_SEP_RE.finditer(text):
+        sep_start, sep_end = sep.span()
+        if sep_end <= pos:
+            start = sep_end
+            continue
+        if sep_start > pos:
+            end = sep_start
+            break
+        # ``pos`` falls inside a separator. This should not happen for a
+        # keyword match, but return an empty segment instead of leaking across
+        # command boundaries if a future caller passes such a position.
+        return ""
+    return text[start:end]
+
+
+def _matched_keyword(match: re.Match) -> str:
+    """Return the first whitespace-separated token of a regex match."""
+    return match.group().strip().split()[0].lower()
+
+
+def _is_pm_package_argument(command: str, keyword: str, match: re.Match) -> bool:
+    """Return True when *keyword* appears as a package name in a pm install/update command.
+
+    Prevents false-positive long-lived-process detection for commands like
+    ``npm update vite`` or ``pnpm add nodemon`` where the keyword is a
+    *package name argument*, not a standalone server invocation.
+
+    The pm verb and the package-name token must live in the same shell-command
+    segment — so chained commands like ``npm install vite && vite`` are still
+    blocked, because the trailing ``vite`` is in its own segment and never
+    qualifies as a package argument.
+    """
+    if not _PM_INSTALL_VERBS.search(command):
+        return False
+    segment = _shell_segment_containing(command, match.start())
+    if not _PM_INSTALL_VERBS.search(segment):
+        return False
+    # Extract tokens after the pm install verb within the segment; the keyword
+    # must be one of them.
+    after_pm = re.split(
+        r"\b(?:npm|pnpm|yarn|bun)\s+(?:install|add|update|up(?:grade)?|remove|uninstall|rm)\b",
+        segment,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )
+    if len(after_pm) < 2:
+        return False
+    tokens = after_pm[1].split()
+    # Filter out flags (starting with -).
+    pkg_tokens = [t for t in tokens if not t.startswith("-")]
+    return keyword.lower() in {t.lower() for t in pkg_tokens}
+
+
 def _looks_like_help_or_version_command(command: str) -> bool:
     """Return True for informational invocations that should never be blocked."""
     normalized = " ".join(command.lower().split())
@@ -1946,7 +2023,14 @@ def _foreground_background_guidance(command: str) -> str | None:
         )
 
     for pattern in _LONG_LIVED_FOREGROUND_PATTERNS:
-        if pattern.search(unquoted):
+        for m in pattern.finditer(unquoted):
+            keyword = _matched_keyword(m)
+            # Skip false positives where the matched keyword is a package-name
+            # argument to a package-manager install/update command in the SAME
+            # shell-command segment (e.g. "npm update vite" should not trigger
+            # the vite pattern, but "npm install vite && vite" still should).
+            if _is_pm_package_argument(unquoted, keyword, m):
+                continue
             return (
                 "This foreground command appears to start a long-lived server/watch process. "
                 "Run it with background=true, verify readiness (health endpoint/log signal), "
