@@ -1236,6 +1236,15 @@ def _finalize_single_query(cli) -> None:
         cli._release_active_session()
 
 
+def _finalize_interactive_session(cli) -> None:
+    """Close interactive CLI resources before releasing the active session lease."""
+    try:
+        _run_cleanup()
+        cli._print_exit_summary()
+    finally:
+        cli._release_active_session()
+
+
 def _reset_terminal_input_modes_on_exit() -> None:
     """Best-effort: disable focus reporting + mouse tracking on TUI exit so they
     don't leak into the next shell session sharing the tab.
@@ -15517,8 +15526,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
                 "This can happen with certain Python installations (e.g. uv-managed cPython on macOS).\n"
                 "Try reinstalling Python via pyenv or Homebrew, then re-run: hermes setup"
             )
-            _run_cleanup()
-            self._print_exit_summary()
+            _finalize_interactive_session(self)
             return
 
         # On macOS with uv-managed Python, kqueue's selector cannot register
@@ -15678,9 +15686,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin):
                     )
                 except Exception:
                     pass
-            _run_cleanup()
-            self._print_exit_summary()
-            self._release_active_session()
+            _finalize_interactive_session(self)
 
         # Deferred relaunch: /update sets _pending_relaunch so the exec
         # happens here — after prompt_toolkit has exited and fully restored
