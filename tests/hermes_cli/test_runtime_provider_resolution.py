@@ -3177,7 +3177,7 @@ def test_auto_provider_with_local_base_url_bypasses_anthropic_key(monkeypatch):
     config.yaml base_url was checked.
     """
     # ANTHROPIC_API_KEY is present in environment — should be ignored
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "«redacted:sk-…»")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -3213,7 +3213,7 @@ def test_auto_provider_with_known_cloud_base_url_still_uses_anthropic(monkeypatc
     configured base_url IS a cloud API root, resolve_provider() must run
     normally and pick up ANTHROPIC_API_KEY.
     """
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "«redacted:sk-…»")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -3244,7 +3244,7 @@ def test_auto_provider_lookalike_cloud_host_does_not_bypass_to_cloud(monkeypatch
     bypass: substring matching on "api.anthropic.com" would wrongly classify
     this attacker-controlled host as cloud and hand it the ANTHROPIC_API_KEY.
     """
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake-key")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "«redacted:sk-…»")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -3416,3 +3416,150 @@ def test_resolve_named_custom_runtime_pool_result_includes_extra_headers(monkeyp
     }
     assert resolved["api_key"] == "pooled-key"
     assert resolved["source"] == "pool:lmstudio-pool"
+
+
+# ── #38466: portal provider should not override Anthropic key for Anthropic models ──
+
+
+def test_portal_provider_switches_to_anthropic_for_anthropic_model(monkeypatch):
+    """When active provider is portal/nous but target_model is an Anthropic
+    model, resolve_runtime_provider should detect the mismatch and switch to
+    the anthropic provider with the configured API key."""
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "nous")
+    monkeypatch.setattr(
+        rp, "_get_model_config",
+        lambda: {"provider": "nous", "base_url": "https://inference-api.nousresearch.com/v1"},
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
+
+    resolved = rp.resolve_runtime_provider(
+        requested="auto",
+        target_model="claude-sonnet-4-20250514",
+    )
+
+    assert resolved["provider"] == "anthropic"
+    assert resolved["api_key"] == "sk-ant-test-key"
+    assert resolved["api_mode"] == "anthropic_messages"
+
+
+def test_portal_provider_switches_to_anthropic_for_configured_anthropic_key(monkeypatch):
+    """Model-aware switching should honor Anthropic's normal token resolver,
+    including configured Claude/Anthropic credentials beyond the portal
+    provider."""
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "nous")
+    monkeypatch.setattr(
+        rp, "_get_model_config",
+        lambda: {"provider": "nous", "base_url": "https://inference-api.nousresearch.com/v1"},
+    )
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "agent.anthropic_adapter.resolve_anthropic_token",
+        lambda: "sk-ant-configured-key",
+    )
+
+    resolved = rp.resolve_runtime_provider(
+        requested="auto",
+        target_model="claude-sonnet-4-20250514",
+    )
+
+    assert resolved["provider"] == "anthropic"
+    assert resolved["api_key"] == "sk-ant-configured-key"
+    assert resolved["api_mode"] == "anthropic_messages"
+
+
+def test_portal_provider_falls_through_when_no_anthropic_credentials(monkeypatch):
+    """When active provider is portal/nous and target_model is an Anthropic
+    model but no ANTHROPIC_API_KEY is set, the system should fall through
+    to normal nous credential resolution."""
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "nous")
+    monkeypatch.setattr(
+        rp, "_get_model_config",
+        lambda: {"provider": "nous", "base_url": "https://inference-api.nousresearch.com/v1"},
+    )
+    # No ANTHROPIC_API_KEY set
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr("agent.anthropic_adapter.resolve_anthropic_token", lambda: None)
+    monkeypatch.setattr(
+        rp,
+        "resolve_api_key_provider_credentials",
+        lambda provider: {"provider": provider, "api_key": "", "base_url": "", "source": "default"},
+    )
+    # Prevent pool from intercepting before the fallthrough path
+    monkeypatch.setattr(rp, "load_pool", lambda provider: None)
+
+    # Mock nous runtime credentials so fallthrough works
+    monkeypatch.setattr(
+        rp, "resolve_nous_runtime_credentials",
+        lambda timeout_seconds=None: {
+            "base_url": "https://inference-api.nousresearch.com/v1",
+            "api_key": "portal-jwt",
+            "source": "portal",
+        },
+    )
+
+    resolved = rp.resolve_runtime_provider(
+        requested="auto",
+        target_model="claude-sonnet-4-20250514",
+    )
+
+    assert resolved["provider"] == "nous"
+    assert resolved["api_key"] == "portal-jwt"
+
+
+def test_explicit_provider_prevents_anthropic_auto_switch(monkeypatch):
+    """When the user explicitly requests 'nous' provider (not auto),
+    the explicit choice takes priority even for Anthropic models."""
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "nous")
+    monkeypatch.setattr(
+        rp, "_get_model_config",
+        lambda: {"provider": "nous", "base_url": "https://inference-api.nousresearch.com/v1"},
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
+    # Prevent pool from intercepting before credential resolution
+    monkeypatch.setattr(rp, "load_pool", lambda provider: None)
+    monkeypatch.setattr(
+        rp, "resolve_nous_runtime_credentials",
+        lambda timeout_seconds=None: {
+            "base_url": "https://inference-api.nousresearch.com/v1",
+            "api_key": "portal-jwt",
+            "source": "portal",
+        },
+    )
+
+    resolved = rp.resolve_runtime_provider(
+        requested="nous",  # explicit, not auto
+        target_model="claude-sonnet-4-20250514",
+    )
+
+    # Explicit 'nous' request should stay on nous
+    assert resolved["provider"] == "nous"
+    assert resolved["api_key"] == "portal-jwt"
+
+
+def test_portal_with_non_anthropic_model_stays_on_nous(monkeypatch):
+    """When target_model is NOT an Anthropic model (e.g., a nous model),
+    the system should stay on the nous provider."""
+    monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "nous")
+    monkeypatch.setattr(
+        rp, "_get_model_config",
+        lambda: {"provider": "nous", "base_url": "https://inference-api.nousresearch.com/v1"},
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
+    # Prevent pool from intercepting before credential resolution
+    monkeypatch.setattr(rp, "load_pool", lambda provider: None)
+    monkeypatch.setattr(
+        rp, "resolve_nous_runtime_credentials",
+        lambda timeout_seconds=None: {
+            "base_url": "https://inference-api.nousresearch.com/v1",
+            "api_key": "portal-jwt",
+            "source": "portal",
+        },
+    )
+
+    resolved = rp.resolve_runtime_provider(
+        requested="auto",
+        target_model="hermes-3-70b",  # a nous model, not anthropic
+    )
+
+    assert resolved["provider"] == "nous"
+    assert resolved["api_key"] == "portal-jwt"
