@@ -257,6 +257,14 @@ def build_turn_context(
     # NOTE: _turns_since_memory and _iters_since_skill are NOT reset here.
     agent.iteration_budget = IterationBudget(agent.max_iterations)
 
+    # Normalize conversation_history at the prologue boundary so downstream
+    # consumers (len(), list(), reversed(), iteration, indexing) can rely on
+    # a real list.  ACP Copilot and some adapter paths can hand us a
+    # non-iterable (e.g. SimpleNamespace) which would otherwise crash on
+    # ``len(conversation_history or [])`` below.  See issue #11732.
+    from run_agent import normalize_conversation_history
+    conversation_history = normalize_conversation_history(conversation_history)
+
     # Log conversation turn start for debugging/observability.
     _preview_text = summarize_user_message_for_log(user_message)
     _msg_preview = (_preview_text[:80] + "...") if len(_preview_text) > 80 else _preview_text
@@ -264,7 +272,7 @@ def build_turn_context(
     logger.info(
         "conversation turn: session=%s model=%s provider=%s platform=%s history=%d msg=%r",
         agent.session_id or "none", agent.model, agent.provider or "unknown",
-        agent.platform or "unknown", len(conversation_history or []),
+        agent.platform or "unknown", len(conversation_history),
         _msg_preview,
     )
 

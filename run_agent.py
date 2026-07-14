@@ -351,6 +351,26 @@ def _safe_session_filename_component(session_id: str) -> str:
     return f"{sanitized}_{digest}"
 
 
+def normalize_conversation_history(conversation_history):
+    """Normalize conversation_history to a list.
+
+    ACP Copilot and some adapter paths can pass a non-iterable
+    (e.g. SimpleNamespace) instead of a list, which would crash on
+    len(), list(), reversed(), etc.  Returns ``[]`` for None or
+    non-iterable inputs (the non-iterable case is logged).
+    """
+    if conversation_history is None:
+        return []
+    try:
+        return list(conversation_history)
+    except TypeError:
+        logger.warning(
+            "conversation_history is not iterable (%s) — treating as empty",
+            type(conversation_history).__name__,
+        )
+        return []
+
+
 class _StreamErrorEvent(Exception):
     """Synthesized provider error surfaced from a Responses ``error`` SSE frame.
 
