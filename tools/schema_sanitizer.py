@@ -21,12 +21,6 @@ The failure modes we've seen in the wild:
   optional fields (common Pydantic/MCP shape). Anthropic rejects these at
   the top of ``input_schema``; collapse them to the non-null branch.
 * Unconstrained ``additionalProperties`` on objects with empty properties.
-* ``default`` (and other annotation keywords) alongside ``$ref`` — strict
-  backends (Fireworks-hosted Kimi, JSON Schema draft-07 validators) reject
-  sibling keywords at the same level as ``$ref``.  Common MCP/Pydantic shape
-  after nullable-union collapse::
-
-      {"$ref": "#/$defs/Foo", "default": null}
 
 This module walks the final tool schema tree (after MCP-level normalization
 and any per-tool dynamic rebuilds) and fixes the known-hostile constructs
@@ -38,9 +32,14 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Pattern enforced by strict backends (GitHub Copilot, Anthropic) for
+# property key names inside tool input schemas.
+_VALID_PROPERTY_KEY_RE = re.compile(r"^[a-zA-Z0-9_.\-]{1,64}$")
 
 
 def sanitize_tool_schemas(tools: list[dict]) -> list[dict]:
@@ -96,35 +95,6 @@ def _sanitize_single_tool(tool: dict) -> dict:
     fn["parameters"] = _strip_top_level_combinators(
         fn["parameters"], path=fn.get("name", "<tool>")
     )
-    fn["parameters"] = _strip_ref_siblings(fn["parameters"])
-    return out
-
-
-# Sibling keywords strict JSON Schema validators reject alongside ``$ref``.
-_REF_FORBIDDEN_SIBLINGS = frozenset({"default"})
-
-
-def _strip_ref_siblings(node: Any) -> Any:
-    """Drop forbidden sibling keywords from nodes that carry ``$ref``.
-
-    Fireworks (and other draft-07-strict backends) fail tool requests with::
-
-        JSON Schema not supported: keyword(s) ['default'] not allowed at
-        the same level as $ref.
-
-    Nullable-union collapse and MCP ingestion can leave ``default`` on a
-    ``$ref`` node; strip it recursively.
-    """
-    if isinstance(node, list):
-        return [_strip_ref_siblings(item) for item in node]
-    if not isinstance(node, dict):
-        return node
-
-    out = {key: _strip_ref_siblings(value) for key, value in node.items()}
-    if "$ref" in out:
-        for key in _REF_FORBIDDEN_SIBLINGS:
-            if key in out:
-                out.pop(key, None)
     return out
 
 
@@ -220,9 +190,6 @@ def strip_nullable_unions(
                 replacement.setdefault("nullable", True)
             for meta_key in ("title", "description", "default", "examples"):
                 if meta_key in stripped and meta_key not in replacement:
-                    # ``default`` is illegal alongside ``$ref`` on strict backends.
-                    if meta_key == "default" and "$ref" in replacement:
-                        continue
                     replacement[meta_key] = stripped[meta_key]
             return strip_nullable_unions(replacement, keep_nullable_hint=keep_nullable_hint)
     return stripped
@@ -235,9 +202,7 @@ def _sanitize_node(node: Any, path: str) -> Any:
       ``{"type": <value>}`` so downstream consumers see a dict.
     - Injects ``properties: {}`` into object-typed nodes missing it.
     - Normalizes ``type: [X, "null"]`` arrays to single ``type: X`` (keeping
-      ``nullable: true`` as a hint), and multi-type arrays like
-      ``["number", "string"]`` to an ``anyOf`` of single-type schemas so no
-      branch is dropped (ported from anomalyco/opencode#31877).
+      ``nullable: true`` as a hint).
     - Recurses into ``properties``, ``items``, ``additionalProperties``,
       ``anyOf``, ``oneOf``, ``allOf``, and ``$defs`` / ``definitions``.
     """
@@ -270,39 +235,23 @@ def _sanitize_node(node: Any, path: str) -> Any:
 
     out: dict = {}
     for key, value in node.items():
-        # JSON Schema ``type`` arrays (e.g. ``["number", "string"]``, common
-        # in MCP tool schemas) are rejected by several tool-call backends:
-        #   * llama.cpp's grammar generator only accepts a singular string type.
-        #   * Gemini (including OpenAI-compatible transports such as GitHub
-        #     Copilot proxying to Gemini) rejects the array form outright —
-        #     plain @ai-sdk/google rewrites it, but the OpenAI-compatible path
-        #     forwards it verbatim and the backend 400s.
-        #
-        # Normalize per the SDK's behavior:
-        #   * single non-null type → ``type: X`` (+ ``nullable: true`` if the
-        #     array also contained "null"). No data lost.
-        #   * multiple non-null types → ``anyOf`` of single-type schemas, so
-        #     EVERY branch survives instead of silently dropping all but the
-        #     first. ``null`` is lifted into ``nullable: true``.
-        #   * all-null / empty → ``type: "null"`` (or object fallback).
-        # Ported from anomalyco/opencode#31877.
+        # type: [X, "null"] → type: X (the backend's tool-call parser only
+        # accepts singular string types; nullable is lost but the call still
+        # succeeds, and the model can still pass null on its own.)
         if key == "type" and isinstance(value, list):
-            has_null = "null" in value
-            non_null = [t for t in value if isinstance(t, str) and t != "null"]
-            if len(non_null) == 1:
+            non_null = [t for t in value if t != "null"]
+            if len(non_null) == 1 and isinstance(non_null[0], str):
                 out["type"] = non_null[0]
-                if has_null:
+                if "null" in value:
                     out.setdefault("nullable", True)
                 continue
-            if len(non_null) >= 2:
-                # Preserve all branches as a union instead of dropping them.
-                out["anyOf"] = [{"type": t} for t in non_null]
-                if has_null:
-                    out.setdefault("nullable", True)
+            # Fallback: pick the first string type, drop the rest.
+            first_str = next((t for t in value if isinstance(t, str) and t != "null"), None)
+            if first_str:
+                out["type"] = first_str
                 continue
-            # No usable non-null type: all-null array → type: "null";
-            # otherwise an empty/garbage array → object fallback.
-            out["type"] = "null" if has_null else "object"
+            # All-null or empty list → treat as object.
+            out["type"] = "object"
             continue
 
         if key in {"properties", "$defs", "definitions"} and isinstance(value, dict):
@@ -339,6 +288,52 @@ def _sanitize_node(node: Any, path: str) -> Any:
     # llama.cpp's grammar generator can't constrain a free-form object.
     if out.get("type") == "object" and not isinstance(out.get("properties"), dict):
         out["properties"] = {}
+
+    # Sanitize property key names that violate the strict-backend pattern
+    # (e.g. GitHub Copilot, Anthropic reject keys like "$defs" because
+    # characters outside [a-zA-Z0-9_.-] are forbidden).  Rename by
+    # stripping invalid characters; drop the property entirely if nothing
+    # valid remains or if the renamed key collides with an existing one.
+    # Applies to ``properties``, ``$defs``, and ``definitions`` dicts.
+    rename_map: dict[str, str] = {}
+    for dict_key in ("properties", "$defs", "definitions"):
+        target = out.get(dict_key)
+        if not isinstance(target, dict):
+            continue
+        bad_keys = [k for k in target if not _VALID_PROPERTY_KEY_RE.match(k)]
+        if not bad_keys:
+            continue
+        for k in bad_keys:
+            sanitized_key = re.sub(r"[^a-zA-Z0-9_.\-]", "", k)[:64]
+            if not sanitized_key or sanitized_key in target:
+                # Can't safely rename — drop the property.
+                logger.debug(
+                    "schema_sanitizer[%s]: dropping property %r "
+                    "(key contains invalid characters and cannot be renamed)",
+                    path, k,
+                )
+                del target[k]
+            else:
+                logger.debug(
+                    "schema_sanitizer[%s]: renaming property %r -> %r "
+                    "(key contains characters invalid for strict backends)",
+                    path, k, sanitized_key,
+                )
+                target[sanitized_key] = target.pop(k)
+                if dict_key == "properties":
+                    rename_map[k] = sanitized_key
+        # Re-prune required after renames/removals in properties dict
+        if dict_key == "properties" and rename_map and isinstance(out.get("required"), list):
+            updated: list[str] = []
+            for r in out["required"]:
+                if r in target:
+                    updated.append(r)
+                elif r in rename_map and rename_map[r] in target:
+                    updated.append(rename_map[r])
+            if not updated:
+                out.pop("required", None)
+            else:
+                out["required"] = updated
 
     # Prune ``required`` entries that don't exist in properties (defense
     # against malformed MCP schemas; also caught upstream for MCP tools, but
