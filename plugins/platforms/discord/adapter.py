@@ -304,13 +304,6 @@ def check_discord_requirements() -> bool:
     return True
 
 
-def _env_flag(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name, "").strip().lower()
-    if not raw:
-        return default
-    return raw in {"1", "true", "yes", "on"}
-
-
 def _build_allowed_mentions():
     """Build Discord ``AllowedMentions`` with safe defaults, overridable via env.
 
@@ -3252,9 +3245,7 @@ class DiscordAdapter(BasePlatformAdapter):
                 )
                 return
 
-            await self._post_voice_transcript_to_side_chat(guild_id, user_id, transcript)
-
-            if self._voice_input_callback and self._voice_transcripts_trigger_agent_turns():
+            if self._voice_input_callback:
                 await self._voice_input_callback(
                     guild_id=guild_id,
                     user_id=user_id,
