@@ -54,61 +54,81 @@ except Exception:
 # This keeps startup fast for users who don't use Bedrock.
 # ---------------------------------------------------------------------------
 
-_bedrock_runtime_client_cache: Dict[str, Any] = {}
-_bedrock_control_client_cache: Dict[str, Any] = {}
-
-
-_MIN_BOTO3_VERSION = (1, 34, 59)
+_bedrock_runtime_client_cache: Dict[Any, Any] = {}
+_bedrock_control_client_cache: Dict[Any, Any] = {}
 
 
 def _require_boto3():
-    """Import boto3, raising a clear error if not installed or too old."""
+    """Import boto3, raising a clear error if not installed."""
     try:
         import boto3
+        return boto3
     except ImportError:
         raise ImportError(
             "The 'boto3' package is required for the AWS Bedrock provider. "
             "Install it with: pip install boto3\n"
             "Or install Hermes with Bedrock support: pip install -e '.[bedrock]'"
         )
-    # converse() / converse_stream() were added in boto3 1.34.59.
-    # When Hermes is installed editable into system Python, the system boto3
-    # (e.g. Ubuntu 24.04 ships 1.34.46) may take precedence over the venv
-    # version pinned in pyproject.toml.
+
+
+def _load_bedrock_config() -> dict:
+    """Read the ``bedrock`` section from config.yaml.
+
+    Returns the bedrock dict (may be empty if not configured).
+    """
     try:
-        version = tuple(int(x) for x in boto3.__version__.split(".")[:3])
-    except (AttributeError, ValueError):
-        return boto3  # can't parse — don't block on version check
-    if version < _MIN_BOTO3_VERSION:
-        raise RuntimeError(
-            f"boto3 {boto3.__version__} does not support converse_stream "
-            f"(minimum 1.34.59 required). Upgrade with: "
-            f"pip install --upgrade boto3"
-        )
-    return boto3
+        from hermes_cli.config import load_config
+        return load_config().get("bedrock", {}) or {}
+    except Exception:
+        return {}
+
+
+def _resolve_bedrock_profile() -> str:
+    """Return the configured AWS profile name, or empty string for default chain."""
+    return (_load_bedrock_config().get("profile") or "").strip()
 
 
 def _get_bedrock_runtime_client(region: str):
     """Get or create a cached ``bedrock-runtime`` client for the given region.
 
-    Uses the default AWS credential chain (env vars → profile → instance role).
+    Respects ``bedrock.profile`` from config.yaml: when set, creates a
+    ``boto3.Session(profile_name=...)`` and uses that session's client.
+    Falls back to the default credential chain (env vars → instance role)
+    when no profile is configured.
     """
-    if region not in _bedrock_runtime_client_cache:
+    profile = _resolve_bedrock_profile()
+    cache_key = (region, profile) if profile else region
+    if cache_key not in _bedrock_runtime_client_cache:
         boto3 = _require_boto3()
-        _bedrock_runtime_client_cache[region] = boto3.client(
-            "bedrock-runtime", region_name=region,
-        )
-    return _bedrock_runtime_client_cache[region]
+        if profile:
+            _bedrock_runtime_client_cache[cache_key] = boto3.Session(
+                profile_name=profile,
+            ).client("bedrock-runtime", region_name=region)
+        else:
+            _bedrock_runtime_client_cache[cache_key] = boto3.client(
+                "bedrock-runtime", region_name=region,
+            )
+    return _bedrock_runtime_client_cache[cache_key]
 
 
 def _get_bedrock_control_client(region: str):
-    """Get or create a cached ``bedrock`` control-plane client for model discovery."""
-    if region not in _bedrock_control_client_cache:
+    """Get or create a cached ``bedrock`` control-plane client for model discovery.
+
+    Respects ``bedrock.profile`` from config.yaml (see ``_get_bedrock_runtime_client``).
+    """
+    profile = _resolve_bedrock_profile()
+    cache_key = (region, profile) if profile else region
+    if cache_key not in _bedrock_control_client_cache:
         boto3 = _require_boto3()
-        _bedrock_control_client_cache[region] = boto3.client(
-            "bedrock", region_name=region,
-        )
-    return _bedrock_control_client_cache[region]
+        if profile:
+            _bedrock_control_client_cache[cache_key] = boto3.Session(
+                profile_name=profile,
+            ).client("bedrock", region_name=region)
+        else:
+            _bedrock_control_client_cache[cache_key] = boto3.client(
+                "bedrock", region_name=region,
+            )
+    return _bedrock_control_client_cache[cache_key]
 
 
 def reset_client_cache():
@@ -128,9 +148,13 @@ def invalidate_runtime_client(region: str) -> bool:
     Returns True if a cached entry was evicted, False if the region was not
     cached.
     """
-    existed = region in _bedrock_runtime_client_cache
-    _bedrock_runtime_client_cache.pop(region, None)
-    return existed
+    removed = False
+    for cache_key in list(_bedrock_runtime_client_cache):
+        cached_region = cache_key[0] if isinstance(cache_key, tuple) else cache_key
+        if cached_region == region:
+            _bedrock_runtime_client_cache.pop(cache_key, None)
+            removed = True
+    return removed
 
 
 # ---------------------------------------------------------------------------
@@ -223,41 +247,6 @@ def is_stale_connection_error(exc: BaseException) -> bool:
                 return True
 
     return False
-
-
-def is_streaming_access_denied_error(exc: BaseException) -> bool:
-    """Return True when AWS denied the ``bedrock:InvokeModelWithResponseStream`` action.
-
-    IAM policies scoped to ``bedrock:InvokeModel`` only (a common least-privilege
-    setup) reject ``converse_stream()`` with an ``AccessDeniedException`` whose
-    message names the streaming action, e.g.::
-
-        User: arn:aws:iam::123456789012:user/x is not authorized to perform:
-        bedrock:InvokeModelWithResponseStream on resource: ...
-
-    This is permanent for the session — retrying the stream can never succeed —
-    so callers should flip to the non-streaming ``converse()`` path (which maps
-    to ``bedrock:InvokeModel``) instead of burning retries.
-
-    Detection is deliberately message-based: boto3 surfaces this as a
-    ``ClientError`` with ``Error.Code == "AccessDeniedException"``, and the
-    AnthropicBedrock SDK wraps the same AWS response in its own exception
-    types, but both preserve the action name in the message.
-    """
-    msg = str(exc).lower()
-    if "invokemodelwithresponsestream" not in msg:
-        return False
-    # ClientError with an explicit access-denied code is the canonical form.
-    try:
-        from botocore.exceptions import ClientError
-    except ImportError:  # pragma: no cover — botocore always present with boto3
-        ClientError = None  # type: ignore[assignment]
-    if ClientError is not None and isinstance(exc, ClientError):
-        code = (getattr(exc, "response", None) or {}).get("Error", {}).get("Code", "")
-        return code in ("AccessDeniedException", "UnauthorizedException")
-    # Wrapped forms (e.g. AnthropicBedrock SDK PermissionDeniedError) — match
-    # on the authorization-failure phrasing AWS uses.
-    return "not authorized" in msg or "accessdenied" in msg
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +365,11 @@ def resolve_bedrock_region(env: Optional[Dict[str, str]] = None) -> str:
         return explicit
     try:
         import botocore.session
-        region = botocore.session.get_session().get_config_variable("region")
+        profile = _resolve_bedrock_profile()
+        if profile:
+            region = botocore.session.Session(profile=profile).get_config_variable("region")
+        else:
+            region = botocore.session.get_session().get_config_variable("region")
         if region:
             return region
     except Exception:
@@ -952,14 +945,11 @@ def build_converse_kwargs(
     if system_prompt:
         kwargs["system"] = system_prompt
 
-    from agent.anthropic_adapter import _forbids_sampling_params
+    if temperature is not None:
+        kwargs["inferenceConfig"]["temperature"] = temperature
 
-    if not _forbids_sampling_params(model):
-        if temperature is not None:
-            kwargs["inferenceConfig"]["temperature"] = temperature
-
-        if top_p is not None:
-            kwargs["inferenceConfig"]["topP"] = top_p
+    if top_p is not None:
+        kwargs["inferenceConfig"]["topP"] = top_p
 
     if stop_sequences:
         kwargs["inferenceConfig"]["stopSequences"] = stop_sequences
@@ -1058,16 +1048,6 @@ def call_converse_stream(
     try:
         response = client.converse_stream(**kwargs)
     except Exception as exc:
-        if is_streaming_access_denied_error(exc):
-            # IAM allows bedrock:InvokeModel but not
-            # InvokeModelWithResponseStream — permanent for this session.
-            # Fall back to the non-streaming converse() path.
-            logger.info(
-                "bedrock: converse_stream denied by IAM on (region=%s, model=%s) — "
-                "falling back to non-streaming converse().",
-                region, model,
-            )
-            return normalize_converse_response(client.converse(**kwargs))
         if is_stale_connection_error(exc):
             logger.warning(
                 "bedrock: stale-connection error on converse_stream(region=%s, "
