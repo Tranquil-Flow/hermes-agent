@@ -661,7 +661,7 @@ def dispatch_tool_search(args: Dict[str, Any],
     else:
         limit = max(1, min(config.max_search_limit, _safe_int(raw_limit, config.search_default_limit)))
 
-    _, deferrable = classify_tools(current_tool_defs)
+    _, deferrable = classify_tools(current_tool_defs, config=config, platform=platform)
     catalog = build_catalog(deferrable)
     hits = search_catalog(catalog, query, limit=limit)
     return json.dumps({
@@ -673,8 +673,18 @@ def dispatch_tool_search(args: Dict[str, Any],
 
 def dispatch_tool_describe(args: Dict[str, Any],
                            *,
-                           current_tool_defs: List[Dict[str, Any]]) -> str:
-    """Execute the ``tool_describe`` bridge tool. Returns a JSON string."""
+                           current_tool_defs: List[Dict[str, Any]],
+                           config: Optional[ToolSearchConfig] = None,
+                           platform: Optional[str] = None) -> str:
+    """Execute the ``tool_describe`` bridge tool. Returns a JSON string.
+
+    ``platform`` is forwarded to :func:`is_deferrable_tool_name` so that
+    core-tool allowlists (defer_core_tools / defer_core_toolsets gated by
+    defer_core_platforms) are honoured consistently with the
+    ``tool_search`` and ``tool_call`` bridge paths.
+    """
+    if config is None:
+        config = load_config()
     name = str(args.get("name") or "").strip()
     if not name:
         return json.dumps({"error": "name is required"}, ensure_ascii=False)
@@ -685,7 +695,7 @@ def dispatch_tool_describe(args: Dict[str, Any],
                 "already, call it directly; otherwise check the spelling against tool_search."
             ),
         }, ensure_ascii=False)
-    _, deferrable = classify_tools(current_tool_defs)
+    _, deferrable = classify_tools(current_tool_defs, config=config, platform=platform)
     for td in deferrable:
         fn = td.get("function") or {}
         if fn.get("name") == name:
@@ -699,7 +709,7 @@ def dispatch_tool_describe(args: Dict[str, Any],
     }, ensure_ascii=False)
 
 
-def scoped_deferrable_names(tool_defs: List[Dict[str, Any]], *, platform: Optional[str] = None) -> frozenset[str]:
+def scoped_deferrable_names(tool_defs: List[Dict[str, Any]], *, config: Optional[ToolSearchConfig] = None, platform: Optional[str] = None) -> frozenset[str]:
     """Return the set of deferrable tool names present in ``tool_defs``.
 
     ``tool_defs`` is expected to be the *pre-assembly* tool list for the
@@ -709,12 +719,14 @@ def scoped_deferrable_names(tool_defs: List[Dict[str, Any]], *, platform: Option
     tools the session may legitimately reach through ``tool_call``. Used as a
     scoping gate by both the ``model_tools`` bridge dispatch and the
     ``tool_executor`` unwrap so a restricted-toolset session can never invoke
-    an out-of-scope tool via the bridge.
+    an out-of-scope tool via the bridge. ``platform`` and ``config`` mirror
+    the :func:`is_deferrable_tool_name` contract so platform-allowlisted core
+    deferrals are honoured here as well.
     """
     names: set[str] = set()
     for td in tool_defs:
         name = (td.get("function") or {}).get("name", "")
-        if name and is_deferrable_tool_name(name):
+        if name and is_deferrable_tool_name(name, config=config, platform=platform):
             names.add(name)
     return frozenset(names)
 

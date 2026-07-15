@@ -82,6 +82,29 @@ class TestConfigParsing:
         assert cfg.max_search_limit == 50
         assert cfg.search_default_limit <= cfg.max_search_limit
 
+    def test_defer_core_platform_contract(self):
+        """defer_core_{tools,toolsets,platforms} must round-trip from raw config."""
+        from tools.tool_search import ToolSearchConfig
+        cfg = ToolSearchConfig.from_raw({
+            "defer_core_tools": ["terminal", "read_file"],
+            "defer_core_toolsets": ["builtin-terminal"],
+            "defer_core_platforms": ["cli", "telegram"],
+        })
+        assert cfg.defer_core_tools == ("terminal", "read_file")
+        assert cfg.defer_core_toolsets == ("builtin-terminal",)
+        assert cfg.defer_core_platforms == ("cli", "telegram")
+
+    def test_defer_core_accepts_string_and_list_shapes(self):
+        from tools.tool_search import ToolSearchConfig
+        cfg_str = ToolSearchConfig.from_raw(
+            {"defer_core_tools": "terminal, read_file,write_file"}
+        )
+        assert cfg_str.defer_core_tools == ("terminal", "read_file", "write_file")
+        cfg_lst = ToolSearchConfig.from_raw(
+            {"defer_core_tools": ["terminal"]}
+        )
+        assert cfg_lst.defer_core_tools == ("terminal",)
+
 
 # ---------------------------------------------------------------------------
 # Classification — the hard invariant: core tools NEVER defer.
@@ -90,16 +113,26 @@ class TestConfigParsing:
 
 class TestClassification:
     def test_core_tools_never_defer(self):
-        """The critical invariant from the OpenClaw report."""
-        from tools.tool_search import is_deferrable_tool_name
-        # Sample of core tools from _HERMES_CORE_TOOLS.
+        """The critical invariant from the OpenClaw report.
+
+        With NO defer_core_* config (the default), every core tool must be
+        non-deferrable on every platform. This is the production default —
+        platform-aware opt-in MUST NOT silently flip core tools behind the
+        bridge for users who haven't opted in.
+        """
+        from tools.tool_search import is_deferrable_tool_name, ToolSearchConfig
+        default_cfg = ToolSearchConfig.from_raw(None)
         for core_name in ["terminal", "read_file", "write_file", "patch",
                           "search_files", "todo", "memory", "browser_navigate",
                           "web_search", "session_search", "clarify",
                           "execute_code", "delegate_task", "send_message"]:
-            assert not is_deferrable_tool_name(core_name), (
-                f"Core tool '{core_name}' must NEVER be deferrable"
-            )
+            for plat in (None, "", "cli", "telegram", "discord", "whatsapp"):
+                assert not is_deferrable_tool_name(
+                    core_name, config=default_cfg, platform=plat
+                ), (
+                    f"Core tool '{core_name}' must NEVER be deferrable by "
+                    f"default on platform={plat!r}"
+                )
 
     def test_bridge_tools_never_defer(self):
         from tools.tool_search import is_deferrable_tool_name, BRIDGE_TOOL_NAMES
@@ -406,14 +439,51 @@ class TestRegression_OpenClawCron84141:
 
     def test_unwrap_rejects_core_tool_attempt(self):
         """Even if the model tries to invoke a core tool through tool_call,
-        we reject the call and tell the model to use it directly."""
-        from tools.tool_search import resolve_underlying_call
-        _, _, err = resolve_underlying_call({
-            "name": "terminal",
-            "arguments": {"command": "echo hi"},
-        })
-        assert err is not None
+        we reject the call and tell the model to use it directly — UNLESS
+        the user has explicitly opted that core tool in for the active
+        platform via defer_core_tools / defer_core_platforms."""
+        from tools.tool_search import resolve_underlying_call, ToolSearchConfig
+        default_cfg = ToolSearchConfig.from_raw(None)
+        _, _, err = resolve_underlying_call(
+            {"name": "terminal", "arguments": {"command": "echo hi"}},
+            platform="cli",
+        )
+        # Default behaviour: core tools NEVER defer, even on the CLI.
+        assert err is not None, (
+            "tool_call for a core tool must be rejected by default"
+        )
         assert "not a deferrable" in err
+
+        # Opt-in path: defer_core_tools=["terminal"] with no platform gate.
+        opt_in = ToolSearchConfig.from_raw({
+            "defer_core_tools": ["terminal"],
+        })
+        # The opt-in must be matched by an explicit allowlist platform —
+        # otherwise the implicit CLI default would silently enable it for
+        # every session (which would defeat the whole point of the gate).
+        assert resolve_underlying_call(
+            {"name": "terminal", "arguments": {"command": "echo hi"}},
+            config=opt_in, platform="cli",
+        )[2] is not None, (
+            "Without defer_core_platforms the opt-in is gated off — the "
+            "call must still be rejected"
+        )
+
+        # Opt-in path: explicit platform allowlist matches the active platform.
+        opted = ToolSearchConfig.from_raw({
+            "defer_core_tools": ["terminal"],
+            "defer_core_platforms": ["cli", "telegram"],
+        })
+        name, args, err = resolve_underlying_call(
+            {"name": "terminal", "arguments": {"command": "echo hi"}},
+            config=opted, platform="cli",
+        )
+        assert err is None, (
+            f"On an allowlisted platform, core tool 'terminal' must be "
+            f"deferrable; got err={err!r}"
+        )
+        assert name == "terminal"
+        assert args == {"command": "echo hi"}
 
 
 class TestRegression_ToolsetScoping:
@@ -535,4 +605,232 @@ class TestRegression_ToolsetScoping:
         assert "mcp_helper_op" in names
         # core tools are never deferrable
         assert "terminal" not in names
+
+
+# ---------------------------------------------------------------------------
+# Regression: PR #42551 platform-aware core-tool deferral — propagate
+# `platform` AND `config` through every bridge unwrap/dispatch path AND
+# verify an allowlisted platform works end-to-end.
+# ---------------------------------------------------------------------------
+
+
+class TestRegression_PlatformAllowlist42551:
+    """PR #42551 sweeper feedback: ensure the platform contract is honoured
+    uniformly across every bridge path (unwrap, dispatch, classify,
+    scoped_deferrable_names), and prove the allowlisted-platform case works
+    end-to-end through :func:`model_tools.handle_function_call`.
+
+    These tests stub ``tools.tool_search.load_config`` so we can flip the
+    allowlist on and off without touching the user's real config file.
+    """
+
+    @staticmethod
+    def _stub_load_config(_cfg):
+        """Return a factory closing over the desired config dict."""
+        from tools.tool_search import ToolSearchConfig
+        parsed = ToolSearchConfig.from_raw(_cfg)
+
+        def _loader():
+            return parsed
+        return _loader
+
+    # -- Config / classification contract --------------------------------
+
+    def test_defer_core_requires_platform_to_activate(self):
+        """defer_core_tools without defer_core_platforms must stay inactive.
+
+        The platform gate is the whole point — without it the opt-in would
+        silently flip core tools behind the bridge for every session
+        regardless of platform, defeating the safety contract.
+        """
+        from tools.tool_search import (
+            is_deferrable_tool_name, ToolSearchConfig,
+            scoped_deferrable_names,
+        )
+        cfg = ToolSearchConfig.from_raw({
+            "defer_core_tools": ["terminal", "read_file"],
+            # defer_core_platforms deliberately omitted
+        })
+        for plat in ("cli", "telegram", "discord", None):
+            assert not is_deferrable_tool_name(
+                "terminal", config=cfg, platform=plat,
+            ), f"without defer_core_platforms, terminal must stay non-deferrable on {plat!r}"
+
+    def test_defer_core_platforms_matches_case_insensitive(self):
+        from tools.tool_search import is_deferrable_tool_name, ToolSearchConfig
+        cfg = ToolSearchConfig.from_raw({
+            "defer_core_tools": ["terminal"],
+            "defer_core_platforms": ["Telegram", "CLI"],
+        })
+        # Active platform is "cli" — must match the allowlist even though
+        # it's lowercase vs the allowlist's mixed case.
+        assert is_deferrable_tool_name("terminal", config=cfg, platform="cli")
+        assert is_deferrable_tool_name("terminal", config=cfg, platform="telegram")
+        # "discord" is NOT allowlisted.
+        assert not is_deferrable_tool_name("terminal", config=cfg, platform="discord")
+
+    def test_scoped_deferrable_names_respects_platform(self):
+        """scoped_deferrable_names() is the gate used by model_tools' bridge
+        dispatch when unwrapping tool_call. It MUST honour the allowlist."""
+        from tools.tool_search import (
+            scoped_deferrable_names, ToolSearchConfig,
+        )
+        cfg = ToolSearchConfig.from_raw({
+            "defer_core_tools": ["terminal"],
+            "defer_core_platforms": ["telegram"],
+        })
+        defs = [_td("terminal", "Run shell commands")]
+        # Allowlisted platform → terminal is deferrable.
+        names = scoped_deferrable_names(defs, config=cfg, platform="telegram")
+        assert "terminal" in names
+        # Non-allowlisted platform → terminal is NOT deferrable.
+        names_cli = scoped_deferrable_names(defs, config=cfg, platform="cli")
+        assert "terminal" not in names_cli
+
+    # -- End-to-end bridge dispatch through model_tools ------------------
+
+    def test_bridge_dispatch_allowlisted_platform_end_to_end(self, monkeypatch):
+        """End-to-end: with defer_core_platforms=[platform] active, the
+        tool_call bridge accepts an underlying core tool on the allowlisted
+        platform (unwrap + dispatch succeeds) AND rejects it on the same
+        config on a non-allowlisted platform.
+
+        This is the allowlisted-platform end-to-end bridge test required by
+        PR #42551 sweeper feedback. It exercises every dispatch path:
+          tools/tool_search.resolve_underlying_call
+          tools/tool_search.dispatch_tool_call (via tool_call bridge unwrap)
+          model_tools.handle_function_call
+          the recursive handle_function_call hop that dispatches the real
+          underlying tool once the bridge is unwrapped.
+        """
+        from tools.tool_search import (
+            ToolSearchConfig, load_config as real_load_config,
+        )
+        from tools import tool_search as _ts
+        import model_tools
+
+        allowlisted_cfg = ToolSearchConfig.from_raw({
+            "enabled": "on",  # force the bridge into action for the test
+            "defer_core_tools": ["terminal"],
+            "defer_core_platforms": ["telegram"],
+        })
+
+        # Monkeypatch load_config so we don't need to mutate the real one.
+        captured = {"config": allowlisted_cfg}
+        monkeypatch.setattr(_ts, "load_config", lambda: captured["config"])
+
+        # Register a no-op core-tool handler so the unwrap actually runs
+        # instead of returning a registry-miss error.
+        from tools.registry import registry as _registry
+
+        def _terminal_handler(args, task_id=None, **kw):
+            return json.dumps({
+                "ok": True,
+                "tool": "terminal",
+                "command": (args or {}).get("command", ""),
+                "via": "bridge_unwrap",
+            })
+
+        try:
+            _registry.register(
+                name="terminal",
+                handler=_terminal_handler,
+                schema=_td("terminal", "Run shell commands", {
+                    "command": {"type": "string"},
+                }),
+                toolset="core",
+            )
+        except ValueError:
+            # Already registered (test collection re-entry). Patch handler.
+            entry = _registry.get_entry("terminal")
+            entry.handler = _terminal_handler
+
+        # 1) Allowlisted platform: tool_call unwrap must succeed and the
+        #    underlying handler must run.
+        result = json.loads(model_tools.handle_function_call(
+            function_name="tool_call",
+            function_args={
+                "name": "terminal",
+                "arguments": {"command": "echo allowlisted"},
+            },
+            platform="telegram",
+        ))
+        assert result.get("ok") is True, (
+            f"tool_call unwrap on allowlisted platform should succeed; got {result}"
+        )
+        assert result.get("tool") == "terminal"
+        assert result.get("command") == "echo allowlisted"
+        assert result.get("via") == "bridge_unwrap"
+
+        # 2) Non-allowlisted platform: same config, same call, must reject.
+        rejected = json.loads(model_tools.handle_function_call(
+            function_name="tool_call",
+            function_args={
+                "name": "terminal",
+                "arguments": {"command": "echo blocked"},
+            },
+            platform="cli",  # not in defer_core_platforms
+        ))
+        assert "error" in rejected, (
+            f"tool_call unwrap on non-allowlisted platform must reject; got {rejected}"
+        )
+        assert "not a deferrable" in rejected["error"], (
+            f"Rejection must come from the deferrable gate, not something "
+            f"else; got {rejected['error']!r}"
+        )
+
+        # 3) tool_describe mirror: must accept on allowlisted, reject on
+        #    non-allowlisted, otherwise the catalog would lie about whether
+        #    the underlying tool is reachable.
+        # Re-fetch the pre-assembly defs and dispatch with platform.
+        defs = model_tools.get_tool_definitions(
+            quiet_mode=True,
+            skip_tool_search_assembly=True,
+            platform="telegram",
+        ) or []
+        described = json.loads(_ts.dispatch_tool_describe(
+            {"name": "terminal"},
+            current_tool_defs=defs,
+            config=allowlisted_cfg,
+            platform="telegram",
+        ))
+        assert described.get("name") == "terminal", (
+            f"tool_describe on allowlisted platform must succeed; got {described}"
+        )
+
+        described_blocked = json.loads(_ts.dispatch_tool_describe(
+            {"name": "terminal"},
+            current_tool_defs=defs,
+            config=allowlisted_cfg,
+            platform="cli",
+        ))
+        assert "error" in described_blocked, (
+            f"tool_describe on non-allowlisted platform must reject; got {described_blocked}"
+        )
+
+    def test_default_config_platform_does_not_silently_enable_core_defer(self, monkeypatch):
+        """With NO defer_core_* config at all, the bridge must never accept
+        a core tool via tool_call regardless of platform. Guards against the
+        regression where adding the platform plumbing reintroduced OpenClaw."""
+        from tools.tool_search import ToolSearchConfig
+        from tools import tool_search as _ts
+        import model_tools
+
+        # Force a fresh default config (no opt-in).
+        default_cfg = ToolSearchConfig.from_raw(None)
+        monkeypatch.setattr(_ts, "load_config", lambda: default_cfg)
+
+        for plat in ("cli", "telegram", "discord", "whatsapp", None):
+            rejected = json.loads(model_tools.handle_function_call(
+                function_name="tool_call",
+                function_args={
+                    "name": "terminal",
+                    "arguments": {"command": "echo x"},
+                },
+                platform=plat,
+            ))
+            assert "error" in rejected, (
+                f"On default config + platform={plat!r}, tool_call for "
+                f"terminal must reject — got {rejected}"
+            )
 
