@@ -1850,6 +1850,29 @@ def init_db(
     return path
 
 
+def _migrate_add_model_override_column(conn: sqlite3.Connection) -> bool:
+    """Add the ``model_override`` column with an explicit duplicate-column guard.
+
+    The generic :func:`add_column_if_missing` already swallows the
+    ``duplicate column name`` error a concurrent migrator can raise, but the
+    ``model_override`` migration has historically been the most race-prone
+    one because it was introduced while the dispatcher-cap refactor was
+    already shipping.  This dedicated helper adds a **second layer of
+    defence**: it re-checks ``PRAGMA table_info`` immediately before
+    attempting the ``ALTER TABLE``, so a column that appeared between the
+    top-of-migration snapshot and this call site is detected without ever
+    hitting the error path.
+
+    Returns ``True`` when the column was added by this call.
+    """
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(tasks)")}
+    if "model_override" in cols:
+        return False
+    return _add_column_if_missing(
+        conn, "tasks", "model_override", "model_override TEXT"
+    )
+
+
 def _migrate_add_optional_columns(conn: sqlite3.Connection) -> None:
     """Add columns that were introduced after v1 release to legacy DBs.
 
@@ -1946,9 +1969,7 @@ def _migrate_add_optional_columns(conn: sqlite3.Connection) -> None:
         _add_column_if_missing(conn, "tasks", "max_retries", "max_retries INTEGER")
 
     if "model_override" not in cols:
-        _add_column_if_missing(
-            conn, "tasks", "model_override", "model_override TEXT"
-        )
+        _migrate_add_model_override_column(conn)
 
     if "goal_mode" not in cols:
         # Ralph-style goal loop toggle for the dispatched worker. 0 (the
