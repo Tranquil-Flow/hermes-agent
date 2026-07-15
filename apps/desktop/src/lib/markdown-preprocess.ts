@@ -125,12 +125,46 @@ function isUrlOnlyBlock(lines: string[]): boolean {
   return nonEmpty.length > 0 && nonEmpty.every(line => URL_ONLY_LINE_RE.test(line))
 }
 
+function isEscaped(text: string, index: number): boolean {
+  let slashCount = 0
+
+  for (let cursor = index - 1; cursor >= 0 && text[cursor] === '\\'; cursor -= 1) {
+    slashCount += 1
+  }
+
+  return slashCount % 2 === 1
+}
+
+function isInsideMarkdownLinkText(text: string, index: number): boolean {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const char = text[cursor]
+
+    if (char === ']' && !isEscaped(text, cursor)) {
+      return false
+    }
+
+    if (char !== '[' || isEscaped(text, cursor)) {
+      continue
+    }
+
+    for (let close = index; close < text.length; close += 1) {
+      if (text[close] === ']' && !isEscaped(text, close)) {
+        return text[close + 1] === '('
+      }
+    }
+
+    return false
+  }
+
+  return false
+}
+
 function autoLinkRawUrls(text: string): string {
   return text.replace(RAW_URL_RE, (url: string, index: number) => {
     const previous = text[index - 1] || ''
     const beforePrevious = text[index - 2] || ''
 
-    if (previous === '<' || (beforePrevious === ']' && previous === '(')) {
+    if (previous === '<' || (beforePrevious === ']' && previous === '(') || isInsideMarkdownLinkText(text, index)) {
       return url
     }
 

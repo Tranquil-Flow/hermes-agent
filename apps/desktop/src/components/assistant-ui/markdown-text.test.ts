@@ -94,6 +94,55 @@ describe('preprocessMarkdown', () => {
     expect(output).toContain('<https://www.getyourguide.com/culebra-island-l145468/from-fajardo-tour-t19894/>')
   })
 
+  it('keeps markdown links whose visible text is an http url without corrupting them', () => {
+    const cases = [
+      '[https://example.com](https://example.com)',
+      '[https://example.com:8080](https://example.com:8080)',
+      '[https://user@example.com](https://user@example.com)',
+      '[http://example.com](http://example.com)'
+    ]
+
+    for (const input of cases) {
+      expect(preprocessMarkdown(input)).toBe(input)
+    }
+  })
+
+  it('keeps markdown links whose visible text is an http url with path/query/hash separators', () => {
+    const cases = [
+      '[https://example.com/page](https://example.com/page)',
+      '[https://example.com/](https://example.com/)',
+      '[https://example.com?q=test](https://example.com?q=test)',
+      '[https://example.com#test](https://example.com#test)',
+      '[https://www.amazon.com.br/search](https://www.amazon.com.br/search)'
+    ]
+
+    for (const input of cases) {
+      expect(preprocessMarkdown(input)).toBe(input)
+    }
+  })
+
+  it('keeps bare prose autolinking while preserving markdown links and inline code', () => {
+    const input = [
+      'Docs: https://example.com/docs',
+      '[https://example.com/page](https://example.com/page)',
+      '`https://example.com/code`',
+      '[ftp://example.com](https://example.com)',
+      '[HTTPS://EXAMPLE.COM](https://example.com)',
+      '[custom://example.com](https://example.com)'
+    ].join('\n')
+
+    const output = preprocessMarkdown(input)
+
+    expect(output).toContain('Docs: <https://example.com/docs>')
+    expect(output).toContain('[https://example.com/page](https://example.com/page)')
+    expect(output).toContain('`https://example.com/code`')
+    expect(output).toContain('[ftp://example.com](https://example.com)')
+    expect(output).toContain('[HTTPS://EXAMPLE.COM](https://example.com)')
+    expect(output).toContain('[custom://example.com](https://example.com)')
+    expect(output).not.toContain('[<https://example.com')
+    expect(output).not.toContain('](https://example.com)>')
+  })
+
   it('strips orphan numeric citation markers outside code spans', () => {
     const output = preprocessMarkdown('This is the source[0], but keep `items[0]` untouched.')
 
