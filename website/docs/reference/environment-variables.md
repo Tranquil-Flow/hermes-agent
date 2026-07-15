@@ -72,7 +72,7 @@ Hermes reads environment variables from the process environment and, for user-ma
 | `ANTHROPIC_BASE_URL` | Override the Anthropic API base URL |
 | `ANTHROPIC_TOKEN` | Manual or legacy Anthropic OAuth/setup-token override |
 | `DASHSCOPE_API_KEY` | Qwen Cloud (Alibaba DashScope) API key for Qwen models ([modelstudio.console.alibabacloud.com](https://modelstudio.console.alibabacloud.com/)) |
-| `DASHSCOPE_BASE_URL` | Custom DashScope base URL (default: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`; use `https://dashscope.aliyuncs.com/compatible-mode/v1` for mainland-China region) |
+| `DASHSCOPE_BASE_URL` | Custom DashScope base URL (default: `https://dashscope.aliyuncs.com/compatible-mode/v1` for domestic; use `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` for international region) |
 | `ALIBABA_CODING_PLAN_API_KEY` | Qwen Coding Plan API key (`alibaba-coding-plan` provider) |
 | `ALIBABA_CODING_PLAN_BASE_URL` | Override the Qwen Coding Plan base URL |
 | `DEEPSEEK_API_KEY` | DeepSeek API key for direct DeepSeek access ([platform.deepseek.com](https://platform.deepseek.com/api_keys)) |

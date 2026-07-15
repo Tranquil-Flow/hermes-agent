@@ -1950,6 +1950,8 @@ def run_doctor(args):
                 and not base
                 and r.status_code == 401
             ):
+                # Domestic endpoint failed — retry via international endpoint
+                # for users outside mainland China who set the default URL.
                 r = httpx.get(
                     "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models",
                     headers=headers, timeout=10,

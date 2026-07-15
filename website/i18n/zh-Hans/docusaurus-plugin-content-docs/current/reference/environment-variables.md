@@ -66,7 +66,7 @@ description: "Hermes Agent 使用的所有环境变量完整参考"
 | `ANTHROPIC_API_KEY` | Anthropic Console API 密钥（[console.anthropic.com](https://console.anthropic.com/)） |
 | `ANTHROPIC_TOKEN` | 手动或旧版 Anthropic OAuth/setup-token 覆盖 |
 | `DASHSCOPE_API_KEY` | Qwen Cloud（阿里巴巴 DashScope）Qwen 模型 API 密钥（[modelstudio.console.alibabacloud.com](https://modelstudio.console.alibabacloud.com/)） |
-| `DASHSCOPE_BASE_URL` | 自定义 DashScope base URL（默认：`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`；中国大陆区域使用 `https://dashscope.aliyuncs.com/compatible-mode/v1`） |
+| `DASHSCOPE_BASE_URL` | 自定义 DashScope base URL（默认：`https://dashscope.aliyuncs.com/compatible-mode/v1`（国内）；国际区域使用 `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`） |
 | `DEEPSEEK_API_KEY` | 直接访问 DeepSeek 的 API 密钥（[platform.deepseek.com](https://platform.deepseek.com/api_keys)） |
 | `DEEPSEEK_BASE_URL` | 自定义 DeepSeek API base URL |
 | `NOVITA_API_KEY` | NovitaAI API 密钥——面向 Model API、Agent Sandbox 和 GPU Cloud 的 AI 原生云（[novita.ai/settings/key-management](https://novita.ai/settings/key-management)） |
