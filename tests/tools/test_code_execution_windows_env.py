@@ -856,13 +856,18 @@ class TestScrubChildEnvCaseInsensitiveSafePrefix:
         assert "HOME" in scrubbed
 
     def test_posix_path_unchanged_lowercase(self):
-        """Regression guard: lowercase PATH on POSIX is unusual but
-        legitimate (custom shells, Linux namespaces, Docker configs)."""
+        """Regression guard: lowercase PATH on POSIX must NOT match the
+        case-insensitive uppercase prefix match (only Windows does that).
+
+        POSIX env var names are case-sensitive; the safe-prefix list is
+        uppercase, so lowercase ``path``/``home`` must be blocked (they
+        aren't real OS-level variables on POSIX)."""
         env = {"path": "/usr/bin:/bin", "home": "/root"}
         scrubbed = _scrub_child_env(
             env,
             is_passthrough=_no_passthrough,
             is_windows=False,
         )
-        assert "path" in scrubbed
-        assert "home" in scrubbed
+        # On POSIX, lowercase safe-prefix lookalikes must be dropped.
+        assert "path" not in scrubbed
+        assert "home" not in scrubbed

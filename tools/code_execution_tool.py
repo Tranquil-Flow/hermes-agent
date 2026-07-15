@@ -191,7 +191,7 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
         if is_passthrough(k):
             scrubbed[k] = v
             continue
-        k_upper = k.upper()
+        k_upper = k.upper() if is_windows else k
         if any(s in k_upper for s in _SECRET_SUBSTRINGS):
             continue
         if any(k_upper.startswith(p) for p in safe_prefixes_upper):
