@@ -469,6 +469,71 @@ _CONTENT_POLICY_RECOVERY_HINT = (
 )
 
 
+# ── Post-tool placeholder detector ─────────────────────────────────
+# Narrowed regex that matches ONLY actual progress-only status strings
+# a model emits after tool execution instead of a real answer:
+#   "working...", "processing...", "let me check...", "on it..."
+# It deliberately does NOT match bare acknowledgements ("ok", "sure",
+# "got it") or forward-looking intent that carries a decision
+# ("I'll leave it as is.").  Those read as final answers and nudging
+# would annoy the user with an unnecessary retry.
+_POST_TOOL_PLACEHOLDER_RE = re.compile(
+    r"^(?:"
+    # English: in-progress gerund / participle with optional ellipsis
+    r"(?:working|writing|processing|analyzing|checking|reading|running)\.{0,3}"
+    r"|working on (?:it|this|that)\b.{0,20}"
+    r"|on it\.{0,3}"
+    r"|(?:just |one )?(?:moment|sec|second)\b.{0,20}"
+    # English: forward-looking intent-to-act, NO content clause
+    r"|let me (?:check|process|analyze|read|run|look|verify|try|handle)\b.{0,30}"
+    r"|i'?ll (?:check|process|analyze|read|run|look|verify|try|handle)\b.{0,30}"
+    r"|i'?m (?:working|writing|processing|analyzing|checking|reading|running)\b.{0,30}"
+    # Chinese: progress-only markers (正在… / 继续…)
+    r"|正在(?:处理|写|分析|查看|执行|读取|运行).{0,30}"
+    r"|继续(?:处理|写|分析|执行).{0,20}"
+    r")$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+# Definitive final-decision phrases that must NEVER be treated as
+# placeholders even if the progress regex were to match.  These signal
+# the model has made a decision and intends to stop.
+_POST_TOOL_FINAL_DECISION_RE = re.compile(
+    r"(?:"
+    # Explicitly leaving / declining / deciding
+    r"\b(?:i'?ll|i will|i'?m going to|i am going to)\b"
+    r"\s+(?:leave (?:it|this|that) (?:as(?:\s+is)?|alone|be)"
+    r"|keep (?:it|this|that) (?:as(?:\s+is)?|the way it is)"
+    r"|skip (?:it|this|that)"
+    r"|not (?:change|modify|update|touch|edit) (?:it|this|that|the))"
+    # Completed-result markers (standalone or at end)
+    r"|\b(?:done|fixed|complete(?:d)?|finished|resolved|applied|installed|updated|created|deleted|removed|added|merged|saved|committed)\b"
+    # Confirmation that something works / is correct
+    r"|\b(?:it(?:'s| is)|this(?:'s| is)|that(?:'s| is)) (?:working|correct|fine|good|ready|done|resolved)\b"
+    # Chinese: completion / decision
+    r"|处理完成|已完成|已更新|已修改|已删除|已添加|已修复|没问题|完成了|搞定"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _is_post_tool_placeholder(text: str) -> bool:
+    """Return True only when *text* is a genuine progress-only placeholder.
+
+    Three gates:
+    1. Length — placeholders are short (< 120 chars).
+    2. The narrowed progress regex matches.
+    3. No definitive final-decision phrase is present.
+    """
+    if not text or len(text) >= 120:
+        return False
+    if not _POST_TOOL_PLACEHOLDER_RE.match(text):
+        return False
+    if _POST_TOOL_FINAL_DECISION_RE.search(text):
+        return False
+    return True
+
+
 def _content_policy_blocked_result(
     messages: List[Dict],
     api_call_count: int,
@@ -5139,14 +5204,18 @@ def run_conversation(
                 # ── Post-tool placeholder guard ───────────────────────
                 # Some models return a short progress/status string after
                 # tool execution instead of a substantive answer
-                # ("writing...", "working on it", "好的，我来处理").
+                # ("working...", "processing...", "let me check...").
                 # Unlike a truly empty response, these pass the
                 # _has_content_after_think_block check above and reach
                 # this path.  Detect them and nudge once so the model
                 # completes the task rather than silently stopping.
                 # Only fires when the immediately preceding messages
                 # contain a tool result AND the model hasn't already
-                # been nudged for a placeholder this turn.
+                # been nudged for a placeholder this turn.  The detector
+                # is deliberately narrow: it matches only actual
+                # progress-only forms and excludes definitive final
+                # decisions ("Done.", "I'll leave it as is.", etc.) so
+                # genuine concise answers are never retried.
                 _prior_was_tool = any(
                     m.get("role") == "tool"
                     for m in messages[-6:]
@@ -5156,27 +5225,7 @@ def run_conversation(
                     and not getattr(agent, "_post_tool_placeholder_retried", False)
                 ):
                     _clean = agent._strip_think_blocks(final_response).strip()
-                    _PLACEHOLDER_RE = re.compile(
-                        r'^('
-                        # English: bare acknowledgements
-                        r'(ok(ay)?|sure|got it|understood|alright|noted)[.,!]?\s*'
-                        # English: forward-looking intent without content
-                        r'|(i\'?ll|let me|i will|i\'?m going to|i\'?m)\b.{0,60}'
-                        r'|working on (it|this|that)\.{0,3}'
-                        r'|writing\.{0,3}'
-                        r'|processing\.{0,3}'
-                        r'|on it\.{0,3}'
-                        r'|just a (moment|sec|second)\.{0,3}'
-                        r'|one (moment|sec|second)\.{0,3}'
-                        # Chinese: acknowledgements and progress markers
-                        r'|好的[，,。！]?\s*(我|让我|来|下面|接下来|继续)?.{0,40}'
-                        r'|收到[。！]?\s*'
-                        r'|正在(处理|写|分析|查看|执行).{0,30}'
-                        r'|继续(处理|写|分析|执行)?.{0,30}'
-                        r')$',
-                        re.IGNORECASE | re.DOTALL,
-                    )
-                    if len(_clean) < 120 and _PLACEHOLDER_RE.match(_clean):
+                    if _is_post_tool_placeholder(_clean):
                         agent._post_tool_placeholder_retried = True
                         logger.info(
                             "Progress-only response after tool calls (%r) — "
