@@ -5351,6 +5351,31 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             )
             return True  # handled (silently dropped); do not fall through
 
+        # --- /ping fast-path during active sessions ---
+        # /ping is a liveness check, not a turn.  Reply "pong" immediately
+        # even when the session is busy so monitoring/dropout detection works
+        # during long agent turns.  This avoids the generic busy fallback
+        # (which would queue it or show "session is busy").
+        text = (event.text or "").strip().lower()
+        if text.startswith("/ping"):
+            adapter = self._adapter_for_source(event.source)
+            if adapter:
+                reply_anchor = self._reply_anchor_for_event(event)
+                thread_meta = self._thread_metadata_for_source(event.source, reply_anchor)
+                await adapter._send_with_retry(
+                    chat_id=event.source.chat_id,
+                    content="🏓 pong",
+                    reply_to=(
+                        reply_anchor
+                        if event.source.platform == Platform.TELEGRAM
+                        and event.source.chat_type == "dm"
+                        and event.source.thread_id
+                        else (None if event.source.platform == Platform.TELEGRAM and event.source.thread_id else event.message_id)
+                    ),
+                    metadata=thread_meta,
+                )
+            return True  # handled
+
         # --- Draining case (gateway restarting/stopping) ---
         if self._draining:
             adapter = self._adapter_for_source(event.source)
