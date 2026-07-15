@@ -3312,6 +3312,15 @@ function resolveHermesBackend(backendArgs) {
     return createActiveBackend(backendArgs)
   }
 
+  // 3b. Marker-absent but runnable install — a CLI-only install
+  //     (install.sh --include-desktop) or a DMG launch over a prior CLI
+  //     install satisfies isActiveRuntimeUsable() without the desktop ever
+  //     having written the bootstrap marker.  Trust the filesystem and go
+  //     straight to spawning hermes.
+  if (isActiveRuntimeUsable()) {
+    return createActiveBackend(backendArgs)
+  }
+
   // 4. Existing `hermes` on PATH -- installed via install.ps1 / install.sh from
   //    a previous tool-only setup, or pip-installed system-wide. Use it but
   //    do NOT write a bootstrap marker; the user did this themselves and we
