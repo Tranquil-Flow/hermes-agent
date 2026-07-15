@@ -5213,6 +5213,7 @@ def decompose_triage_task(
     children: list[dict],
     author: Optional[str] = None,
     auto_promote: bool = True,
+    board: Optional[str] = None,
 ) -> Optional[list[str]]:
     """Fan a triage task out into child tasks and promote the root to ``todo``.
 
@@ -5320,7 +5321,7 @@ def decompose_triage_task(
         # orchestration run shares the same directory.
         _board_ws_upgraded = False
         if root_ws_kind == "scratch" and not root_ws_path:
-            _board_meta = read_board_metadata()
+            _board_meta = read_board_metadata(board)
             _board_default = _board_meta.get("default_workdir")
             if _board_default:
                 root_ws_kind = "dir"

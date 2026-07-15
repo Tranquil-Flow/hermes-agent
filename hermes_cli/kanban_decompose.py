@@ -273,6 +273,7 @@ def decompose_task(
     *,
     author: Optional[str] = None,
     timeout: Optional[int] = None,
+    board: Optional[str] = None,
 ) -> DecomposeOutcome:
     """Decompose a triage task into a graph of child tasks.
 
@@ -439,7 +440,7 @@ def decompose_task(
         })
 
     try:
-        with kb.connect_closing() as conn:
+        with kb.connect_closing(board=board) as conn:
             child_ids = kb.decompose_triage_task(
                 conn,
                 task_id,
@@ -447,6 +448,7 @@ def decompose_task(
                 children=children,
                 author=audit_author,
                 auto_promote=auto_promote,
+                board=board,
             )
     except ValueError as exc:
         return DecomposeOutcome(task_id, False, f"DB rejected graph: {exc}")
