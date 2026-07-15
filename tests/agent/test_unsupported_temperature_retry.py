@@ -8,19 +8,26 @@ reasons. Several provider/model combinations reject ``temperature`` with a
 
   * OpenAI Responses (gpt-5/o-series reasoning models)
   * Copilot Responses (reasoning models)
-  * OpenRouter reasoning models (gpt-5.5, some anthropic via OAI-compat)
+  * OpenRouter reasoning models (some anthropic via OAI-compat)
   * Anthropic Opus 4.7+ via OpenAI-compat endpoints
   * Kimi/Moonshot (server-managed)
 
-``_fixed_temperature_for_model`` catches Kimi up front, and
-``build_chat_completion_kwargs`` drops temperature for Anthropic Opus 4.7+,
-but the same backend can accept ``temperature`` for some models and reject
-it for others (for example gpt-5.4 accepts but gpt-5.5 rejects on the same
-endpoint). An allow/deny-list is not maintainable across providers.
+``_fixed_temperature_for_model`` catches Kimi, Arcee Trinity Large Thinking,
+and the gpt-5.5 family up front, and ``build_chat_completion_kwargs`` drops
+temperature for Anthropic Opus 4.7+, but the same backend can accept
+``temperature`` for some models and reject it for others. An allow/deny-list
+is not maintainable across providers.
 
 The universal fix is reactive: when a call returns an
 ``Unsupported parameter: temperature`` 400, retry once without temperature.
 These tests lock in that behaviour for both sync and async paths.
+
+NOTE: the gpt-5.5 family is now preemptively stripped of ``temperature``
+(see #51083) so the first call is correct on the openai-api direct route and
+the reactive retry path is no longer exercised there. These tests use
+``gpt-5.4`` (a model the directive does NOT preemptively strip) so they
+exercise the genuine reactive retry path that still applies to lesser-known
+endpoints and model variants.
 """
 
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -89,13 +96,17 @@ class TestCallLlmUnsupportedTemperatureRetry:
         "Provider error: this model does not support temperature",
     ])
     def test_retries_once_without_temperature(self, error_message):
+        # gpt-5.4 is NOT preemptively stripped by _fixed_temperature_for_model,
+        # so a misbehaving endpoint that 400s on temperature still triggers
+        # the reactive retry path. (gpt-5.5 family is preemptively stripped
+        # as of #51083 — see test_gpt55_temperature_omit.py.)
         client = self._setup(RuntimeError(error_message))
 
         with (
             patch("agent.auxiliary_client._resolve_task_provider_model",
-                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+                  return_value=("openai-codex", "gpt-5.4", None, None, None)),
             patch("agent.auxiliary_client._get_cached_client",
-                  return_value=(client, "gpt-5.5")),
+                  return_value=(client, "gpt-5.4")),
             patch("agent.auxiliary_client._validate_llm_response",
                   side_effect=lambda resp, _task: resp),
         ):
@@ -119,6 +130,42 @@ class TestCallLlmUnsupportedTemperatureRetry:
         assert "max_tokens" not in first_kwargs
         assert "max_tokens" not in retry_kwargs
         assert retry_kwargs["model"] == first_kwargs["model"]
+
+    def test_gpt55_family_does_not_trigger_reactive_retry(self):
+        """gpt-5.5 family is preemptively stripped by _fixed_temperature_for_model
+        so the reactive retry path is never entered. The first call goes out
+        without a ``temperature`` key and a single call must succeed.
+
+        Regression guard for #51083: ensures the reactive retry path doesn't
+        double-rebuild kwargs on the gpt-5.5 family (wasted round-trip) and
+        that the directive + reactive retry compose cleanly.
+        """
+        client = MagicMock()
+        client.base_url = "https://api.openai.com/v1"
+        client.chat.completions.create.return_value = _dummy_response()
+
+        with (
+            patch("agent.auxiliary_client._resolve_task_provider_model",
+                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+            patch("agent.auxiliary_client._get_cached_client",
+                  return_value=(client, "gpt-5.5")),
+            patch("agent.auxiliary_client._validate_llm_response",
+                  side_effect=lambda resp, _task: resp),
+        ):
+            result = call_llm(
+                task="compression",
+                messages=[{"role": "user", "content": "remember this"}],
+                temperature=0.3,
+                max_tokens=500,
+            )
+
+        assert result == {"ok": True}
+        # Exactly ONE call — temperature was stripped before the call, so
+        # the provider never sees it and the reactive retry never fires.
+        assert client.chat.completions.create.call_count == 1
+        first_kwargs = client.chat.completions.create.call_args_list[0].kwargs
+        assert "temperature" not in first_kwargs
+        assert first_kwargs["model"] == "gpt-5.5"
 
     def test_non_temperature_400_does_not_retry_as_temperature(self):
         """Unrelated 400s (e.g. bad tool role) must not silently drop temp."""
@@ -184,6 +231,8 @@ class TestAsyncCallLlmUnsupportedTemperatureRetry:
 
     @pytest.mark.asyncio
     async def test_async_retries_once_without_temperature(self):
+        # gpt-5.4 (NOT gpt-5.5) so the reactive retry path is genuinely
+        # exercised — the gpt-5.5 family is preemptively stripped as of #51083.
         client = MagicMock()
         client.base_url = "https://api.openai.com/v1"
         client.chat.completions.create = AsyncMock(side_effect=[
@@ -193,9 +242,9 @@ class TestAsyncCallLlmUnsupportedTemperatureRetry:
 
         with (
             patch("agent.auxiliary_client._resolve_task_provider_model",
-                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+                  return_value=("openai-codex", "gpt-5.4", None, None, None)),
             patch("agent.auxiliary_client._get_cached_client",
-                  return_value=(client, "gpt-5.5")),
+                  return_value=(client, "gpt-5.4")),
             patch("agent.auxiliary_client._validate_llm_response",
                   side_effect=lambda resp, _task: resp),
         ):
