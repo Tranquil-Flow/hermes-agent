@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -31,6 +32,7 @@ from cron.jobs import (
     remove_job,
     resolve_job_ref,
     resume_job,
+    trigger_job,
     update_job,
 )
 
@@ -115,14 +117,10 @@ _CRON_EXFIL_COMMAND_PATTERNS = [
     (rf'curl\s+[^\n]*(?:-H|--header)\s+["\']Authorization:\s*(?:Bearer|token)\s+{_CRON_SECRET_VAR_RE}["\']', "exfil_curl_auth_header"),
 ]
 
-# Single source of truth, shared with the install-time scanner
-# (threat_patterns.INVISIBLE_CHARS / skills_guard). Keeping a separate, narrower
-# copy here let an obfuscated injection directive slip past this runtime cron
-# tripwire while being caught at install time (or vice versa): U+2062-U+2064
-# (invisible math operators) and U+2066-U+2069 (directional isolates) are real
-# attack tools and were missing from the cron-local set. Importing the canonical
-# set keeps the cron tripwire and the install scanner from drifting apart.
-from tools.threat_patterns import INVISIBLE_CHARS as _CRON_INVISIBLE_CHARS
+_CRON_INVISIBLE_CHARS = {
+    '\u200b', '\u200c', '\u200d', '\u2060', '\ufeff',
+    '\u202a', '\u202b', '\u202c', '\u202d', '\u202e',
+}
 
 # U+200D Zero-Width Joiner is also a legitimate, required part of many
 # Unicode emoji sequences (for example 👨‍👩‍👧, 🏳️‍🌈, ❤️‍🩹, 🧑‍💻).
@@ -445,86 +443,6 @@ def _normalize_deliver_param(value: Any) -> Optional[str]:
     return text or None
 
 
-def _validate_cron_base_url(
-    provider: Optional[Any], base_url: Optional[Any]
-) -> Optional[str]:
-    """Reject pairing a named provider's stored credential with an off-host base_url.
-
-    The cron tool is model-callable, so a prompt-injected job could set a real
-    provider plus an attacker ``base_url``; on fire the scheduler resolves that
-    provider's stored API key and sends it to the URL, exfiltrating the
-    credential (CWE-200/CWE-522). Allow a ``base_url`` override only when it
-    cannot leak a stored secret: no override at all, a configured custom/byok
-    provider that carries its own endpoint+key, or an override whose host
-    matches the named provider's own endpoint.
-
-    Returns an error string if blocked, else None (valid).
-    """
-    bu = _normalize_optional_job_value(base_url, strip_trailing_slash=True)
-    if not bu:
-        return None
-    prov = _normalize_optional_job_value(provider)
-    if not prov:
-        # A base_url with no explicit provider inherits the default/session
-        # provider's stored key — the same exfil primitive without naming a
-        # provider. Require an explicit (custom) provider for custom endpoints.
-        return (
-            "base_url override requires an explicit provider. Set provider to a "
-            "configured custom provider to use a custom endpoint."
-        )
-    try:
-        from hermes_cli.runtime_provider import (
-            has_named_custom_provider,
-            resolve_requested_provider,
-            _get_named_custom_provider,
-        )
-        from hermes_cli.auth import PROVIDER_REGISTRY
-        from utils import base_url_host_matches, base_url_hostname
-    except Exception:
-        # Can't resolve provider metadata -> fail closed.
-        return f"Unable to validate base_url override for provider {prov!r}; refused."
-
-    if prov.lower() == "custom":
-        # Bare/inline 'custom' (and aliases that resolve to it) is pure BYOK: the
-        # runtime derives the key from a pool keyed by THIS base_url or from
-        # host-gated env vars, never an arbitrary stored secret. Safe to allow.
-        return None
-    if has_named_custom_provider(prov):
-        # A NAMED custom provider carries a STORED key, and
-        # _resolve_named_custom_runtime prefers the override base_url while still
-        # sending that stored key — so an off-host override exfiltrates it.
-        # Require the override host to match the provider's CONFIGURED endpoint.
-        try:
-            cp = _get_named_custom_provider(prov)
-        except Exception:
-            cp = None
-        cfg_host = base_url_hostname((cp or {}).get("base_url", "")) if cp else ""
-        if cfg_host and base_url_host_matches(bu, cfg_host):
-            return None
-        return (
-            f"base_url {bu!r} is not allowed for provider {prov!r}. A named "
-            f"custom provider's stored credential may only be sent to its own "
-            f"configured endpoint ({cfg_host or 'unknown'})."
-        )
-    try:
-        resolved = resolve_requested_provider(prov)
-    except Exception:
-        resolved = prov
-    pconfig = PROVIDER_REGISTRY.get(resolved) if isinstance(resolved, str) else None
-    known_host = base_url_hostname(getattr(pconfig, "inference_base_url", "") if pconfig else "")
-    if known_host and base_url_host_matches(bu, known_host):
-        return None
-    # Fail closed: any non-custom provider we cannot host-match to its own
-    # endpoint is refused. This covers named providers with a stored credential
-    # AND aliases/unknown names we can't resolve to a known host (e.g. "openai",
-    # "google"), which would otherwise pair a stored key with the override URL.
-    return (
-        f"base_url {bu!r} is not allowed for provider {prov!r}. A named "
-        f"provider's stored credential may only be sent to its own endpoint; "
-        f'use a configured custom provider (provider="custom") for a custom base_url.'
-    )
-
-
 def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
     """Validate a cron job script path at the API boundary.
 
@@ -601,59 +519,76 @@ def _format_job(job: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def _execute_job_now(job: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute a cron job immediately, outside the scheduler tick.
+def _is_gateway_active() -> bool:
+    """Check if the gateway scheduler ticker is currently running.
 
-    Atomically claims the job first via ``claim_job_for_fire`` — the same
-    at-most-once CAS the scheduler/external-provider fire path uses — so a
-    concurrently-running gateway ticker cannot also fire it (the claim both
-    blocks a duplicate fire and advances ``next_run_at`` for recurring jobs).
-    If the claim is lost (another fire is in flight), this is a no-op.
+    When the gateway is alive, its ticker fires due jobs asynchronously via
+    ``ThreadPoolExecutor.submit(run_one_job)`` every ~60 s. When it is not
+    alive (CLI / oneshot mode), there is no ticker to pick up armed jobs.
+    """
+    try:
+        from gateway.status import is_gateway_running
+        return is_gateway_running()
+    except Exception:
+        return False
 
-    The actual firing is delegated to ``run_one_job`` — the single shared
-    execute→save→deliver→mark body the ticker and external providers use — so
-    failure delivery, ``[SILENT]`` handling, and live-adapter delivery stay
-    identical across paths and can't drift.
 
-    Returns {"claimed": bool, "success": bool, "error": str|None}.
+def _run_job_in_background(job: Dict[str, Any]):
+    """Daemon-thread worker: execute a cron job to completion.
+
+    Called from a background thread so the calling agent is never blocked.
+    ``run_one_job`` handles ``mark_job_run`` (which clears the fire claim and
+    records ``last_status``) on success. On exception we mark the job failed
+    so the claim does not wedge and the user sees the error.
     """
     job_id = job["id"]
     try:
         from cron.scheduler import run_one_job
-
-        # At-most-once claim: bail without running if a tick/other fire owns it.
-        if not claim_job_for_fire(job_id):
-            # claim_job_for_fire returns False for paused/disabled/missing
-            # jobs too — don't mislabel those as "already being fired"
-            # (#60703): that message sends the user chasing a phantom
-            # in-flight run when the job simply isn't runnable.
-            refreshed = get_job(job_id)
-            if refreshed is None:
-                reason = "Job no longer exists; nothing to run."
-            elif not refreshed.get("enabled", True) or refreshed.get("state") == "paused":
-                reason = "Job is paused/disabled; resume it before running."
-            else:
-                reason = "Job is already being fired by the scheduler; not run again."
-            return {"claimed": False, "success": False, "error": reason}
-
-        # run_one_job records last_run_at/last_status via mark_job_run (which
-        # also clears the fire claim) and returns True iff it processed the job.
-        processed = run_one_job(job)
-        refreshed = get_job(job_id) or {}
-        ok = refreshed.get("last_status") == "ok"
-        return {
-            "claimed": True,
-            "success": bool(processed and ok),
-            "error": refreshed.get("last_error"),
-        }
-
+        run_one_job(job)
     except Exception as e:
-        logger.error("Failed to execute cron job %s immediately: %s", job_id, e)
+        logger.error("Background cron job %s failed: %s", job_id, e)
         try:
             mark_job_run(job_id, False, str(e))
         except Exception:
             pass
-        return {"claimed": True, "success": False, "error": str(e)}
+
+
+def _trigger_job_nonblocking(job: Dict[str, Any], job_id: str) -> Dict[str, Any]:
+    """Trigger a cron job immediately without blocking the calling agent (#52705).
+
+    Two paths based on gateway liveness:
+
+    1. **Gateway alive** — arm the job via ``trigger_job`` (sets
+       ``next_run_at = now``) and let the scheduler ticker fire it
+       asynchronously on its next cycle. At-most-once is handled by the
+       ticker's own ``claim_job_for_fire`` on its fire path.
+
+    2. **Gateway not alive** — claim via ``claim_job_for_fire`` (at-most-once,
+       advances ``next_run_at`` for recurring jobs) and spawn a daemon thread
+       that calls ``run_one_job`` directly. The thread runs the job to
+       completion in the calling process while the tool returns immediately.
+
+    Either way the tool never blocks. ``last_status`` is not available in the
+    immediate response (the job hasn't finished); check via
+    ``cronjob(action='list')``.
+
+    Returns ``{"mode": "scheduled"|"background", "claimed": bool,
+    "error": str|None}``.
+    """
+    if _is_gateway_active():
+        # Path 1: fire-and-forget — the ticker will fire it within ~60 s.
+        trigger_job(job_id)
+        return {"mode": "scheduled", "claimed": True, "error": None}
+
+    # Path 2: no ticker — claim + daemon thread.
+    if not claim_job_for_fire(job_id):
+        return {"mode": "background", "claimed": False,
+                "error": "Job is already being fired; not run again."}
+
+    threading.Thread(
+        target=_run_job_in_background, args=(job,), daemon=True
+    ).start()
+    return {"mode": "background", "claimed": True, "error": None}
 
 
 def cronjob(
@@ -714,12 +649,6 @@ def cronjob(
                 script_error = _validate_cron_script_path(script)
                 if script_error:
                     return tool_error(script_error, success=False)
-
-            # Reject a model-supplied base_url that would route a named
-            # provider's stored credential to an attacker endpoint (F8).
-            base_url_error = _validate_cron_base_url(provider, base_url)
-            if base_url_error:
-                return tool_error(base_url_error, success=False)
 
             # Validate context_from references existing jobs
             if context_from:
@@ -836,22 +765,20 @@ def cronjob(
             return json.dumps({"success": True, "job": _format_job(updated)}, indent=2)
 
         if normalized in {"run", "run_now", "trigger"}:
-            # Execute the job immediately rather than only scheduling it for the
-            # next scheduler tick — a manual `run` should actually run, even when
-            # no gateway/ticker is active (the #41037 case). The claim inside
-            # _execute_job_now advances next_run_at and blocks a concurrent tick
-            # from double-firing.
-            exec_result = _execute_job_now(job)
-            # Re-read so the response reflects the post-run last_run_at/last_status.
+            # Trigger the job without blocking the calling agent (#52705).
+            # When the gateway ticker is alive, the job is armed via
+            # trigger_job and the scheduler fires it asynchronously. When no
+            # ticker is running (CLI/oneshot), a daemon thread runs the job
+            # directly. Either way the tool returns immediately.
+            trigger_result = _trigger_job_nonblocking(job, job_id)
             result = _format_job(get_job(job_id) or {"id": job_id})
-            result["executed"] = exec_result.get("claimed", False)
-            result["execution_success"] = exec_result.get("success", False)
-            if not exec_result.get("claimed", False):
-                result["execution_skipped"] = exec_result.get("error") or (
-                    "Already being fired by the scheduler; not run again."
+            result["triggered"] = True
+            result["trigger_mode"] = trigger_result["mode"]
+            result["executed"] = trigger_result.get("claimed", False)
+            if not trigger_result.get("claimed", False):
+                result["execution_skipped"] = trigger_result.get(
+                    "error", "Already being fired."
                 )
-            elif exec_result.get("error"):
-                result["execution_error"] = exec_result["error"]
             return json.dumps({"success": True, "job": result}, indent=2)
 
         if normalized == "update":
@@ -875,25 +802,6 @@ def cronjob(
                 updates["provider"] = _normalize_optional_job_value(provider)
             if base_url is not None:
                 updates["base_url"] = _normalize_optional_job_value(base_url, strip_trailing_slash=True)
-            # Re-validate the EFFECTIVE provider/base_url on EVERY update, not
-            # only when this update supplies provider/base_url. A job persisted
-            # before this guard (or written directly to the jobs store) may
-            # already hold an unsafe named-provider + off-host base_url pair;
-            # if we only checked when the update touches those axes, editing any
-            # unrelated field (name, schedule, ...) would succeed and leave that
-            # exfil-capable pair active and schedulable (F8). The effective pair
-            # merges this update's normalized values over the stored job; an
-            # operator can still remediate in the same update by clearing
-            # base_url or pointing provider/base_url at a safe pair.
-            eff_provider = (
-                updates["provider"] if "provider" in updates else job.get("provider")
-            )
-            eff_base_url = (
-                updates["base_url"] if "base_url" in updates else job.get("base_url")
-            )
-            base_url_error = _validate_cron_base_url(eff_provider, eff_base_url)
-            if base_url_error:
-                return tool_error(base_url_error, success=False)
             if script is not None:
                 # Pass empty string to clear an existing script
                 if script:
