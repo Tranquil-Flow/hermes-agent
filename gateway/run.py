@@ -13095,11 +13095,12 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         return False
 
     def _discord_voice_transcript_agent_turns_enabled(self) -> bool:
-        """Whether Discord voice transcript snippets should invoke the agent."""
-        env_value = os.getenv("HERMES_DISCORD_VOICE_TRANSCRIPT_AGENT_TURNS")
-        if env_value is not None:
-            return is_truthy_value(env_value, default=False)
+        """Whether Discord voice transcript snippets should invoke the agent.
 
+        Config.yaml only — ``discord.voice_transcript_agent_turns`` under the
+        platform extra block.  The legacy ``HERMES_DISCORD_VOICE_TRANSCRIPT_AGENT_TURNS``
+        env var is no longer read; it was removed per the config-consolidation
+        sweep to avoid undocumented public env-var paths."""
         config = getattr(self, "config", None)
         platform_cfg = getattr(config, "platforms", {}).get(Platform.DISCORD) if config else None
         extra = getattr(platform_cfg, "extra", {}) if platform_cfg else {}
