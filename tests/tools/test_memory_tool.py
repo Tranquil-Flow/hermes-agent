@@ -847,3 +847,41 @@ class TestEntryDelimiterValidation:
         assert result["success"] is False
         # All-or-nothing: nothing committed.
         assert store.memory_entries == []
+
+
+class TestTrailingDelimiterBoundary:
+    """Regression: trailing \n§ must be rejected to prevent phantom entries on reload."""
+
+    def test_trailing_newline_section_sign_rejected(self):
+        """Content ending with \\n§ must be blocked."""
+        result = _scan_memory_content("some memory entry\n§")
+        assert result is not None
+        assert "trailing section sign" in result
+
+    def test_trailing_section_sign_alone_rejected(self):
+        """Content ending with bare § must be blocked."""
+        result = _scan_memory_content("another entry§")
+        assert result is not None
+        assert "trailing section sign" in result
+
+    def test_trailing_newlines_then_section_sign_rejected(self):
+        """Content with trailing newlines before § must be blocked."""
+        result = _scan_memory_content("entry text\n§")
+        assert result is not None
+        assert "trailing section sign" in result
+
+    def test_section_sign_in_middle_not_flagged_as_trailing(self):
+        """Content with § in the middle (not ENTRY_DELIMITER) should not be flagged."""
+        # "foo § bar" — § appears mid-line, not as a trailing boundary
+        result = _scan_memory_content("The symbol § means section")
+        # This should NOT be blocked by the trailing check
+        # (it may or may not be blocked by threat scanner, but not by trailing check)
+        if result is not None:
+            assert "trailing section sign" not in result
+
+    def test_clean_content_not_flagged(self):
+        """Normal content without § should pass the trailing check."""
+        result = _scan_memory_content("Normal memory entry without any special characters")
+        # May be None (pass) or a threat-scanner block, but not the trailing check
+        if result is not None:
+            assert "trailing section sign" not in result

@@ -84,6 +84,17 @@ def _scan_memory_content(content: str) -> Optional[str]:
             "memory when it is read back — the entry would be silently split "
             "into fragments. Please rephrase to avoid that sequence, then retry."
         )
+    # Reject trailing "\n§" (with or without a final newline) that would
+    # create a malformed boundary when the entry is serialized with
+    # ENTRY_DELIMITER.join(entries).  Without this, "foo\n§" stored as an
+    # entry becomes "foo\n§\n\n§\n<next>" on reload — a phantom empty entry.
+    stripped = content.rstrip("\n")
+    if stripped.endswith("\n§") or stripped.endswith("§"):
+        return (
+            "Blocked: content ends with a trailing section sign (§), which "
+            "would create a malformed entry boundary when serialized. Please "
+            "remove or rephrase the trailing § character, then retry."
+        )
     return _first_threat_message(content, scope="strict")
 
 
