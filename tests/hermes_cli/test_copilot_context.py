@@ -132,3 +132,43 @@ class TestModelMetadataCopilotIntegration:
         ctx = get_model_context_length("gpt-4.1", provider="copilot")
         assert isinstance(ctx, int)
         assert ctx > 0
+
+
+class TestCopilotContextWindowPreference:
+    """max_context_window_tokens takes precedence over max_prompt_tokens."""
+
+    @patch("hermes_cli.models.fetch_github_model_catalog")
+    def test_prefers_max_context_window_tokens_when_present(self, mock_fetch):
+        # Catalog advertises both: use the full window.
+        mock_fetch.return_value = [
+            {
+                "id": "claude-max-context",
+                "capabilities": {
+                    "limits": {
+                        "max_context_window_tokens": 500000,
+                        "max_prompt_tokens": 128000,
+                    }
+                },
+            }
+        ]
+        # Clear cache
+        import hermes_cli.models as models_mod
+        models_mod._copilot_context_cache = {}
+        models_mod._copilot_context_cache_time = 0.0
+        assert get_copilot_model_context("claude-max-context") == 500000
+
+    @patch("hermes_cli.models.fetch_github_model_catalog")
+    def test_falls_back_to_max_prompt_tokens(self, mock_fetch):
+        # Catalog only has max_prompt_tokens — use it.
+        mock_fetch.return_value = [
+            {
+                "id": "gpt-4-legacy",
+                "capabilities": {
+                    "limits": {"max_prompt_tokens": 64000}
+                },
+            }
+        ]
+        import hermes_cli.models as models_mod
+        models_mod._copilot_context_cache = {}
+        models_mod._copilot_context_cache_time = 0.0
+        assert get_copilot_model_context("gpt-4-legacy") == 64000

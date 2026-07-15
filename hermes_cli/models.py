@@ -2963,7 +2963,9 @@ def get_copilot_model_context(model_id: str, api_key: Optional[str] = None) -> O
             continue
         caps = item.get("capabilities") or {}
         limits = caps.get("limits") or {}
-        max_prompt = limits.get("max_prompt_tokens")
+        # Prefer max_context_window_tokens (the real input+output window);
+        # fall back to max_prompt_tokens (input-only) when not present.
+        max_prompt = limits.get("max_context_window_tokens") or limits.get("max_prompt_tokens")
         if isinstance(max_prompt, int) and max_prompt > 0:
             max_prompt = _correct_copilot_max_prompt(mid, max_prompt)
             cache[mid] = max_prompt
