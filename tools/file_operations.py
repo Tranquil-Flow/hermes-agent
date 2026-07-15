@@ -27,6 +27,7 @@ Usage:
 
 import os
 import re
+import sys
 import difflib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -77,11 +78,17 @@ def _normalize_shell_path_input(path: str) -> str:
     """Normalize common shell-escaped spaces in plain file-tool path args.
 
     File tools receive raw strings, not a shell command line. When callers pass
-    macOS-style shell paths such as ``~/My\\ Notes/file.md``, the ``\\ `` should
+    POSIX-style shell paths such as ``~/My\\ Notes/file.md``, the ``\\ `` should
     become a literal space in the filesystem path instead of creating a
     backslash-named directory.
+
+    This is intentionally POSIX-only: Windows uses backslashes as its native
+    path separator, so unescaping ``\\ `` there would corrupt legitimate paths
+    like ``C:\\\\ Users`` (#42565).
     """
     if not path or "\\ " not in path:
+        return path
+    if sys.platform == "win32":
         return path
     return path.replace("\\ ", " ")
 

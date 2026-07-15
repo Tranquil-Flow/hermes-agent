@@ -27,8 +27,17 @@ _EXPECTED_WRITE_ERRNOS = {errno.EACCES, errno.EPERM, errno.EROFS}
 
 
 def _normalize_path_input(filepath: str) -> str:
-    """Normalize common shell-escaped space sequences in file-tool paths."""
+    """Normalize common shell-escaped space sequences in file-tool paths.
+
+    On POSIX systems a caller may pass macOS/Linux shell paths such as
+    ``~/My\\ Notes/file.md``, where ``\\ `` represents a literal space.  Windows
+    uses backslashes as its native path separator, so unescaping there would
+    corrupt legitimate paths like ``C:\\\\ Users``; the behavior is therefore
+    POSIX-only (#42565).
+    """
     if not filepath or "\\ " not in filepath:
+        return filepath
+    if sys.platform == "win32":
         return filepath
     return filepath.replace("\\ ", " ")
 

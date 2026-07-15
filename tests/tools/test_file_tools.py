@@ -948,3 +948,34 @@ class TestSilentFileMisplacementE2E:
             "file silently misplaced into config default (the #26211 bug)"
 
         ft._last_known_cwd.pop(task_id, None)
+
+
+# ---------------------------------------------------------------------------
+# Shell-escaped space normalization tests (#42565)
+# ---------------------------------------------------------------------------
+
+class TestShellEscapeNormalization:
+    """``\\ `` unescaping must run on POSIX and be a no-op on Windows."""
+
+    def test_posix_unescapes_shell_escaped_space(self):
+        import tools.file_tools as file_tools
+
+        assert file_tools._normalize_path_input(r"/tmp/my\ notes.md") == "/tmp/my notes.md"
+
+    def test_windows_does_not_unescape_shell_escaped_space(self, monkeypatch):
+        """On Windows backslash is the path separator, so ``\\ `` must stay."""
+        import tools.file_tools as file_tools
+
+        monkeypatch.setattr(file_tools.sys, "platform", "win32")
+        raw = r"C:\Users\my\ notes.md"
+        assert file_tools._normalize_path_input(raw) == raw
+
+    def test_no_escaped_space_is_passthrough(self):
+        import tools.file_tools as file_tools
+
+        assert file_tools._normalize_path_input("/tmp/plain.md") == "/tmp/plain.md"
+
+    def test_empty_string_is_passthrough(self):
+        import tools.file_tools as file_tools
+
+        assert file_tools._normalize_path_input("") == ""
