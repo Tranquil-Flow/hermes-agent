@@ -340,3 +340,17 @@ def test_validate_workdir_still_blocks_shell_metacharacters():
     assert terminal_tool._validate_workdir("~/文档`whoami`") is not None
     assert terminal_tool._validate_workdir("~/研究|cat") is not None
     assert terminal_tool._validate_workdir("~/data$HOME") is not None
+
+
+def test_validate_workdir_allows_nfd_decomposed_unicode():
+    """NFD-decomposed paths with combining marks must pass.
+
+    Latin characters with combining diacriticals (e.g. café = cafe + U+0301)
+    must be accepted even when stored in decomposed form (macOS HFS+ does this).
+    """
+    nfd_cafe = "cafe\u0301"  # 'café' in NFD form
+    assert terminal_tool._validate_workdir(f"~/{nfd_cafe}") is None
+    assert terminal_tool._validate_workdir(f"/data/{nfd_cafe}-projects") is None
+    # Multiple combining marks in a row
+    nfd_combo = "a\u0301\u0327\u0302"  # a + acute + cedilla + circumflex
+    assert terminal_tool._validate_workdir(f"~/users/{nfd_combo}") is None

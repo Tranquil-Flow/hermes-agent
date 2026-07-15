@@ -290,7 +290,7 @@ def _check_all_guards(command: str, env_type: str,
 # Covers alphanumeric, path separators, Windows drive/UNC separators, tilde,
 # dot, hyphen, underscore, space, plus, at, equals, and comma.  Everything
 # else is rejected.
-_WORKDIR_SAFE_RE = re.compile(r'^[\w/\\:_\-.~ +@=,]+$')
+_WORKDIR_SAFE_RE = re.compile(r'^[\w/\\:_.\-~ +@=,\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]+$', re.UNICODE)
 
 
 def _validate_workdir(workdir: str) -> str | None:
