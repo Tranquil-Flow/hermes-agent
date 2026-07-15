@@ -3438,7 +3438,6 @@ class TestDoubleCompactionSummaryRole:
             "summary of earlier turns" in (m.get("content") or "")
             for m in result
         )
-=======
 class TestSummarizeToolResultErrorIndicators:
     """Error indicator preservation in _summarize_tool_result.
 
@@ -3523,3 +3522,86 @@ class TestSummarizeToolResultErrorIndicators:
         assert isinstance(stub, str)
         assert "terminal" in stub
         assert "ls" in stub
+
+    # --- terminal: expected nonzero exits (#42624) ---
+    #
+    # rg/grep exit 1 = no matches, diff exit 1 = files differ.  These are
+    # part of the normal contract of those tools, not failures.  When the
+    # tool result marks the nonzero exit as expected/non-error the stub must
+    # preserve the exit code WITHOUT asserting failure.
+
+    def test_terminal_expected_nonzero_exit_no_failed_label(self):
+        """Nonzero exit flagged 'expected: true' must NOT be labelled FAILED.
+
+        Covers commands like rg/grep where exit 1 means "no matches found" —
+        a normal result, not an error.
+        """
+        from agent.context_compressor import _summarize_tool_result
+        stub = _summarize_tool_result(
+            "terminal",
+            '{"command": "rg --json pattern ."}',
+            '{"exit_code": 1, "output": "", "expected": true}',
+        )
+        assert "FAILED" not in stub, f"Expected no FAILED marker, got: {stub!r}"
+        assert "exit 1" in stub
+
+    def test_terminal_is_error_false_nonzero_exit_no_failed_label(self):
+        """Nonzero exit flagged 'is_error: false' must NOT be labelled FAILED."""
+        from agent.context_compressor import _summarize_tool_result
+        stub = _summarize_tool_result(
+            "terminal",
+            '{"command": "grep -r TODO ."}',
+            '{"exit_code": 1, "output": "", "is_error": false}',
+        )
+        assert "FAILED" not in stub, f"Expected no FAILED marker, got: {stub!r}"
+        assert "exit 1" in stub
+
+    def test_terminal_diff_expected_nonzero_exit(self):
+        """diff exit 1 = files differ — a valid result, not a failure.
+
+        diff is the canonical example: exit 0 means identical, exit 1 means
+        different, exit 2 means trouble.  Both 0 and 1 are normal outcomes.
+        """
+        from agent.context_compressor import _summarize_tool_result
+        stub = _summarize_tool_result(
+            "terminal",
+            '{"command": "diff a.txt b.txt"}',
+            '{"exit_code": 1, "output": "1c1\\n< old\\n---\\n> new", "expected": true}',
+        )
+        assert "FAILED" not in stub, f"Expected no FAILED marker, got: {stub!r}"
+        assert "exit 1" in stub
+
+    def test_terminal_expected_nonzero_preserves_exit_code(self):
+        """Expected nonzero exit must still show the real exit code value."""
+        from agent.context_compressor import _summarize_tool_result
+        stub = _summarize_tool_result(
+            "terminal",
+            '{"command": "rg nonexistent"}',
+            '{"exit_code": 1, "expected": true}',
+        )
+        # The exit code must be preserved, just without the FAILED assertion.
+        assert "exit 1" in stub
+        assert "FAILED" not in stub
+
+    def test_terminal_expected_nonzero_with_stderr_no_failed_label(self):
+        """Even with stderr present, an expected exit stays unlabelled."""
+        from agent.context_compressor import _summarize_tool_result
+        stub = _summarize_tool_result(
+            "terminal",
+            '{"command": "rg pattern --max-count 0"}',
+            '{"exit_code": 1, "stderr": "no matches", "expected": true}',
+        )
+        assert "FAILED" not in stub, f"Expected no FAILED marker, got: {stub!r}"
+        assert "exit 1" in stub
+
+    # --- regression: genuinely-failed commands still get FAILED ---
+    def test_terminal_nonzero_exit_without_expected_still_failed(self):
+        """A genuinely-failed command (no expected/is_error flag) is still FAILED."""
+        from agent.context_compressor import _summarize_tool_result
+        stub = _summarize_tool_result(
+            "terminal",
+            '{"command": "npm test"}',
+            '{"exit_code": 1, "output": "FAIL src/app.test.js"}',
+        )
+        assert "FAILED" in stub
+        assert "exit 1" in stub

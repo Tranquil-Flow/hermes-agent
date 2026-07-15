@@ -615,11 +615,16 @@ def _summarize_tool_result(tool_name: str, tool_args: str, tool_content: str) ->
         # Parse content as JSON once, falling back to regex if it fails.
         exit_code = "?"
         stderr = ""
+        expected = False  # mark results that flag nonzero exit as non-error
         try:
             parsed_content = json.loads(content)
             if isinstance(parsed_content, dict):
                 exit_code = parsed_content.get("exit_code", "?")
                 stderr = parsed_content.get("stderr", "") or ""
+                # Some tools mark nonzero exits as expected or non-error
+                # (rg/grep exit 1 = no matches, diff exit 1 = files differ).
+                if parsed_content.get("expected") or parsed_content.get("is_error") is False:
+                    expected = True
         except (json.JSONDecodeError, TypeError):
             # Fallback: extract exit_code via regex for non-JSON output.
             exit_match = re.search(r'"exit_code"\s*:\s*(-?\d+)', content)
@@ -628,12 +633,16 @@ def _summarize_tool_result(tool_name: str, tool_args: str, tool_content: str) ->
         # Build base stub
         base = f"[terminal] ran `{cmd}` -> exit {exit_code}, {line_count} lines output"
         # Preserve error indicators for failed commands so the summarizer
-        # and downstream context know something went wrong.
+        # and downstream context know something went wrong — but only when
+        # the result does not flag the nonzero exit as expected/non-error
+        # (#42624).  Commands like rg/grep (exit 1 = no matches) and diff
+        # (exit 1 = files differ) use nonzero exits as part of their normal
+        # contract; labelling those "FAILED" is misleading.
         try:
             exit_int = int(exit_code) if exit_code != "?" else 0
         except (ValueError, TypeError):
             exit_int = 0
-        if exit_int != 0:
+        if exit_int != 0 and not expected:
             tag = "FAILED"
             if stderr:
                 preview = stderr.replace("\n", " ").strip()[:120]
