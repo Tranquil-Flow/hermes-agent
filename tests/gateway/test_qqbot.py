@@ -2468,3 +2468,30 @@ class TestChatTypeDmAuthAndRouting:
 
         assert resolve_calls == [("agent:main:qqbot:dm:u-dm", "once", False)], \
             "dm session key approval click must resolve"
+
+    @pytest.mark.asyncio
+    async def test_url_media_dm_uses_user_upload_and_send_endpoints(self):
+        """A ``dm`` URL upload and its final message both use user endpoints."""
+        adapter = self._make_adapter(app_id="a", client_secret="b")
+        adapter._chat_type_map["user-dm"] = "dm"
+        adapter._running = True
+        adapter._ws = SimpleNamespace(closed=False)
+        adapter._api_request = mock.AsyncMock(
+            side_effect=[
+                {"file_info": "uploaded-file"},
+                {"id": "sent-message"},
+            ]
+        )
+
+        result = await adapter._send_media(
+            "user-dm",
+            "https://example.test/image.png",
+            1,
+            "image",
+        )
+
+        assert result.success is True
+        assert [call.args[1] for call in adapter._api_request.await_args_list] == [
+            "/v2/users/user-dm/files",
+            "/v2/users/user-dm/messages",
+        ]

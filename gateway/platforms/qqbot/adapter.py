@@ -2376,7 +2376,7 @@ class QQAdapter(BasePlatformAdapter):
         """Upload media and return file_info."""
         path = (
             f"/v2/users/{target_id}/files"
-            if target_type == "c2c"
+            if is_private_chat_type(target_type)
             else f"/v2/groups/{target_id}/files"
         )
 
