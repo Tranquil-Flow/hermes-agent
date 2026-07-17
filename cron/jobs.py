@@ -2266,13 +2266,68 @@ def referenced_skill_names() -> Set[str]:
     return names
 
 
+def _skill_ref_pattern(skill_name: str) -> re.Pattern:
+    """Return a regex that matches a standalone skill-name reference."""
+    return re.compile(r'(?<![`\w/-])(' + re.escape(skill_name) + r')(?![`\w/-])')
+
+
+def _prompt_has_skill_ref(prompt: Optional[str], skill_name: str) -> bool:
+    """Return True when prompt contains an exact skill-name reference."""
+    if not prompt:
+        return False
+    return bool(
+        re.search(r'`' + re.escape(skill_name) + r'`', prompt)
+        or _skill_ref_pattern(skill_name).search(prompt)
+    )
+
+
+def _rewrite_prompt_refs(
+    prompt: Optional[str],
+    consolidated: Dict[str, str],
+) -> tuple:
+    """Rewrite skill name references in cron prompt text.
+
+    Handles two patterns:
+    1. Backtick-wrapped references: `` `old-skill` `` → `` `new-skill` ``
+    2. Bare word references: ``old-skill`` → ``new-skill``
+
+    Only rewrites names that appear in ``consolidated`` (have a target).
+    Pruned/dropped names are left in place and reported separately.
+
+    Returns (new_prompt, was_rewritten).
+    """
+    if not prompt or not consolidated:
+        return prompt, False
+
+    rewritten = False
+    new_prompt = prompt
+
+    # Sort by longest name first to avoid partial matches
+    # (e.g., "old-skill-v2" before "old-skill" if both were consolidated)
+    for old_name in sorted(consolidated.keys(), key=len, reverse=True):
+        new_name = consolidated[old_name]
+        # Pattern 1: backtick-wrapped — `old_name` → `new_name`
+        bk_pattern = re.compile(r'`' + re.escape(old_name) + r'`')
+        new_prompt, count = bk_pattern.subn('`' + new_name + '`', new_prompt)
+        if count:
+            rewritten = True
+
+        # Pattern 2: bare word — match old_name as a standalone word
+        # (not part of a longer identifier like old-name-v2).
+        new_prompt, count = _skill_ref_pattern(old_name).subn(new_name, new_prompt)
+        if count:
+            rewritten = True
+
+    return new_prompt, rewritten
+
+
 def rewrite_skill_refs(
     consolidated: Optional[Dict[str, str]] = None,
     pruned: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Rewrite cron job skill references after a curator consolidation pass.
 
-    When the curator consolidates a skill X into umbrella Y (or archives X
+    When the curator consolidates skill X into umbrella Y (or archives X
     as pruned), any cron job that lists ``X`` in its ``skills`` field will
     fail to load ``X`` at run time — the scheduler logs a warning and
     skips the skill, so the job runs without the instructions it was
@@ -2288,6 +2343,8 @@ def rewrite_skill_refs(
       forwarding target.
     - Ordering and other skills in the list are preserved.
     - The legacy ``skill`` field is realigned via ``_apply_skill_fields``.
+    - Prompt text references to consolidated skills are rewritten when
+      unambiguous (backtick-wrapped or standalone word match).
 
     Args:
         consolidated: mapping of ``old_skill_name -> umbrella_skill_name``.
@@ -2305,6 +2362,8 @@ def rewrite_skill_refs(
                     "after": [...],
                     "mapped": {"old": "new", ...},
                     "dropped": ["old", ...],
+                    "prompt_rewritten": True/False,
+                    "prompt_warnings": ["...", ...],
                 },
                 ...
             ],
@@ -2332,8 +2391,6 @@ def rewrite_skill_refs(
 
         for job in jobs:
             skills_before = _normalize_skill_list(job.get("skill"), job.get("skills"))
-            if not skills_before:
-                continue
 
             mapped: Dict[str, str] = {}
             dropped: List[str] = []
@@ -2350,12 +2407,48 @@ def rewrite_skill_refs(
                 elif name not in new_skills:
                     new_skills.append(name)
 
-            if not mapped and not dropped:
-                continue
+            # Rewrite structured skills when changes were detected
+            if mapped or dropped:
+                job["skills"] = new_skills
+                job["skill"] = new_skills[0] if new_skills else None
+                changed = True
 
-            job["skills"] = new_skills
-            job["skill"] = new_skills[0] if new_skills else None
-            changed = True
+            # Scan prompt for ALL consolidation/pruning inputs, not just the
+            # per-job structured mapped/dropped set. A job already normalized
+            # to ``skills=["umbrella"]`` but still referencing `` `old-skill` ``
+            # in its prompt (no structured change detected) must be caught too.
+            prompt_rewritten = False
+            if consolidated and job.get("prompt"):
+                new_prompt, prompt_rewritten = _rewrite_prompt_refs(
+                    job.get("prompt"), consolidated,
+                )
+                if prompt_rewritten:
+                    job["prompt"] = new_prompt
+                    changed = True
+
+            # Warn about pruned skill names still referenced in prompt text.
+            # Scan against the full pruned_set, not just per-job dropped,
+            # so prompt-only pruned references are reported.
+            prompt_warnings: List[str] = []
+            if pruned_set and job.get("prompt"):
+                _job_label = job.get("name") or job.get("id") or "unknown"
+                for _pruned_name in sorted(pruned_set, key=len, reverse=True):
+                    if _prompt_has_skill_ref(job["prompt"], _pruned_name):
+                        warning = (
+                            f"prompt still references pruned skill '{_pruned_name}' "
+                            "(no umbrella target)"
+                        )
+                        prompt_warnings.append(warning)
+                        logger.warning(
+                            "Curator: cron job '%s' %s",
+                            _job_label, warning,
+                        )
+
+            # Record an entry when the job had structured changes OR
+            # prompt-only stale/pruned references. Jobs with no prompt
+            # and no structured skills are still skipped.
+            if not mapped and not dropped and not prompt_rewritten and not prompt_warnings:
+                continue
 
             rewrites.append({
                 "job_id": job.get("id"),
@@ -2364,6 +2457,8 @@ def rewrite_skill_refs(
                 "after": list(new_skills),
                 "mapped": mapped,
                 "dropped": dropped,
+                "prompt_rewritten": prompt_rewritten,
+                "prompt_warnings": prompt_warnings,
             })
 
         if changed:
