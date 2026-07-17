@@ -1259,13 +1259,28 @@ def _safe_getcwd() -> str:
         return os.getenv("TERMINAL_CWD") or os.path.expanduser("~")
 
 
-# Path prefixes that identify a *host* working directory which cannot exist
-# inside a container sandbox. Covers POSIX user dirs and Windows drive paths
-# (``C:\Users\...`` / ``C:/Users/...``) — the latter is how a Windows host's
-# cwd looks when it leaks toward a Linux container's ``-w`` flag.
+# Path prefixes that identify a POSIX host working directory which cannot exist
+# inside a container sandbox. Windows drive paths are detected dynamically by
+# ``_is_host_path`` so every drive letter is covered.
 _HOST_CWD_PREFIXES = ("/Users/", "/home/", "C:\\", "C:/")
 
 _CONTAINER_BACKENDS = frozenset({"docker", "singularity", "modal", "daytona"})
+
+
+def _is_host_path(path: str) -> bool:
+    """Detect host-local paths that cannot resolve inside a container.
+
+    Covers POSIX home directories and every Windows drive-letter path using
+    either slash style (``C:\\...``, ``D:/...``, through ``Z:``).
+    """
+    if path.startswith(("/Users/", "/home/")):
+        return True
+    return (
+        len(path) >= 3
+        and path[0].isalpha()
+        and path[1] == ":"
+        and path[2] in ("\\", "/")
+    )
 
 
 def _is_ssh_remote_tilde_cwd(backend: str, cwd: str) -> bool:
@@ -1295,7 +1310,7 @@ def _is_unusable_container_cwd(cwd: str) -> bool:
     """
     if not cwd:
         return False
-    if any(cwd.startswith(p) for p in _HOST_CWD_PREFIXES):
+    if _is_host_path(cwd):
         return True
     # Relative paths (".", "src/") can't be a container workdir either. Windows
     # drive paths are absolute on Windows but os.path.isabs() is False on a
@@ -1403,14 +1418,28 @@ def _get_env_config() -> Dict[str, Any]:
         docker_cwd_source = os.getenv("TERMINAL_CWD") or _safe_getcwd()
         candidate = os.path.abspath(os.path.expanduser(docker_cwd_source))
         if (
-            any(candidate.startswith(p) for p in _HOST_CWD_PREFIXES)
+            _is_host_path(candidate)
             or (os.path.isabs(candidate) and os.path.isdir(candidate) and not candidate.startswith(("/workspace", "/root")))
         ):
             host_cwd = candidate
             cwd = "/workspace"
     elif env_type in _CONTAINER_BACKENDS and cwd:
-        # Host paths and relative paths that won't work inside containers
-        if _is_unusable_container_cwd(cwd) and cwd != default_cwd:
+        # Modal has additional direct/managed call paths; route its config
+        # ingress through the same shared sanitizer those paths use.
+        if env_type == "modal":
+            from tools.environments.modal_utils import sanitize_modal_cwd
+
+            sanitized_cwd = sanitize_modal_cwd(cwd, default=default_cwd)
+            if sanitized_cwd != cwd:
+                logger.info(
+                    "Ignoring TERMINAL_CWD=%r for modal backend "
+                    "(host/relative path won't work in sandbox). Using %r instead.",
+                    cwd,
+                    sanitized_cwd,
+                )
+            cwd = sanitized_cwd
+        # Host paths and relative paths that won't work inside other containers.
+        elif _is_unusable_container_cwd(cwd) and cwd != default_cwd:
             logger.info("Ignoring TERMINAL_CWD=%r for %s backend "
                         "(host/relative path won't work in sandbox). Using %r instead.",
                         cwd, env_type, default_cwd)

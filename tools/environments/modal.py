@@ -28,6 +28,7 @@ from tools.environments.file_sync import (
     quoted_rm_command,
     unique_parent_dirs,
 )
+from tools.environments.modal_utils import sanitize_modal_cwd
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +181,7 @@ class ModalEnvironment(BaseEnvironment):
         persistent_filesystem: bool = True,
         task_id: str = "default",
     ):
-        super().__init__(cwd=cwd, timeout=timeout)
+        super().__init__(cwd=sanitize_modal_cwd(cwd), timeout=timeout)
 
         self._persistent = persistent_filesystem
         self._task_id = task_id
@@ -404,6 +405,27 @@ class ModalEnvironment(BaseEnvironment):
     # ------------------------------------------------------------------
     # Execution
     # ------------------------------------------------------------------
+
+    def execute(
+        self,
+        command: str,
+        cwd: str = "",
+        *,
+        timeout: int | None = None,
+        stdin_data: str | None = None,
+        rewrite_compound_background: bool = True,
+        bounded_capture: bool = False,
+    ) -> dict:
+        """Execute with every per-call CWD normalized for Modal."""
+        safe_cwd = sanitize_modal_cwd(cwd or self.cwd, default=self.cwd)
+        return super().execute(
+            command,
+            cwd=safe_cwd,
+            timeout=timeout,
+            stdin_data=stdin_data,
+            rewrite_compound_background=rewrite_compound_background,
+            bounded_capture=bounded_capture,
+        )
 
     def _run_bash(self, cmd_string: str, *, login: bool = False,
                   timeout: int = 120,

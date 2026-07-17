@@ -24,6 +24,36 @@ from tools.environments.base import BaseEnvironment
 from tools.interrupt import is_interrupted
 
 
+_DEFAULT_MODAL_CWD = "/root"
+
+
+def is_host_modal_path(path: str) -> bool:
+    """Return whether *path* is a host path unusable in a Modal sandbox."""
+    if path.startswith(("/Users/", "/home/")):
+        return True
+    return (
+        len(path) >= 3
+        and path[0].isalpha()
+        and path[1] == ":"
+        and path[2] in ("\\", "/")
+    )
+
+
+def sanitize_modal_cwd(cwd: str, default: str = _DEFAULT_MODAL_CWD) -> str:
+    """Normalize every Modal CWD ingress to a sandbox-safe absolute path.
+
+    Host-home paths, Windows drive paths, and relative paths cannot resolve in
+    Modal's Linux sandbox. Replace them with *default* rather than forwarding
+    a leaked host path to the transport.
+    """
+    candidate = str(cwd or "")
+    if not candidate:
+        return default
+    if is_host_modal_path(candidate) or not candidate.startswith("/"):
+        return default
+    return candidate
+
+
 @dataclass(frozen=True)
 class PreparedModalExec:
     """Normalized command data passed to a transport-specific exec runner."""
@@ -166,7 +196,7 @@ class BaseModalExecutionEnvironment(BaseEnvironment):
         timeout: int | None = None,
         stdin_data: str | None = None,
     ) -> PreparedModalExec:
-        effective_cwd = cwd or self.cwd
+        effective_cwd = sanitize_modal_cwd(cwd or self.cwd)
         effective_timeout = timeout or self.timeout
 
         exec_command = command
