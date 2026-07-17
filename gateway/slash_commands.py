@@ -444,7 +444,8 @@ class GatewaySlashCommandsMixin:
         import asyncio
         import re
         import shlex
-        from hermes_cli.kanban import run_slash
+        from hermes_cli import kanban_db as _kanban_db
+        from hermes_cli.kanban import run_slash_scoped
 
         text = (event.text or "").strip()
         # Strip the leading "/kanban" (with or without slash), leaving args.
@@ -475,7 +476,23 @@ class GatewaySlashCommandsMixin:
         is_create = action == "create"
 
         try:
-            output = await asyncio.to_thread(run_slash, text)
+            session_entry = await self.async_session_store.get_or_create_session(
+                event.source
+            )
+            session_board = getattr(session_entry, "kanban_board", None)
+            if not session_board:
+                session_board = await asyncio.to_thread(_kanban_db.get_current_board)
+                await self.async_session_store.set_kanban_board(
+                    session_entry.session_key, session_board
+                )
+            output, selected_board = await asyncio.to_thread(
+                run_slash_scoped, text, session_board
+            )
+            if selected_board != session_board:
+                await self.async_session_store.set_kanban_board(
+                    session_entry.session_key, selected_board
+                )
+                session_entry.kanban_board = selected_board
         except Exception as exc:  # pragma: no cover - defensive
             return t("gateway.kanban.error_prefix", error=exc)
 
@@ -497,9 +514,11 @@ class GatewaySlashCommandsMixin:
                     thread_id = str(getattr(source, "thread_id", "") or "")
                     user_id = str(getattr(source, "user_id", "") or "") or None
                     if platform_str and chat_id:
+                        subscription_board = requested_board or selected_board
+
                         def _sub():
                             from hermes_cli import kanban_db as _kb
-                            conn = _kb.connect(board=requested_board)
+                            conn = _kb.connect(board=subscription_board)
                             try:
                                 _kb.add_notify_sub(
                                     conn, task_id=task_id,

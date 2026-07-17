@@ -1129,7 +1129,7 @@ def _cmd_boards_create(args: argparse.Namespace) -> int:
     print(f"  Display name: {meta.get('name', '')}")
     print(f"  DB path:      {meta['db_path']}")
     if getattr(args, "switch", False):
-        kb.set_current_board(meta["slug"])
+        kb.activate_board(meta["slug"])
         print(f"  Switched to {meta['slug']!r}.")
     else:
         print(f"  Use `hermes kanban boards switch {meta['slug']}` to make it current.")
@@ -1172,7 +1172,7 @@ def _cmd_boards_switch(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    kb.set_current_board(normed)
+    kb.activate_board(normed)
     print(f"Active board is now {normed!r}.")
     return 0
 
@@ -2943,3 +2943,15 @@ def run_slash(rest: str) -> str:
     if err and out:
         return f"{out}\n{err}"
     return err if err else (out or "(no output)")
+
+
+def run_slash_scoped(rest: str, board: str) -> tuple[str, str]:
+    """Run one slash invocation under a session-local board selection.
+
+    Return both rendered output and the board selected when the command
+    finishes. ``boards switch`` may update that ContextVar; the caller can
+    persist the result on its own session object before this scope resets.
+    """
+    with kb.scoped_current_board(board):
+        output = run_slash(rest)
+        return output, kb.get_current_board()

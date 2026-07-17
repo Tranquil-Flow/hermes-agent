@@ -339,7 +339,10 @@ _CURRENT_BOARD_OVERRIDE: ContextVar[str | None] = ContextVar(
 @contextlib.contextmanager
 def scoped_current_board(slug: str):
     """Temporarily pin the active board for the current context only."""
-    token: Token[str | None] = _CURRENT_BOARD_OVERRIDE.set(slug)
+    normed = _normalize_board_slug(slug)
+    if not normed:
+        raise ValueError("board slug is required")
+    token: Token[str | None] = _CURRENT_BOARD_OVERRIDE.set(normed)
     try:
         yield
     finally:
@@ -475,6 +478,21 @@ def set_current_board(slug: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(normed + "\n", encoding="utf-8")
     return path
+
+
+def activate_board(slug: str) -> None:
+    """Persist and activate ``slug`` in the current execution context.
+
+    The on-disk pointer selects the default for future sessions, while the
+    ``ContextVar`` makes the change immediate for this CLI/request. Never
+    mutate ``HERMES_KANBAN_BOARD`` here: gateway requests share one process
+    and can switch boards concurrently.
+    """
+    normed = _normalize_board_slug(slug)
+    if not normed:
+        raise ValueError("board slug is required")
+    set_current_board(normed)
+    _CURRENT_BOARD_OVERRIDE.set(normed)
 
 
 def clear_current_board() -> None:

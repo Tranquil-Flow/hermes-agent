@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime
+
 import pytest
 
 from pathlib import Path
@@ -455,6 +457,25 @@ async def test_gateway_create_autosubscribes_on_explicit_board(kanban_home):
     kb.create_board("projx")
 
     runner = object.__new__(GatewayRunner)
+
+    class _SessionStore:
+        def __init__(self):
+            self._store = self
+            self.entry = SimpleNamespace(
+                session_key="session-1",
+                session_id="sid-1",
+                kanban_board=None,
+            )
+
+        async def get_or_create_session(self, _source):
+            return self.entry
+
+        async def set_kanban_board(self, _session_key, board):
+            self.entry.kanban_board = board
+
+    store = _SessionStore()
+    runner.session_store = store
+    runner._async_session_store = store
     source = SimpleNamespace(
         platform=Platform.TELEGRAM,
         chat_id="chat1",
@@ -487,6 +508,104 @@ async def test_gateway_create_autosubscribes_on_explicit_board(kanban_home):
         assert kb.list_notify_subs(conn) == []
     finally:
         conn.close()
+
+
+@pytest.mark.asyncio
+async def test_gateway_sessions_keep_board_switches_isolated(kanban_home):
+    """Concurrent gateway chats must not cross-write after board switches."""
+    from gateway.run import GatewayRunner
+
+    kb.create_board("alpha")
+    kb.create_board("beta")
+
+    class _SessionStore:
+        def __init__(self):
+            self._store = self
+            self.entries = {
+                "chat-a": SimpleNamespace(
+                    session_key="session-a",
+                    session_id="sid-a",
+                    kanban_board=None,
+                ),
+                "chat-b": SimpleNamespace(
+                    session_key="session-b",
+                    session_id="sid-b",
+                    kanban_board=None,
+                ),
+            }
+
+        async def get_or_create_session(self, source):
+            return self.entries[source.chat_id]
+
+        async def set_kanban_board(self, session_key, board):
+            for entry in self.entries.values():
+                if entry.session_key == session_key:
+                    entry.kanban_board = board
+                    return
+
+    store = _SessionStore()
+
+    def _runner():
+        runner = object.__new__(GatewayRunner)
+        runner.session_store = store
+        runner._async_session_store = store
+        return runner
+
+    def _event(chat_id, text):
+        return SimpleNamespace(
+            text=text,
+            source=SimpleNamespace(
+                platform=None,
+                chat_id=chat_id,
+                thread_id=None,
+                user_id=chat_id,
+            ),
+        )
+
+    runner_a = _runner()
+    runner_b = _runner()
+    await asyncio.gather(
+        GatewayRunner._handle_kanban_command(
+            runner_a, _event("chat-a", "/kanban boards switch alpha")
+        ),
+        GatewayRunner._handle_kanban_command(
+            runner_b, _event("chat-b", "/kanban boards switch beta")
+        ),
+    )
+
+    assert store.entries["chat-a"].kanban_board == "alpha"
+    assert store.entries["chat-b"].kanban_board == "beta"
+
+    await asyncio.gather(
+        GatewayRunner._handle_kanban_command(
+            runner_a, _event("chat-a", '/kanban create "task-alpha"')
+        ),
+        GatewayRunner._handle_kanban_command(
+            runner_b, _event("chat-b", '/kanban create "task-beta"')
+        ),
+    )
+
+    for board, expected in (("alpha", "task-alpha"), ("beta", "task-beta")):
+        conn = kb.connect(board=board)
+        try:
+            assert [task.title for task in kb.list_tasks(conn)] == [expected]
+        finally:
+            conn.close()
+
+
+def test_gateway_session_board_round_trips():
+    from gateway.session import SessionEntry
+
+    entry = SessionEntry(
+        session_key="telegram:chat-a",
+        session_id="sid-a",
+        created_at=datetime(2026, 1, 1),
+        updated_at=datetime(2026, 1, 1),
+        kanban_board="alpha",
+    )
+
+    restored = SessionEntry.from_dict(entry.to_dict())
+    assert restored.kanban_board == "alpha"
 
 
 @pytest.mark.asyncio
