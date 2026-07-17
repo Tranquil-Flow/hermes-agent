@@ -131,3 +131,31 @@ def test_real_rg_error_still_hard_fails(ops, monkeypatch):
 
     assert result.error == "Search failed: rg: regex parse error:"
     assert result.limit_reason is None
+
+
+def test_directory_timeout_returns_partial_results_without_retry_or_marker(ops, monkeypatch):
+    search_calls = []
+
+    def execute(command, **kwargs):
+        if "test -e" in command:
+            return {"output": "exists", "returncode": 0}
+        search_calls.append(command)
+        if "rg --files" in command:
+            return {"output": "/big/a.py", "returncode": 0}
+        if command.startswith("find "):
+            return {
+                "output": timeout_output("1700000000.0 /big/vault"),
+                "returncode": 124,
+            }
+        return {"output": "", "returncode": 0}
+
+    ops.env.execute.side_effect = execute
+    monkeypatch.setattr(ops, "_has_command", lambda cmd: cmd in {"rg", "find"})
+
+    result = ops.search("*", path="/big", target="files")
+
+    find_calls = [command for command in search_calls if command.startswith("find ")]
+    assert len(find_calls) == 1
+    assert_timed_out(result)
+    assert set(result.files) == {"/big/a.py", "/big/vault/"}
+    assert all("timed out" not in path.lower() for path in result.files)

@@ -2145,59 +2145,176 @@ class ShellFileOperations(FileOperations):
         hidden_exclude = "-not -path '*/.*'" if not has_hidden_path_ancestor else ""
         hidden_filter_expr = f" {hidden_exclude}" if hidden_exclude else ""
 
-        # Use shell pagination for standard roots. For hidden roots, gather full
-        # output so we can re-apply hidden-descendant filtering while allowing
-        # explicit hidden-root searches.
-        pagination_expr = ""
-        if not has_hidden_path_ancestor:
-            pagination_expr = f" | tail -n +{offset + 1} | head -n {limit}"
-
-        cmd = f"find {self._escape_shell_arg(path)}{hidden_filter_expr} -type f -name {self._escape_shell_arg(search_pattern)} " \
-              f"-printf '%T@ %p\\n' 2>/dev/null | sort -rn{pagination_expr}"
+        # Collect all matching files before pagination because directories must
+        # participate in the same global mtime order.
+        cmd = (
+            f"find {self._escape_shell_arg(path)}{hidden_filter_expr} "
+            f"-type f -name {self._escape_shell_arg(search_pattern)} "
+            f"-printf '%T@ %p\\n' 2>/dev/null | sort -rn"
+        )
 
         result = self._exec(cmd, timeout=60)
         stdout, limit_reason = _search_stdout_and_limit(result)
 
         if not stdout.strip() and not limit_reason:
-            # Try without -printf (BSD find compatibility -- macOS)
-            cmd_simple = f"find {self._escape_shell_arg(path)}{hidden_filter_expr} -type f -name {self._escape_shell_arg(search_pattern)} " \
-                        f"2>/dev/null | sort -rn{pagination_expr}"
+            # Try without -printf (BSD find compatibility -- macOS).
+            cmd_simple = (
+                f"find {self._escape_shell_arg(path)}{hidden_filter_expr} "
+                f"-type f -name {self._escape_shell_arg(search_pattern)} "
+                f"2>/dev/null"
+            )
             result = self._exec(cmd_simple, timeout=60)
             stdout, limit_reason = _search_stdout_and_limit(result)
 
-        files = []
-        for line in stdout.strip().split('\n'):
-            if not line:
-                continue
-            parts = line.split(' ', 1)
-            if len(parts) == 2 and parts[0].replace('.', '').isdigit():
-                files.append(parts[1])
-            else:
-                files.append(line)
+        files = self._paths_from_mtime_output(stdout)
 
         # For explicit hidden roots, find's path-based filtering excludes every
         # file under the hidden path. Apply descendant filtering after command
         # execution so only the explicit root ancestry is bypassed.
         if has_hidden_path_ancestor:
-            normalized_root = search_root.resolve()
-            filtered_files = []
-            for file_path in files:
-                try:
-                    rel_parts = Path(file_path).resolve().relative_to(normalized_root).parts
-                except ValueError:
-                    rel_parts = Path(file_path).parts
-                if any(part not in {".", ".."} and part.startswith(".") for part in rel_parts):
-                    continue
-                filtered_files.append(file_path)
-            files = filtered_files[offset:offset + limit]
-        # pagination for standard roots is already applied in shell
+            files = self._filter_hidden_descendants(files, search_root)
 
+        merged = files
+        if limit_reason != "search_timeout":
+            dirs, dir_limit_reason = self._collect_matching_dirs(
+                path, search_pattern, respect_gitignore=False
+            )
+            merged = files + dirs
+            if dir_limit_reason != "search_timeout":
+                merged = self._sort_paths_by_mtime(merged)
+            limit_reason = dir_limit_reason or limit_reason
+
+        page = merged[offset:offset + limit]
         return SearchResult(
-            files=files,
-            total_count=len(files),
-            truncated=bool(limit_reason),
+            files=page,
+            total_count=len(merged),
+            truncated=len(merged) > offset + limit or bool(limit_reason),
             limit_reason=limit_reason,
         )
+
+    @staticmethod
+    def _paths_from_mtime_output(stdout: str) -> list[str]:
+        """Strip optional ``find -printf`` timestamps from path output."""
+        paths = []
+        for line in stdout.strip().split('\n'):
+            if not line:
+                continue
+            parts = line.split(' ', 1)
+            if len(parts) == 2 and parts[0].replace('.', '').isdigit():
+                paths.append(parts[1])
+            else:
+                paths.append(line)
+        return paths
+
+    @staticmethod
+    def _filter_hidden_descendants(paths: list[str], search_root: Path) -> list[str]:
+        """Exclude hidden descendants while allowing an explicit hidden root."""
+        normalized_root = search_root.resolve()
+        filtered = []
+        for candidate in paths:
+            try:
+                rel_parts = Path(candidate).resolve().relative_to(normalized_root).parts
+            except ValueError:
+                rel_parts = Path(candidate).parts
+            if any(
+                part not in {".", ".."} and part.startswith(".")
+                for part in rel_parts
+            ):
+                continue
+            filtered.append(candidate)
+        return filtered
+
+    def _collect_matching_dirs(
+        self,
+        path: str,
+        glob_pattern: str,
+        *,
+        respect_gitignore: bool,
+    ) -> tuple[list[str], Optional[str]]:
+        """Collect matching directories and preserve traversal timeout state."""
+        if not self._has_command('find'):
+            return [], None
+
+        search_root = Path(path)
+        has_hidden_path_ancestor = any(
+            part not in {".", ".."} and part.startswith(".")
+            for part in search_root.parts
+        )
+        hidden_exclude = "-not -path '*/.*'" if not has_hidden_path_ancestor else ""
+        hidden_filter_expr = f" {hidden_exclude}" if hidden_exclude else ""
+        cmd = (
+            f"find {self._escape_shell_arg(path)}{hidden_filter_expr} "
+            f"-type d -name {self._escape_shell_arg(glob_pattern)} "
+            f"-not -path {self._escape_shell_arg(path)} "
+            f"-printf '%T@ %p\\n' 2>/dev/null | sort -rn"
+        )
+        result = self._exec(cmd, timeout=30)
+        stdout, limit_reason = _search_stdout_and_limit(result)
+
+        # A timed-out traversal may have useful partial output and must never
+        # retry. Only an ordinary empty result can indicate BSD find lacks
+        # ``-printf``.
+        if not stdout.strip() and not limit_reason:
+            cmd = (
+                f"find {self._escape_shell_arg(path)}{hidden_filter_expr} "
+                f"-type d -name {self._escape_shell_arg(glob_pattern)} "
+                f"-not -path {self._escape_shell_arg(path)} 2>/dev/null"
+            )
+            result = self._exec(cmd, timeout=30)
+            stdout, limit_reason = _search_stdout_and_limit(result)
+
+        dirs = self._paths_from_mtime_output(stdout)
+        if has_hidden_path_ancestor:
+            dirs = self._filter_hidden_descendants(dirs, search_root)
+        if respect_gitignore and dirs:
+            dirs = self._filter_gitignored_dirs(dirs, path)
+        return [directory.rstrip('/') + '/' for directory in dirs], limit_reason
+
+    def _filter_gitignored_dirs(self, directories: list[str], search_root: str) -> list[str]:
+        """Remove directories ignored by the repository containing *search_root*."""
+        relative_to_directory: dict[str, str] = {}
+        for directory in directories:
+            relative = os.path.relpath(directory.rstrip('/'), search_root)
+            relative_to_directory[relative] = directory
+        args = " ".join(
+            self._escape_shell_arg(relative) for relative in relative_to_directory
+        )
+        result = self._exec(
+            f"printf '%s\\0' {args} | "
+            f"git -C {self._escape_shell_arg(search_root)} "
+            "check-ignore -z --stdin 2>/dev/null",
+            timeout=30,
+        )
+        ignored = {item for item in result.stdout.split('\0') if item}
+        return [
+            directory
+            for relative, directory in relative_to_directory.items()
+            if relative not in ignored
+        ]
+
+    def _sort_paths_by_mtime(self, paths: list[str]) -> list[str]:
+        """Globally sort remote paths by mtime without local filesystem access."""
+        if len(paths) < 2:
+            return paths
+        args = " ".join(self._escape_shell_arg(path.rstrip('/')) for path in paths)
+        cmd = (
+            f"set -- {args}; i=0; for p do "
+            "mtime=$(stat -c '%Y' \"$p\" 2>/dev/null || "
+            "stat -f '%m' \"$p\" 2>/dev/null || printf '0'); "
+            "printf '%s %s\\n' \"$mtime\" \"$i\"; i=$((i + 1)); "
+            "done | sort -k1,1nr -k2,2n"
+        )
+        result = self._exec(cmd, timeout=30)
+        stdout, limit_reason = _search_stdout_and_limit(result)
+        if limit_reason:
+            return paths
+        try:
+            indices = [int(line.rsplit(' ', 1)[1]) for line in stdout.splitlines() if line]
+        except (IndexError, ValueError):
+            return paths
+        if sorted(indices) != list(range(len(paths))):
+            return paths
+        return [paths[index] for index in indices]
 
     def _search_files_rg(self, pattern: str, path: str, limit: int, offset: int) -> SearchResult:
         """Search for files by name using ripgrep's --files mode.
@@ -2236,12 +2353,22 @@ class ShellFileOperations(FileOperations):
             stdout, limit_reason = _search_stdout_and_limit(result)
             all_files = [f for f in stdout.strip().split('\n') if f]
 
-        page = all_files[offset:offset + limit]
+        merged = all_files
+        if limit_reason != "search_timeout":
+            dirs, dir_limit_reason = self._collect_matching_dirs(
+                path, glob_pattern, respect_gitignore=True
+            )
+            merged = all_files + dirs
+            if dir_limit_reason != "search_timeout":
+                merged = self._sort_paths_by_mtime(merged)
+            limit_reason = dir_limit_reason or limit_reason
+
+        page = merged[offset:offset + limit]
 
         return SearchResult(
             files=page,
-            total_count=len(all_files),
-            truncated=len(all_files) >= fetch_limit or bool(limit_reason),
+            total_count=len(merged),
+            truncated=len(merged) >= fetch_limit or bool(limit_reason),
             limit_reason=limit_reason,
         )
     

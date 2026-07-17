@@ -757,6 +757,90 @@ class TestSearchFilesFallbackHiddenPaths:
         assert set(result.files) == {str(visible_file), str(visible_nested_file)}
 
 
+class TestSearchFilesDirectoryRebuild:
+    def _make_env(self):
+        env = MagicMock(cwd="/")
+
+        def execute(command, **kwargs):
+            completed = subprocess.run(
+                command,
+                shell=True,
+                text=True,
+                capture_output=True,
+            )
+            return {"output": completed.stdout, "returncode": completed.returncode}
+
+        env.execute = execute
+        return env
+
+    def test_find_fallback_includes_empty_dirs_and_globally_sorts(self, tmp_path, monkeypatch):
+        root = tmp_path / "repo"
+        root.mkdir()
+        old_file = root / "old.txt"
+        middle_file = root / "middle.txt"
+        newest_dir = root / "vault"
+        old_file.write_text("old")
+        middle_file.write_text("middle")
+        newest_dir.mkdir()
+        os.utime(old_file, (100, 100))
+        os.utime(middle_file, (200, 200))
+        os.utime(newest_dir, (300, 300))
+
+        ops = ShellFileOperations(self._make_env())
+        monkeypatch.setattr(ops, "_has_command", lambda command: command == "find")
+        result = ops._search_files("*", str(root), limit=50, offset=0)
+
+        assert result.error is None
+        assert result.files == [
+            f"{newest_dir}/",
+            str(middle_file),
+            str(old_file),
+        ]
+        assert result.total_count == 3
+
+    def test_find_directories_paginate_once_and_exclude_hidden(self, tmp_path, monkeypatch):
+        root = tmp_path / "repo"
+        root.mkdir()
+        visible = root / "vault"
+        hidden = root / ".secret"
+        visible.mkdir()
+        hidden.mkdir()
+        for index in range(6):
+            (root / f"f{index}.txt").write_text("x")
+
+        ops = ShellFileOperations(self._make_env())
+        monkeypatch.setattr(ops, "_has_command", lambda command: command == "find")
+        pages = [
+            ops._search_files("*", str(root), limit=2, offset=offset)
+            for offset in range(0, 10, 2)
+        ]
+        entries = [entry for page in pages for entry in page.files]
+
+        assert all(len(page.files) <= 2 for page in pages)
+        assert entries.count(f"{visible}/") == 1
+        assert not any(".secret" in entry for entry in entries)
+        assert pages[0].total_count == 7
+
+    def test_rg_directory_pass_respects_gitignore(self, tmp_path, monkeypatch):
+        root = tmp_path / "repo"
+        root.mkdir()
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        (root / ".gitignore").write_text("ignored/\n")
+        visible = root / "visible"
+        ignored = root / "ignored"
+        visible.mkdir()
+        ignored.mkdir()
+
+        ops = ShellFileOperations(self._make_env())
+        monkeypatch.setattr(ops, "_has_command", lambda command: command in {"rg", "find"})
+        result = ops._search_files("*", str(root), limit=50, offset=0)
+
+        assert result.error is None
+        normalized = {entry.rstrip("/") for entry in result.files}
+        assert str(visible) in normalized
+        assert str(ignored) not in normalized
+
+
 class TestShellFileOpsWriteDenied:
     def test_write_file_denied_path(self, file_ops):
         result = file_ops.write_file("~/.ssh/authorized_keys", "evil key")
