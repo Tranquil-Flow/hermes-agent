@@ -5542,6 +5542,42 @@ _AUX_TASK_SLOTS: Tuple[str, ...] = (
 )
 
 
+def _get_all_aux_slots() -> Tuple[str, ...]:
+    """Return built-in + plugin-registered auxiliary slot keys.
+
+    Built-in slots come first (preserving ``_AUX_TASK_SLOTS`` order),
+    followed by plugin slots sorted alphabetically.  Duplicates (a plugin
+    registering a key that collides with a built-in) are suppressed.
+
+    Plugin discovery scans ``get_hermes_home()/plugins`` which is
+    profile-scoped via ``HERMES_HOME``. When the dashboard selects a
+    different management profile, plugin slots must be re-read from that
+    profile's plugin directory. Call ``discover_and_load(force=True)`` to
+    bust the process-global singleton before querying, so the slot list
+    always reflects the currently-active profile rather than whichever
+    profile happened to trigger the first discovery.
+    """
+    seen = set(_AUX_TASK_SLOTS)
+    plugin_keys: list[str] = []
+    try:
+        from hermes_cli.plugins import get_plugin_auxiliary_tasks
+        # Force rediscovery so profile-scoped plugins are picked up.
+        # The singleton cache is safe to bust here because this function is
+        # only called from ``_apply_model_assignment_sync``, which already
+        # runs inside ``_profile_scope`` on a worker thread.
+        from hermes_cli.plugins import _ensure_plugins_discovered
+        _ensure_plugins_discovered(force=True)
+        for entry in get_plugin_auxiliary_tasks():
+            key = entry.get("key", "")
+            if key and key not in seen:
+                plugin_keys.append(key)
+                seen.add(key)
+    except Exception:
+        # Plugin discovery failure must not break the dashboard API.
+        _log.debug("Plugin auxiliary task lookup failed", exc_info=True)
+    return _AUX_TASK_SLOTS + tuple(sorted(plugin_keys))
+
+
 @app.get("/api/model/options")
 def get_model_options(
     profile: Optional[str] = None,
@@ -5693,7 +5729,7 @@ def get_auxiliary_models(profile: Optional[str] = None):
             aux_cfg = {}
 
         tasks = []
-        for slot in _AUX_TASK_SLOTS:
+        for slot in _get_all_aux_slots():
             slot_cfg = aux_cfg.get(slot, {}) if isinstance(aux_cfg.get(slot), dict) else {}
             tasks.append({
                 "task": slot,
@@ -5949,7 +5985,7 @@ def _apply_model_assignment_sync(
         stale_aux: list[dict] = []
         aux_cfg = cfg.get("auxiliary", {})
         if isinstance(aux_cfg, dict):
-            for slot in _AUX_TASK_SLOTS:
+            for slot in _get_all_aux_slots():
                 slot_cfg = aux_cfg.get(slot)
                 if not isinstance(slot_cfg, dict):
                     continue
@@ -5982,7 +6018,7 @@ def _apply_model_assignment_sync(
 
     if task == "__reset__":
         # Reset every slot to provider="auto", model="" — keeps other fields intact.
-        for slot in _AUX_TASK_SLOTS:
+        for slot in _get_all_aux_slots():
             slot_cfg = aux.get(slot)
             if not isinstance(slot_cfg, dict):
                 slot_cfg = {}
@@ -5998,9 +6034,10 @@ def _apply_model_assignment_sync(
     if not provider:
         raise HTTPException(status_code=400, detail="provider required for auxiliary")
 
-    targets = [task] if task else list(_AUX_TASK_SLOTS)
+    _all_slots = _get_all_aux_slots()
+    targets = [task] if task else list(_all_slots)
     for slot in targets:
-        if slot not in _AUX_TASK_SLOTS:
+        if slot not in _all_slots:
             raise HTTPException(status_code=400, detail=f"unknown auxiliary task: {slot}")
         slot_cfg = aux.get(slot)
         if not isinstance(slot_cfg, dict):
