@@ -669,7 +669,9 @@ class EmailAdapter(BasePlatformAdapter):
                     if len(self._seen_uids) > self._seen_uids_max:
                         self._trim_seen_uids()
 
-                    status, msg_data = imap.uid("fetch", uid, "(RFC822)")
+                    # BODY.PEEK[] avoids legacy RFC822 metadata-only responses
+                    # from iCloud while preserving the RFC822 message bytes.
+                    status, msg_data = imap.uid("fetch", uid, "(BODY.PEEK[])")
                     if status != "OK":
                         continue
 
@@ -736,13 +738,18 @@ class EmailAdapter(BasePlatformAdapter):
                         "sender_authenticated": sender_authenticated,
                         "auth_reason": auth_reason,
                     })
+
+                    try:
+                        imap.uid("store", uid, "+FLAGS", "(\\Seen)")
+                    except Exception:
+                        pass
             finally:
                 try:
                     imap.logout()
                 except Exception:
                     pass
         except Exception as e:
-            logger.error("[Email] IMAP fetch error: %s", e)
+            logger.exception("[Email] IMAP fetch error: %s", e)
         return results
 
     @staticmethod
