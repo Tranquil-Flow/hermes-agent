@@ -566,6 +566,20 @@ class ChatCompletionsTransport(ProviderTransport):
         # they front several backends with different completion-token limits
         # (e.g. opencode-go: mimo-v2.5-pro = 131072).
         profile_max = profile.get_max_tokens(model)
+        is_ollama_endpoint = bool(params.get("is_ollama_endpoint", False)) or (
+            params.get("ollama_num_ctx") is not None
+        )
+        if (
+            getattr(profile, "name", "") == "custom"
+            and not is_ollama_endpoint
+        ):
+            # Generic OpenAI-compatible custom endpoints (vLLM, llama.cpp,
+            # user proxies) should choose their own output budget unless the
+            # user set model.max_tokens explicitly. The custom profile keeps a
+            # large default for confirmed Ollama endpoints even when /api/show
+            # context discovery failed, because Ollama otherwise falls back to
+            # a tiny num_predict and truncates responses.
+            profile_max = None
 
         if ephemeral is not None and max_tokens_fn:
             api_kwargs.update(max_tokens_fn(ephemeral))

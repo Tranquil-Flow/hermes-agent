@@ -1055,6 +1055,7 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
             session_id=getattr(agent, "session_id", None),
             provider_profile=_profile,
             ollama_num_ctx=agent._ollama_num_ctx,
+            is_ollama_endpoint=getattr(agent, "_is_ollama_endpoint", False),
             # Context forwarded to profile hooks:
             provider_preferences=_prefs or None,
             openrouter_min_coding_score=agent.openrouter_min_coding_score,

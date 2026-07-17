@@ -35,6 +35,7 @@ from agent.iteration_budget import IterationBudget
 from agent.memory_manager import StreamingContextScrubber
 from agent.model_metadata import (
     MINIMUM_CONTEXT_LENGTH,
+    detect_local_server_type,
     fetch_model_metadata,
     is_local_endpoint,
     query_ollama_num_ctx,
@@ -2068,15 +2069,40 @@ def init_agent(
     # If model.context_length is set, it caps num_ctx so the user's VRAM
     # budget is respected even when GGUF metadata advertises a larger window.
     agent._ollama_num_ctx: int | None = None
+    # Endpoint identity is independent of /api/show model metadata. Keep a
+    # confirmed-Ollama bit even when the context probe fails (unknown model,
+    # transient /api/show error, or metadata without context_length), because
+    # Ollama still needs an explicit max_tokens safeguard to avoid its
+    # num_predict=128 default.
+    agent._is_ollama_endpoint = False
     _ollama_num_ctx_override = None
     if isinstance(_model_cfg, dict):
         _ollama_num_ctx_override = _model_cfg.get("ollama_num_ctx")
     if _ollama_num_ctx_override is not None:
         try:
             agent._ollama_num_ctx = int(_ollama_num_ctx_override)
+            # An explicit Ollama-only setting is also a user-confirmed signal.
+            agent._is_ollama_endpoint = True
         except (TypeError, ValueError):
             _ra().logger.debug("Invalid ollama_num_ctx config value: %r", _ollama_num_ctx_override)
-    if agent._ollama_num_ctx is None and agent.base_url and is_local_endpoint(agent.base_url):
+    if agent.base_url and is_local_endpoint(agent.base_url):
+        try:
+            _key_for_ollama = agent.api_key if isinstance(agent.api_key, str) else ""
+            if (
+                detect_local_server_type(
+                    agent.base_url, api_key=_key_for_ollama or ""
+                )
+                == "ollama"
+            ):
+                agent._is_ollama_endpoint = True
+        except Exception as exc:
+            _ra().logger.debug("Ollama endpoint detection failed: %s", exc)
+
+    if (
+        agent._ollama_num_ctx is None
+        and agent._is_ollama_endpoint
+        and agent.base_url
+    ):
         try:
             # ``agent.api_key`` may be a callable (Entra token provider).
             # Ollama detection makes a manual HTTP request and expects a
