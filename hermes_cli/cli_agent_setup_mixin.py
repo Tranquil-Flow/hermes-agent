@@ -14,9 +14,36 @@ loaded) so this module never imports ``cli`` at import time -> no import cycle.
 
 from __future__ import annotations
 
+import json
 import sys
 
 from rich.markup import escape as _escape
+
+
+def _resume_provider_mismatch_message(
+    session_meta: dict | None,
+    current_provider: str | None,
+) -> str | None:
+    """Return a warning when persisted and active providers differ."""
+    if not session_meta or not current_provider:
+        return None
+    try:
+        raw = session_meta.get("model_config")
+        config = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(config, dict):
+        return None
+    original = config.get("provider")
+    if not original or original == current_provider:
+        return None
+    model = config.get("model") or session_meta.get("model") or ""
+    model_text = f" (model {model})" if model else ""
+    return (
+        f"Session was created with provider '{original}'{model_text}, "
+        f"which differs from the current default '{current_provider}'. "
+        "Resuming with the current provider."
+    )
 
 
 class CLIAgentSetupMixin:
@@ -318,6 +345,17 @@ class CLIAgentSetupMixin:
                         f"[bold {_accent_hex()}]{_escape(title_part)}[/] "
                         f"({msg_count} user message{'s' if msg_count != 1 else ''}, {len(restored)} total messages)"
                     )
+                # Fallback path when run() did not preload the transcript.
+                _warn_msg = _resume_provider_mismatch_message(
+                    session_meta, self.provider
+                )
+                if _warn_msg:
+                    if _quiet_mode:
+                        print(f"Warning: {_warn_msg}", file=sys.stderr)
+                    else:
+                        ChatConsole().print(
+                            f"[bold yellow]⚠ Provider changed:[/] {_warn_msg}"
+                        )
                 self._restore_session_cwd(session_meta, quiet=_quiet_mode)
             else:
                 if _quiet_mode:
@@ -511,6 +549,13 @@ class CLIAgentSetupMixin:
                 f"({msg_count} user message{'s' if msg_count != 1 else ''}, "
                 f"{len(restored)} total messages)[/]"
             )
+            warning = _resume_provider_mismatch_message(
+                session_meta, self.provider
+            )
+            if warning:
+                self._console_print(
+                    f"[bold yellow]⚠ Provider changed:[/] {warning}"
+                )
             self._restore_session_cwd(session_meta)
         else:
             accent_color = _accent_hex()

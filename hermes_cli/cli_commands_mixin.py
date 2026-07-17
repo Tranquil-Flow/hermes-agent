@@ -749,6 +749,19 @@ class CLICommandsMixin:
             _cprint("  Already on that session.")
             return
 
+        # Warn if the session's persisted provider differs from the current
+        # default. The same formatter is used by startup preload and fallback
+        # init so every resume ingress has identical semantics.
+        from hermes_cli.cli_agent_setup_mixin import (
+            _resume_provider_mismatch_message,
+        )
+
+        warning = _resume_provider_mismatch_message(
+            session_meta, self.provider
+        )
+        if warning:
+            _cprint(f"  ⚠ Provider changed: {warning}")
+
         old_session_id = self.session_id
         # Flush un-persisted messages before ending the old session (#47202).
         if self.agent:

@@ -1358,6 +1358,8 @@ def init_agent(
     # the user's real session and hijack the next live turn. Default False.
     agent._persist_disabled = False
     agent._session_init_model_config = {
+        "provider": agent.provider,
+        "model": agent.model,
         "max_iterations": agent.max_iterations,
         "reasoning_config": reasoning_config,
         "max_tokens": max_tokens,
