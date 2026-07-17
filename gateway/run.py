@@ -21206,6 +21206,67 @@ async def _await_thread_exit(
     return not thread.is_alive()
 
 
+def _start_runtime_memory_monitoring() -> bool:
+    """Start the periodic ``[MEMORY]`` heartbeat from the gateway runtime.
+
+    ``gateway/memory_monitor.py`` provides ``start_memory_monitoring()`` but
+    nothing in the runtime invoked it (issue #49773), so no heartbeat appeared
+    in ``gateway.log`` and external log-freshness watchdogs false-triggered on
+    healthy idle gateways. This reads ``logging.memory_monitor`` from
+    ``config.yaml`` (``enabled`` defaults to True, ``interval_seconds`` to 300).
+
+    A missing interval uses the default. An explicit malformed, non-finite,
+    zero, or negative interval disables monitoring instead of silently falling
+    back or starting a busy-looping thread. Must never raise: monitoring must
+    not gate gateway startup.
+    """
+    try:
+        import math
+
+        from gateway.memory_monitor import start_memory_monitoring
+
+        _gw_cfg = _load_gateway_config()
+        _mm_cfg = (_gw_cfg.get("logging", {}) or {}).get("memory_monitor", {}) or {}
+        if not _mm_cfg.get("enabled", True):
+            return False
+
+        raw_interval = _mm_cfg.get("interval_seconds", 300)
+        try:
+            interval = float(raw_interval)
+        except (TypeError, ValueError):
+            logger.warning(
+                "[MEMORY] Invalid interval_seconds=%r; periodic monitoring disabled",
+                raw_interval,
+            )
+            return False
+        if not math.isfinite(interval) or interval <= 0:
+            logger.warning(
+                "[MEMORY] interval_seconds must be finite and > 0 (got %r); "
+                "periodic monitoring disabled",
+                raw_interval,
+            )
+            return False
+        return start_memory_monitoring(interval_seconds=interval)
+    except Exception:
+        logger.debug("Memory monitoring failed to start", exc_info=True)
+        return False
+
+
+def _stop_runtime_memory_monitoring() -> None:
+    """Stop the periodic ``[MEMORY]`` heartbeat and log a final snapshot.
+
+    Safe to call even when ``_start_runtime_memory_monitoring`` was never
+    invoked or the monitor never started.
+    """
+    try:
+        from gateway.memory_monitor import stop_memory_monitoring
+
+        stop_memory_monitoring()
+    except Exception:
+        pass
+
+
+
 async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = False, verbosity: Optional[int] = 0) -> bool:
     """
     Start the gateway and run until interrupted.
@@ -21655,7 +21716,11 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         if runner.exit_code is not None:
             raise SystemExit(runner.exit_code)
         return True
-    
+
+    # Start the periodic [MEMORY] heartbeat so external watchdogs can confirm
+    # the gateway is alive during idle periods (issue #49773).
+    _start_runtime_memory_monitoring()
+
     # Start the background cron scheduler via the resolved provider so
     # scheduled jobs fire automatically. The built-in provider is the
     # historical in-process 60s ticker; an external provider (e.g. chronos)
@@ -21734,6 +21799,9 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # Stop the planned-stop watcher (daemon=True so this is belt-and-suspenders).
     _planned_stop_watcher_stop.set()
     _planned_stop_watcher_thread.join(timeout=2)
+
+    # Stop the periodic [MEMORY] heartbeat (logs a final snapshot).
+    _stop_runtime_memory_monitoring()
 
     # Close MCP server connections
     try:

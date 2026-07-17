@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import gc
 import logging
+import math
 import os
 import sys
 import threading
@@ -153,9 +154,26 @@ def start_memory_monitoring(interval_seconds: float = 300.0) -> bool:
     -------
     bool
         True if a fresh monitor thread was started, False if one was
-        already running or if memory introspection isn't available.
+        already running, the interval is invalid/non-positive, or memory
+        introspection is unavailable.
     """
     global _monitor_thread, _stop_event, _start_time, _interval_seconds
+
+    try:
+        interval = float(interval_seconds)
+    except (TypeError, ValueError):
+        logger.warning(
+            "[MEMORY] Invalid monitoring interval %r; monitoring disabled",
+            interval_seconds,
+        )
+        return False
+    if not math.isfinite(interval) or interval <= 0:
+        logger.warning(
+            "[MEMORY] Monitoring interval must be finite and > 0 (got %r); "
+            "monitoring disabled",
+            interval_seconds,
+        )
+        return False
 
     with _lock:
         if _monitor_thread is not None and _monitor_thread.is_alive():
@@ -172,7 +190,7 @@ def start_memory_monitoring(interval_seconds: float = 300.0) -> bool:
             return False
 
         _start_time = time.monotonic()
-        _interval_seconds = float(interval_seconds)
+        _interval_seconds = interval
         _stop_event = threading.Event()
 
         # Baseline snapshot before the loop starts.
