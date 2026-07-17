@@ -1,81 +1,195 @@
-"""Tests for cronjob action='run' immediate execution (#41037).
+"""Tests for scheduler-owned non-blocking manual cron dispatch (#52705)."""
 
-Before this fix, `cronjob(action='run')` only set next_run_at=now and returned
-success, relying on the scheduler ticker to actually run the job. With no
-gateway/ticker active (e.g. a CLI-only Windows setup) the job never executed and
-last_run_at stayed null forever. Now action='run' claims the job (at-most-once,
-blocking a concurrent tick) and fires it inline via the shared run_one_job body.
-"""
 import json
-from unittest.mock import patch
+import threading
+from unittest.mock import MagicMock, patch
 
-from tools.cronjob_tools import cronjob, _execute_job_now
-
-
-_JOB = {"id": "job-run-1", "name": "manual run", "prompt": "hi",
-        "schedule": {"kind": "cron", "expr": "0 9 * * *"}}
+from tools.cronjob_tools import cronjob
 
 
-class TestCronjobRunExecutesImmediately:
-    def test_run_action_claims_and_fires_via_run_one_job(self):
-        """action='run' must claim the job then fire it through run_one_job."""
-        ran = {"job": "after-run", "last_status": "ok", "last_error": None}
-        with patch("tools.cronjob_tools.resolve_job_ref", return_value=dict(_JOB)), \
-             patch("tools.cronjob_tools.claim_job_for_fire", return_value=True) as m_claim, \
-             patch("cron.scheduler.run_one_job", return_value=True) as m_run, \
-             patch("tools.cronjob_tools.get_job", return_value=ran):
+_JOB = {
+    "id": "job-run-1",
+    "name": "manual run",
+    "prompt": "hi",
+    "enabled": True,
+    "state": "scheduled",
+    "schedule": {"kind": "cron", "expr": "0 9 * * *"},
+}
+
+
+def _shutdown_pools():
+    from cron import scheduler
+
+    scheduler._shutdown_parallel_pool()
+
+
+class TestCronjobRunNonBlocking:
+    def test_tool_queues_through_scheduler_owned_dispatch(self):
+        with (
+            patch("tools.cronjob_tools.resolve_job_ref", return_value=dict(_JOB)),
+            patch("tools.cronjob_tools.get_job", return_value=dict(_JOB)),
+            patch(
+                "cron.scheduler.dispatch_job_now",
+                return_value={
+                    "mode": "scheduler",
+                    "claimed": True,
+                    "error": None,
+                },
+            ) as dispatch,
+        ):
             out = json.loads(cronjob(action="run", job_id="job-run-1"))
 
         assert out["success"] is True
-        assert out["job"]["executed"] is True
-        assert out["job"]["execution_success"] is True
-        m_claim.assert_called_once_with("job-run-1")   # at-most-once claim taken
-        m_run.assert_called_once()                       # fired via the shared body
+        assert out["job"]["triggered"] is True
+        assert out["job"]["trigger_mode"] == "scheduler"
+        assert "execution_success" not in out["job"]
+        dispatch.assert_called_once_with(dict(_JOB), source="manual")
 
-    def test_run_skips_when_claim_lost(self):
-        """If the scheduler already holds the fire claim, do NOT double-run."""
-        with patch("tools.cronjob_tools.resolve_job_ref", return_value=dict(_JOB)), \
-             patch("tools.cronjob_tools.claim_job_for_fire", return_value=False), \
-             patch("cron.scheduler.run_one_job") as m_run, \
-             patch("tools.cronjob_tools.get_job", return_value=dict(_JOB)):
+    def test_tool_reports_scheduler_rejection(self):
+        paused = dict(_JOB, enabled=False, state="paused")
+        with (
+            patch("tools.cronjob_tools.resolve_job_ref", return_value=paused),
+            patch("tools.cronjob_tools.get_job", return_value=paused),
+            patch(
+                "cron.scheduler.dispatch_job_now",
+                return_value={
+                    "mode": "scheduler",
+                    "claimed": False,
+                    "error": "Job is paused/disabled; resume it before running.",
+                },
+            ),
+        ):
             out = json.loads(cronjob(action="run", job_id="job-run-1"))
 
-        assert out["success"] is True
+        assert out["job"]["triggered"] is False
         assert out["job"]["executed"] is False
-        assert out["job"]["execution_success"] is False
-        assert "execution_skipped" in out["job"]
-        m_run.assert_not_called()  # claim lost -> never fired
+        assert "paused/disabled" in out["job"]["execution_skipped"]
 
-    def test_run_reports_failure_from_last_status(self):
-        """A failed run is reported via the re-read job's last_status/last_error."""
-        failed = {"id": "job-run-1", "last_status": "error", "last_error": "provider 500"}
-        with patch("tools.cronjob_tools.resolve_job_ref", return_value=dict(_JOB)), \
-             patch("tools.cronjob_tools.claim_job_for_fire", return_value=True), \
-             patch("cron.scheduler.run_one_job", return_value=True), \
-             patch("tools.cronjob_tools.get_job", return_value=failed):
-            out = json.loads(cronjob(action="run", job_id="job-run-1"))
 
-        assert out["job"]["executed"] is True
-        assert out["job"]["execution_success"] is False
-        assert out["job"]["execution_error"] == "provider 500"
+class TestSchedulerManualDispatch:
+    def teardown_method(self):
+        _shutdown_pools()
 
-    def test_execute_job_now_bails_without_claim(self):
-        """_execute_job_now never calls run_one_job when the claim is lost."""
-        with patch("tools.cronjob_tools.claim_job_for_fire", return_value=False), \
-             patch("cron.scheduler.run_one_job") as m_run:
-            res = _execute_job_now(dict(_JOB))
-        assert res["claimed"] is False
-        assert res["success"] is False
-        m_run.assert_not_called()
+    def test_paused_job_is_rejected_before_claim(self):
+        from cron.scheduler import dispatch_job_now
 
-    def test_execute_job_now_marks_failure_on_exception(self):
-        """An exception during fire is captured, marked failed, not propagated."""
-        with patch("tools.cronjob_tools.claim_job_for_fire", return_value=True), \
-             patch("cron.scheduler.run_one_job", side_effect=RuntimeError("boom")), \
-             patch("tools.cronjob_tools.mark_job_run") as m_mark, \
-             patch("tools.cronjob_tools.get_job", return_value=dict(_JOB)):
-            res = _execute_job_now(dict(_JOB))
-        assert res["claimed"] is True
-        assert res["success"] is False
-        assert "boom" in res["error"]
-        m_mark.assert_called_once()
+        paused = dict(_JOB, enabled=False, state="paused")
+        with patch("cron.jobs.claim_job_for_fire") as claim:
+            result = dispatch_job_now(paused, source="manual")
+
+        assert result["claimed"] is False
+        assert "paused/disabled" in result["error"]
+        claim.assert_not_called()
+
+    def test_claim_lost_is_not_dispatched(self):
+        from cron.scheduler import dispatch_job_now
+
+        with (
+            patch("cron.jobs.claim_job_for_fire", return_value=False),
+            patch("cron.jobs.get_job", return_value=dict(_JOB)),
+            patch("cron.scheduler._get_parallel_pool") as pool,
+        ):
+            result = dispatch_job_now(dict(_JOB), source="manual")
+
+        assert result["claimed"] is False
+        assert "already being fired" in result["error"]
+        pool.assert_not_called()
+
+    def test_submission_returns_before_worker_runs(self):
+        from cron.scheduler import dispatch_job_now
+
+        pool = MagicMock()
+        with (
+            patch("cron.jobs.claim_job_for_fire", return_value=True),
+            patch("cron.jobs.get_job", return_value=dict(_JOB)),
+            patch("cron.scheduler.create_execution", return_value={"id": "exec-1"}),
+            patch("cron.scheduler._get_parallel_pool", return_value=pool),
+            patch("cron.scheduler.run_one_job") as run,
+            patch("cron.scheduler._notify_provider_jobs_changed"),
+        ):
+            result = dispatch_job_now(dict(_JOB), source="manual")
+
+        assert result == {"mode": "scheduler", "claimed": True, "error": None}
+        pool.submit.assert_called_once()
+        run.assert_not_called()
+
+    def test_submit_failure_unwinds_claim_and_execution(self):
+        from cron import scheduler
+
+        pool = MagicMock()
+        pool.submit.side_effect = RuntimeError("executor closed")
+        with (
+            patch("cron.jobs.claim_job_for_fire", return_value=True),
+            patch("cron.jobs.get_job", return_value=dict(_JOB)),
+            patch("cron.scheduler.create_execution", return_value={"id": "exec-1"}),
+            patch("cron.scheduler._get_parallel_pool", return_value=pool),
+            patch("cron.scheduler.mark_job_run") as mark_run,
+            patch("cron.scheduler.finish_execution") as finish,
+            patch("cron.scheduler._notify_provider_jobs_changed"),
+        ):
+            result = scheduler.dispatch_job_now(dict(_JOB), source="manual")
+
+        assert result == {
+            "mode": "scheduler",
+            "claimed": False,
+            "error": "executor closed",
+        }
+        mark_run.assert_called_once_with("job-run-1", False, "executor closed")
+        finish.assert_called_once()
+
+    def test_scheduler_shutdown_waits_for_manual_worker(self):
+        """Standalone CLI shutdown must not discard a queued manual fire."""
+        from cron import scheduler
+
+        started = threading.Event()
+        release = threading.Event()
+        shutdown_done = threading.Event()
+
+        def run_job(_job):
+            started.set()
+            assert release.wait(5)
+            return True
+
+        with (
+            patch("cron.jobs.claim_job_for_fire", return_value=True),
+            patch("cron.jobs.get_job", return_value=dict(_JOB)),
+            patch("cron.scheduler.create_execution", return_value={"id": "exec-1"}),
+            patch("cron.scheduler.run_one_job", side_effect=run_job),
+            patch("cron.scheduler._notify_provider_jobs_changed"),
+        ):
+            result = scheduler.dispatch_job_now(dict(_JOB), source="manual")
+            assert result["claimed"] is True
+            assert started.wait(5)
+
+            waiter = threading.Thread(
+                target=lambda: (
+                    scheduler._shutdown_parallel_pool(),
+                    shutdown_done.set(),
+                )
+            )
+            waiter.start()
+            assert not shutdown_done.wait(0.05)
+            release.set()
+            waiter.join(5)
+
+        assert shutdown_done.is_set()
+
+    def test_external_provider_reconciles_after_claim_and_completion(self):
+        from cron import scheduler
+
+        notifications = MagicMock()
+        with (
+            patch("cron.jobs.claim_job_for_fire", return_value=True),
+            patch("cron.jobs.get_job", return_value=dict(_JOB)),
+            patch("cron.scheduler.create_execution", return_value={"id": "exec-1"}),
+            patch("cron.scheduler.run_one_job", return_value=True),
+            patch(
+                "cron.scheduler._notify_provider_jobs_changed",
+                notifications,
+            ),
+        ):
+            result = scheduler.dispatch_job_now(dict(_JOB), source="manual")
+            assert result["claimed"] is True
+            scheduler._shutdown_parallel_pool()
+
+        assert notifications.call_count == 2

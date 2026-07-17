@@ -544,6 +544,71 @@ def _shutdown_parallel_pool() -> None:
 atexit.register(_shutdown_parallel_pool)
 
 
+def dispatch_job_now(job: dict, *, source: str = "manual") -> dict[str, Any]:
+    """Claim and queue one manual fire on scheduler-owned executors.
+
+    The persistent pools are lifecycle-managed by ``_shutdown_parallel_pool``;
+    standalone CLI processes therefore wait for submitted work at interpreter
+    shutdown instead of abandoning a daemon thread. External providers are
+    notified after the claim and after completion so their remote schedule
+    converges around the manual fire.
+    """
+    from cron.jobs import claim_job_for_fire, get_job
+
+    job_id = str(job.get("id") or "")
+    if not job_id:
+        return {
+            "mode": "scheduler",
+            "claimed": False,
+            "error": "Job no longer exists; nothing to run.",
+        }
+    if not job.get("enabled", True) or job.get("state") == "paused":
+        return {
+            "mode": "scheduler",
+            "claimed": False,
+            "error": "Job is paused/disabled; resume it before running.",
+        }
+    if not claim_job_for_fire(job_id):
+        refreshed = get_job(job_id)
+        if refreshed is None:
+            reason = "Job no longer exists; nothing to run."
+        elif not refreshed.get("enabled", True) or refreshed.get("state") == "paused":
+            reason = "Job is paused/disabled; resume it before running."
+        else:
+            reason = "Job is already being fired by the scheduler; not run again."
+        return {"mode": "scheduler", "claimed": False, "error": reason}
+
+    claimed_job = get_job(job_id) or dict(job)
+    execution = create_execution(job_id, source=source)
+    claimed_job = dict(claimed_job, execution_id=execution["id"])
+
+    def _run_claimed() -> bool:
+        try:
+            return run_one_job(claimed_job)
+        finally:
+            _notify_provider_jobs_changed()
+
+    pool = (
+        _get_sequential_pool()
+        if str(claimed_job.get("workdir") or "").strip()
+        else _get_parallel_pool(_parallel_pool_max_workers)
+    )
+    try:
+        pool.submit(_run_claimed)
+    except Exception as exc:
+        mark_job_run(job_id, False, str(exc))
+        finish_execution(
+            execution["id"],
+            success=False,
+            error=f"Executor dispatch failed: {exc}",
+        )
+        _notify_provider_jobs_changed()
+        return {"mode": "scheduler", "claimed": False, "error": str(exc)}
+
+    _notify_provider_jobs_changed()
+    return {"mode": "scheduler", "claimed": True, "error": None}
+
+
 def _interpreter_shutting_down(exc: Optional[BaseException] = None) -> bool:
     """True when the Python interpreter is finalizing.
 
