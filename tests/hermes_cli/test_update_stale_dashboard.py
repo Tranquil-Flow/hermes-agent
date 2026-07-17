@@ -104,6 +104,19 @@ class TestFindStaleDashboardPids:
             )
             assert _find_stale_dashboard_pids() == [12345]
 
+    def test_matches_legacy_dashboard_tui_form(self):
+        """Detect the legacy Desktop command that omits the ``hermes`` prefix."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout=_ps_line(
+                    12345,
+                    "/usr/bin/python3 /opt/hermes/dashboard --tui --port 9119",
+                ) + "\n",
+                stderr="",
+            )
+            assert _find_stale_dashboard_pids() == [12345]
+
     def test_multiple_matches(self):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(

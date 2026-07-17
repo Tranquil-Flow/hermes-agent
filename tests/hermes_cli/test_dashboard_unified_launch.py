@@ -32,6 +32,12 @@ class TestUnifiedDashboardRouting:
             "hermes_cli.profiles.get_active_profile_name", lambda: "worker_x"
         )
         monkeypatch.setattr(main_mod, "_dashboard_listening", lambda host, port: True)
+        cleanup_calls = []
+        monkeypatch.setattr(
+            main_mod,
+            "_kill_stale_dashboard_processes",
+            lambda *a, **k: cleanup_calls.append((a, k)),
+        )
         execs = []
         monkeypatch.setattr(main_mod.os, "execvpe", lambda *a, **k: execs.append(a))
 
@@ -39,6 +45,7 @@ class TestUnifiedDashboardRouting:
             main_mod.cmd_dashboard(_args())
         assert exc.value.code == 0
         assert execs == []  # attached, never re-exec'd
+        assert cleanup_calls == []  # healthy machine dashboard remains running
 
     def test_profile_launch_attach_opens_scoped_url(self, main_mod, monkeypatch):
         """The attach path must open the browser at ?profile=<name> — that
@@ -137,12 +144,19 @@ class TestUnifiedDashboardRouting:
         )
         execs = []
         monkeypatch.setattr(main_mod.os, "execvpe", lambda *a, **k: execs.append(a))
+        cleanup_calls = []
+        monkeypatch.setattr(
+            main_mod,
+            "_kill_stale_dashboard_processes",
+            lambda *a, **k: cleanup_calls.append((a, k)),
+        )
         monkeypatch.setitem(sys.modules, "fastapi", None)
 
         with pytest.raises((SystemExit, AttributeError, ImportError, TypeError)):
             main_mod.cmd_dashboard(_args())
         assert listening_calls == []
         assert execs == []
+        assert cleanup_calls == []  # concurrent Desktop backend remains running
 
     def test_isolated_flag_skips_routing(self, main_mod, monkeypatch):
         monkeypatch.setattr(

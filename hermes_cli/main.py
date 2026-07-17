@@ -5911,6 +5911,10 @@ def _find_stale_dashboard_pids(
         "hermes dashboard",
         "hermes_cli.main dashboard",
         "hermes_cli/main.py dashboard",
+        # Legacy Desktop launch form: ``python .../dashboard --tui`` omitted
+        # the ``hermes`` module/console-script prefix. Detection is safe here
+        # because cleanup runs only after update or explicit ``--stop``.
+        "dashboard --tui",
         # The headless backend (`hermes serve`) is the same long-lived server
         # under a different command name — the desktop app spawns it. Reap it
         # on update for the same frontend/backend-mismatch reason.
