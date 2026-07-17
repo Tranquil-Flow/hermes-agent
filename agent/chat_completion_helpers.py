@@ -1786,23 +1786,19 @@ def handle_max_iterations(agent, messages: list, api_call_count: int) -> str:
         # Build API messages, stripping internal-only fields
         # (finish_reason, reasoning) that strict APIs like Mistral reject with 422
         _needs_sanitize = agent._should_sanitize_tool_calls()
+        from agent.transports.chat_completions import (
+            _STRIP_TOP_LEVEL_MESSAGE_KEYS,
+        )
+
         api_messages = []
         for msg in messages:
             api_msg = msg.copy()
             agent._copy_reasoning_content_for_api(msg, api_msg)
-            for internal_field in ("reasoning", "finish_reason", "_thinking_prefill"):
+            for internal_field in ("reasoning", "_thinking_prefill"):
                 api_msg.pop(internal_field, None)
-            # Strict OpenAI-compatible gateways (Fireworks-backed OpenCode Go,
-            # Mistral, Moonshot/Kimi) reject any message key outside the Chat
-            # Completions schema. The main loop drops these via
-            # ChatCompletionsTransport.convert_messages(), but the summary path
-            # hand-builds messages and calls chat.completions.create() directly,
-            # bypassing the transport — so mirror that sanitization here:
-            # tool_name (SQLite FTS bookkeeping), the codex_* reasoning carriers,
-            # timestamp (preserved on gateway user replay entries for the
-            # stale-confirmation expiry check — #47868 rejection class),
-            # and every Hermes-internal underscore-prefixed scaffolding key.
-            for schema_foreign in ("tool_name", "codex_reasoning_items", "codex_message_items", "timestamp"):
+            # This path bypasses ChatCompletionsTransport.convert_messages(),
+            # so mirror its strict-schema sanitizer using the same key set.
+            for schema_foreign in _STRIP_TOP_LEVEL_MESSAGE_KEYS:
                 api_msg.pop(schema_foreign, None)
             for internal_key in [k for k in api_msg if isinstance(k, str) and k.startswith("_")]:
                 api_msg.pop(internal_key, None)

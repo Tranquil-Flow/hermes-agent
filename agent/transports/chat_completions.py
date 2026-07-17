@@ -32,6 +32,18 @@ def _reasoning_config_for_model(model: str, reasoning_config: dict | None) -> di
     return reasoning_config
 
 
+_STRIP_TOP_LEVEL_MESSAGE_KEYS = (
+    "codex_reasoning_items",
+    "codex_message_items",
+    "tool_name",
+    "effect_disposition",
+    "timestamp",
+    "message_id",
+    "observed",
+    "finish_reason",
+)
+
+
 def _build_gemini_thinking_config(model: str, reasoning_config: dict | None) -> dict | None:
     """Translate Hermes/OpenRouter-style reasoning config to Gemini thinkingConfig."""
     if reasoning_config is None or not isinstance(reasoning_config, dict):
@@ -163,6 +175,10 @@ class ChatCompletionsTransport(ProviderTransport):
           ``Extra inputs are not permitted, field: 'messages[N].tool_name'``.
           Permissive providers (OpenRouter, MiniMax) silently ignore the
           field, which masked the bug for months.
+        - SQLite session replay metadata: ``timestamp``, ``message_id``,
+          ``observed``, and ``finish_reason``. These fields are useful for
+          local persistence/history but are not part of the Chat Completions
+          message schema and strict providers reject them as extra inputs.
         - Hermes-internal scaffolding markers — any top-level message key
           starting with ``_`` (e.g. ``_empty_recovery_synthetic``,
           ``_empty_terminal_sentinel``, ``_thinking_prefill``). These are
@@ -181,13 +197,7 @@ class ChatCompletionsTransport(ProviderTransport):
         for msg in messages:
             if not isinstance(msg, dict):
                 continue
-            if (
-                "codex_reasoning_items" in msg
-                or "codex_message_items" in msg
-                or "tool_name" in msg
-                or "effect_disposition" in msg
-                or "timestamp" in msg  # #47868 — strict providers reject this
-            ):
+            if any(key in msg for key in _STRIP_TOP_LEVEL_MESSAGE_KEYS):
                 needs_sanitize = True
                 break
             if any(isinstance(k, str) and k.startswith("_") for k in msg):
@@ -213,7 +223,6 @@ class ChatCompletionsTransport(ProviderTransport):
         for msg_idx, msg in enumerate(messages):
             if not isinstance(msg, dict):
                 continue
-
             copied_msg: dict[str, Any] | None = None
 
             def mutable_msg() -> dict[str, Any]:
@@ -223,20 +232,13 @@ class ChatCompletionsTransport(ProviderTransport):
                     sanitized[msg_idx] = copied_msg
                 return copied_msg
 
-            if (
-                "codex_reasoning_items" in msg
-                or "codex_message_items" in msg
-                or "tool_name" in msg
-                or "effect_disposition" in msg
-                or "timestamp" in msg  # #47868 — leak into strict providers
-            ):
+            schema_foreign = [
+                key for key in _STRIP_TOP_LEVEL_MESSAGE_KEYS if key in msg
+            ]
+            if schema_foreign:
                 out_msg = mutable_msg()
-                out_msg.pop("codex_reasoning_items", None)
-                out_msg.pop("codex_message_items", None)
-                out_msg.pop("tool_name", None)
-                out_msg.pop("effect_disposition", None)
-                out_msg.pop("timestamp", None)  # #47868 — leak into strict providers
-
+                for key in schema_foreign:
+                    out_msg.pop(key, None)
 
             # Drop all Hermes-internal scaffolding markers (``_``-prefixed).
             # OpenAI's message schema has no ``_``-prefixed fields, so this

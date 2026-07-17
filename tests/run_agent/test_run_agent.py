@@ -3919,13 +3919,26 @@ class TestHandleMaxIterations:
         agent.client.chat.completions.create.return_value = _mock_response(content="Summary")
         agent._cached_system_prompt = "You are helpful."
         messages = [
-            {"role": "user", "content": "do stuff"},
+            {
+                "role": "user",
+                "content": "do stuff",
+                "message_id": "msg-user-1",
+                "observed": True,
+            },
             {
                 "role": "assistant",
                 "tool_calls": [{"id": "call_1", "function": {"name": "execute_code", "arguments": "{}"}}],
                 "codex_reasoning_items": [{"id": "rs_1"}],
+                "message_id": "msg-assistant-1",
             },
-            {"role": "tool", "tool_call_id": "call_1", "content": "result", "tool_name": "execute_code"},
+            {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "result",
+                "tool_name": "execute_code",
+                "effect_disposition": "unknown",
+                "observed": True,
+            },
             {"role": "assistant", "content": "Done.", "_empty_recovery_synthetic": True},
         ]
 
@@ -3935,11 +3948,17 @@ class TestHandleMaxIterations:
         sent_msgs = agent.client.chat.completions.create.call_args.kwargs.get("messages", [])
         for m in sent_msgs:
             assert "tool_name" not in m, m
+            assert "effect_disposition" not in m, m
+            assert "message_id" not in m, m
+            assert "observed" not in m, m
             assert "codex_reasoning_items" not in m, m
             assert "codex_message_items" not in m, m
             assert not any(isinstance(k, str) and k.startswith("_") for k in m), m
         # Internal history is untouched — the path copies each message.
+        assert messages[0]["message_id"] == "msg-user-1"
+        assert messages[0]["observed"] is True
         assert messages[2]["tool_name"] == "execute_code"
+        assert messages[2]["effect_disposition"] == "unknown"
         assert messages[1]["codex_reasoning_items"] == [{"id": "rs_1"}]
 
     def test_summary_omits_provider_preferences_for_non_openrouter(self, agent):
