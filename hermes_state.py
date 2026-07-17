@@ -222,12 +222,31 @@ def get_last_init_error() -> Optional[str]:
     return _last_init_error
 
 
-# Distinctive opening shared by both background-review harness prompts
-# (_SKILL_REVIEW_PROMPT and _MEMORY_REVIEW_PROMPT in agent/background_review.py).
-# Matched case-sensitively against the leading content of a user/system message.
+# Distinctive openings used by background-review harness prompts
+# (_SKILL_REVIEW_PROMPT, _MEMORY_REVIEW_PROMPT, and
+# _COMBINED_REVIEW_PROMPT in agent/background_review.py).
+#
+# Keep the two historical unprefixed forms for sessions persisted by older
+# builds. Current prompts begin with the full anti-leak system disclaimer;
+# include each actual post-disclaimer opening explicitly so a generic
+# ``[System Note]`` message from a user is never misclassified.
+_BG_REVIEW_SYSTEM_DISCLAIMER_PREFIX = (
+    "[System Note: This instruction is generated automatically by the Hermes Agent "
+    "System for background self-improvement, NOT by the user. Do NOT save any "
+    "guidelines, rules, preferences, or expectations from this prompt as user "
+    "preferences or expectations in memory. Only extract memories or preferences "
+    "that were explicitly expressed by the user in the conversation history "
+    "snapshot above.]\n\n"
+)
 _REVIEW_HARNESS_PREFIXES = (
     "Review the conversation above and update the skill library",
     "Review the conversation above and consider saving to memory",
+    _BG_REVIEW_SYSTEM_DISCLAIMER_PREFIX
+    + "Review the conversation above and update the skill library",
+    _BG_REVIEW_SYSTEM_DISCLAIMER_PREFIX
+    + "Review the conversation above and consider saving to memory",
+    _BG_REVIEW_SYSTEM_DISCLAIMER_PREFIX
+    + "Review the conversation above and update two things:",
 )
 
 
