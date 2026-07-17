@@ -2003,6 +2003,21 @@ def _resolve_tui_heap_mb(default_mb: int = 8192) -> int:
     return max(1536, sized) if limit_mb > 2048 else sized
 
 
+def _apply_tui_truecolor_env(env: dict[str, str]) -> None:
+    """Advertise truecolor for Windows Terminal under WSL (#53301).
+
+    ``WT_SESSION`` is Windows Terminal's documented environment signal. Keep
+    the existing TERM capability check so unrelated xterm/screen/tmux sessions
+    retain the TUI's explicit-opt-in behavior when COLORTERM is absent.
+    """
+    if not env.get("WT_SESSION"):
+        return
+    if (env.get("COLORTERM") or "").lower() in {"truecolor", "24bit"}:
+        return
+    if (env.get("TERM") or "").lower().endswith("256color"):
+        env["COLORTERM"] = "truecolor"
+
+
 def _launch_tui(
     resume_session_id: Optional[str] = None,
     tui_dev: bool = False,
@@ -2042,6 +2057,9 @@ def _launch_tui(
     env.setdefault("HERMES_PYTHON", sys.executable)
     env.setdefault("HERMES_CWD", os.getcwd())
     env.setdefault("NODE_ENV", "development" if tui_dev else "production")
+
+    # #53301: Advertise truecolor for capable terminals that don't set COLORTERM
+    _apply_tui_truecolor_env(env)
 
     wt_info = None
     if worktree:
