@@ -4096,11 +4096,17 @@ def _mark_server_call_started(server: Any) -> None:
         mark_tool_call()
 
 
-def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float):
+def _make_tool_handler(
+    server_name: str,
+    tool_name: str,
+    tool_timeout: float,
+    argument_key_map: Optional[dict[str, str]] = None,
+):
     """Return a sync handler that calls an MCP tool via the background loop.
 
     The handler conforms to the registry's dispatch interface:
-    ``handler(args_dict, **kwargs) -> str``
+    ``handler(args_dict, **kwargs) -> str``. Provider-safe argument names are
+    restored to the original MCP schema names immediately before dispatch.
     """
 
     def _handler(args: dict, **kwargs) -> str:
@@ -4171,6 +4177,15 @@ def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float):
                     "error": f"MCP server '{server_name}' is not connected"
                 }, ensure_ascii=False)
 
+        dispatch_args = (
+            {
+                argument_key_map.get(key, key): value
+                for key, value in args.items()
+            }
+            if argument_key_map
+            else args
+        )
+
         async def _call():
             _mark_server_call_started(server)
             async with server._rpc_lock:
@@ -4180,7 +4195,10 @@ def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float):
                 # it and detect the gateway platform / session for routing.
                 server._pending_call_context = contextvars.copy_context()
                 try:
-                    result = await server.session.call_tool(tool_name, arguments=args)
+                    result = await server.session.call_tool(
+                        tool_name,
+                        arguments=dispatch_args,
+                    )
                 finally:
                     server._pending_call_context = None
             # MCP CallToolResult has .content (list of content blocks) and .isError
@@ -4770,23 +4788,74 @@ def mcp_prefixed_tool_name(server_name: str, tool_name: str) -> str:
     return f"{MCP_TOOL_NAME_PREFIX}{safe_server}{_MCP_NAME_DELIM}{safe_tool}"
 
 
+def _mcp_argument_key_map(parameters: dict) -> dict[str, str]:
+    """Return model-safe top-level names mapped back to MCP parameter names.
+
+    This mirrors ``schema_sanitizer`` collision/drop behavior. Only surviving
+    renames are recorded; valid names and dropped collisions need no dispatch
+    translation.
+    """
+    properties = parameters.get("properties")
+    if not isinstance(properties, dict):
+        return {}
+
+    working_keys = set(properties)
+    rename_map: dict[str, str] = {}
+    for original_key in properties:
+        if re.fullmatch(r"[a-zA-Z0-9_.\-]{1,64}", original_key):
+            continue
+        safe_key = re.sub(r"[^a-zA-Z0-9_.\-]", "", original_key)[:64]
+        if not safe_key or safe_key in working_keys:
+            working_keys.discard(original_key)
+            continue
+        working_keys.discard(original_key)
+        working_keys.add(safe_key)
+        rename_map[safe_key] = original_key
+    return rename_map
+
+
+def _convert_mcp_schema_with_argument_map(
+    server_name: str,
+    mcp_tool,
+) -> tuple[dict, dict[str, str]]:
+    """Convert one MCP tool and retain names needed for runtime dispatch."""
+    from tools.schema_sanitizer import sanitize_tool_schemas
+
+    prefixed_name = mcp_prefixed_tool_name(server_name, mcp_tool.name)
+    parameters = _normalize_mcp_input_schema(
+        getattr(mcp_tool, "inputSchema", None)
+    )
+    argument_key_map = _mcp_argument_key_map(parameters)
+    wrapped = {
+        "type": "function",
+        "function": {
+            "name": prefixed_name,
+            "parameters": parameters,
+        },
+    }
+    sanitized_parameters = sanitize_tool_schemas([wrapped])[0]["function"][
+        "parameters"
+    ]
+    schema = {
+        "name": prefixed_name,
+        "description": mcp_tool.description
+        or f"MCP tool {mcp_tool.name} from {server_name}",
+        "parameters": sanitized_parameters,
+    }
+    return schema, argument_key_map
+
+
 def _convert_mcp_schema(server_name: str, mcp_tool) -> dict:
     """Convert an MCP tool listing to the Hermes registry schema format.
 
-    Args:
-        server_name: The logical server name for prefixing.
-        mcp_tool:    An MCP ``Tool`` object with ``.name``, ``.description``,
-                     and ``.inputSchema``.
-
-    Returns:
-        A dict suitable for ``registry.register(schema=...)``.
+    The separate argument-name map is consumed during registration; callers
+    that only need the provider-facing schema keep the historical dict API.
     """
-    prefixed_name = mcp_prefixed_tool_name(server_name, mcp_tool.name)
-    return {
-        "name": prefixed_name,
-        "description": mcp_tool.description or f"MCP tool {mcp_tool.name} from {server_name}",
-        "parameters": _normalize_mcp_input_schema(getattr(mcp_tool, "inputSchema", None)),
-    }
+    schema, _argument_key_map = _convert_mcp_schema_with_argument_map(
+        server_name,
+        mcp_tool,
+    )
+    return schema
 
 
 def _build_utility_schemas(server_name: str) -> List[dict]:
@@ -5060,7 +5129,10 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
         # Scan tool description for prompt injection patterns
         _scan_mcp_description(name, mcp_tool.name, mcp_tool.description or "")
 
-        schema = _convert_mcp_schema(name, mcp_tool)
+        schema, argument_key_map = _convert_mcp_schema_with_argument_map(
+            name,
+            mcp_tool,
+        )
         tool_name_prefixed = schema["name"]
 
         # Guard against collisions with built-in (non-MCP) tools.
@@ -5077,7 +5149,12 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
             name=tool_name_prefixed,
             toolset=toolset_name,
             schema=schema,
-            handler=_make_tool_handler(name, mcp_tool.name, server.tool_timeout),
+            handler=_make_tool_handler(
+                name,
+                mcp_tool.name,
+                server.tool_timeout,
+                argument_key_map,
+            ),
             check_fn=_make_check_fn(name),
             is_async=False,
             description=schema["description"],

@@ -738,6 +738,52 @@ class TestToolHandler:
         finally:
             _servers.pop("test_srv", None)
 
+    def test_registered_handler_restores_sanitized_argument_names(self):
+        """Registration closes the safe-to-original map into MCP dispatch."""
+        from tools.mcp_tool import _register_server_tools, _servers
+        from tools.registry import registry
+
+        mock_session = MagicMock()
+        mock_session.call_tool = AsyncMock(
+            return_value=_make_call_result("ok", is_error=False)
+        )
+        mcp_tool = _make_mcp_tool(
+            "uses_defs",
+            "Accept a property whose original name contains a dollar sign",
+            input_schema={
+                "type": "object",
+                "properties": {"$defs": {"type": "string"}},
+                "required": ["$defs"],
+            },
+        )
+        server = _make_mock_server(
+            "rename_srv",
+            session=mock_session,
+            tools=[mcp_tool],
+        )
+        _servers["rename_srv"] = server
+        registered = []
+        try:
+            registered = _register_server_tools("rename_srv", server, {})
+            entry = registry._tools["mcp__rename_srv__uses_defs"]
+            assert entry.schema["parameters"]["properties"] == {
+                "defs": {"type": "string"}
+            }
+            assert entry.schema["parameters"]["required"] == ["defs"]
+
+            with self._patch_mcp_loop():
+                result = json.loads(entry.handler({"defs": "payload"}))
+
+            assert result["result"] == "ok"
+            mock_session.call_tool.assert_awaited_once_with(
+                "uses_defs",
+                arguments={"$defs": "payload"},
+            )
+        finally:
+            for tool_name in registered:
+                registry.deregister(tool_name)
+            _servers.pop("rename_srv", None)
+
     def test_mcp_error_result(self):
         from tools.mcp_tool import _make_tool_handler, _servers
 

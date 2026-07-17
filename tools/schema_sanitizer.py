@@ -347,12 +347,15 @@ def _sanitize_node(node: Any, path: str) -> Any:
 
     # Sanitize property key names that violate the strict-backend pattern
     # (e.g. GitHub Copilot, Anthropic reject keys like "$defs" because
-    # characters outside [a-zA-Z0-9_.-] are forbidden).  Rename by
-    # stripping invalid characters; drop the property entirely if nothing
-    # valid remains or if the renamed key collides with an existing one.
-    # Applies to ``properties``, ``$defs``, and ``definitions`` dicts.
+    # characters outside [a-zA-Z0-9_.-] are forbidden). Rename by stripping
+    # invalid characters; drop the property entirely if nothing valid remains
+    # or if the renamed key collides with an existing one.
+    #
+    # Definition entry names are deliberately excluded: local ``$ref`` JSON
+    # Pointers address those names verbatim, so renaming them would leave the
+    # reference dangling.
     rename_map: dict[str, str] = {}
-    for dict_key in ("properties", "$defs", "definitions"):
+    for dict_key in ("properties",):
         target = out.get(dict_key)
         if not isinstance(target, dict):
             continue

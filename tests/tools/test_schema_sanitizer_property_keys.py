@@ -189,22 +189,21 @@ class TestNestedPropertyKeySanitization:
         assert "$env" not in nested
         assert "normal" in nested
 
-    def test_defs_keys_sanitized(self):
-        """Keys inside ``$defs`` / ``definitions`` are also sanitized."""
+    def test_referenced_defs_keys_are_preserved(self):
+        """Definition names stay stable so local JSON Pointers still resolve."""
         tools = [_tool("t", {
             "type": "object",
             "properties": {
-                "data": {"type": "string"},
+                "data": {"$ref": "#/$defs/$ref_target"},
             },
             "$defs": {
                 "$ref_target": {"type": "string"},
             },
         })]
         out = sanitize_tool_schemas(tools)
-        defs = out[0]["function"]["parameters"].get("$defs")
-        if defs is not None:
-            assert "ref_target" in defs
-            assert "$ref_target" not in defs
+        params = out[0]["function"]["parameters"]
+        assert "$ref_target" in params["$defs"]
+        assert params["properties"]["data"]["$ref"] == "#/$defs/$ref_target"
 
 
 class TestDeepcopyNotMutated:
