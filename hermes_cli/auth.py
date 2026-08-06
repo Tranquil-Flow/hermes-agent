@@ -3699,8 +3699,21 @@ def _save_codex_tokens(tokens: Dict[str, str], last_refresh: str = None, label: 
         _save_auth_store(auth_store)
 
 
-def _recover_codex_tokens_from_cli(reason: str) -> Optional[Dict[str, str]]:
-    """Adopt a valid Codex CLI token pair into Hermes auth, if available."""
+def _recover_codex_tokens_from_cli(
+    reason: str,
+    caller_observed_access_token: Optional[str] = None,
+) -> Optional[Dict[str, str]]:
+    """Adopt a valid Codex CLI token pair into Hermes auth, if available.
+
+    When *caller_observed_access_token* is provided (including None, meaning the
+    caller observed no token at all), the recovery performs a locked
+    compare-and-swap: under ``_auth_store_lock`` it re-reads the currently
+    stored token, compares it to the caller-observed snapshot, and only persists
+    the recovered credentials if the stored token still matches.  This prevents
+    a cross-workspace re-auth from silently adopting tokens from
+    ``~/.codex/auth.json`` when another process has already rotated the store
+    to a different workspace / account in the meantime.
+    """
     imported = _import_codex_cli_tokens()
     # Require BOTH tokens before adopting: persisting a payload without a
     # usable refresh_token would only break the next refresh cycle.
@@ -3710,9 +3723,43 @@ def _recover_codex_tokens_from_cli(reason: str) -> Optional[Dict[str, str]]:
         and str(imported.get("refresh_token", "") or "").strip()
     ):
         return None
-    logger.info("Codex auth recovered from Codex CLI auth.json (%s).", reason)
-    _save_codex_tokens(imported)
-    return dict(imported)
+
+    # Locked compare-and-swap: under the auth-store lock, re-read the
+    # currently stored token and only persist the recovered credentials when
+    # the stored token still matches the caller-observed snapshot.
+    with _auth_store_lock():
+        current_stored_access_token: Optional[str] = None
+        try:
+            current_data = _read_codex_tokens(_lock=False)
+            current_tokens = current_data.get("tokens", {}) if isinstance(current_data, dict) else {}
+            current_stored_access_token = (
+                str(current_tokens.get("access_token", "") or "").strip() or None
+            )
+        except AuthError:
+            current_stored_access_token = None
+        except Exception:
+            logger.debug(
+                "Codex auth recovery CAS: failed to read current stored token",
+                exc_info=True,
+            )
+
+        # Normalize the caller-observed snapshot for comparison.
+        _caller_observed = (
+            str(caller_observed_access_token or "").strip() or None
+        )
+
+        if _caller_observed != current_stored_access_token:
+            logger.info(
+                "Codex auth recovery skipped: caller-observed token %s does not "
+                "match current stored token %s (cross-workspace or race detected).",
+                "present" if _caller_observed else "absent",
+                "present" if current_stored_access_token else "absent",
+            )
+            return None
+
+        logger.info("Codex auth recovered from Codex CLI auth.json (%s).", reason)
+        _save_codex_tokens(imported)
+        return dict(imported)
 
 
 def refresh_codex_oauth_pure(
@@ -3852,10 +3899,16 @@ def refresh_codex_oauth_pure(
 def _refresh_codex_auth_tokens(
     tokens: Dict[str, str],
     timeout_seconds: float,
+    caller_observed_access_token: Optional[str] = None,
 ) -> Dict[str, str]:
     """Refresh Codex access token using the refresh token.
     
     Saves the new tokens to Hermes auth store automatically.
+    
+    *caller_observed_access_token* is passed through to
+    ``_recover_codex_tokens_from_cli`` so the recovery path can perform a
+    locked compare-and-swap against the token the caller originally observed
+    (before any concurrent re-auth rotated the store).
     """
     try:
         refreshed = refresh_codex_oauth_pure(
@@ -3879,7 +3932,8 @@ def _refresh_codex_auth_tokens(
         if not getattr(exc, "relogin_required", False):
             raise
         imported = _recover_codex_tokens_from_cli(
-            f"refresh_token rejected: {getattr(exc, 'code', None) or 'auth_error'}"
+            f"refresh_token rejected: {getattr(exc, 'code', None) or 'auth_error'}",
+            caller_observed_access_token=caller_observed_access_token,
         )
         if not imported:
             raise
@@ -3954,7 +4008,10 @@ def resolve_codex_runtime_credentials(
             "codex_auth_missing_refresh_token",
             "codex_auth_invalid_shape",
         }:
-            imported = _recover_codex_tokens_from_cli(str(getattr(exc, "code", None) or "auth_error"))
+            imported = _recover_codex_tokens_from_cli(
+                str(getattr(exc, "code", None) or "auth_error"),
+                caller_observed_access_token=None,
+            )
             if imported:
                 data = {"tokens": imported, "last_refresh": imported.get("last_refresh")}
             else:
@@ -4036,6 +4093,11 @@ def resolve_codex_runtime_credentials(
 
     tokens = dict(data["tokens"])
     access_token = str(tokens.get("access_token", "") or "").strip()
+    # Snapshot the caller-observed access token BEFORE any auth operation /
+    # locked re-read, so the recovery chain can perform a locked CAS against
+    # this observation rather than taking a second unlocked observation that
+    # might already be stale due to a concurrent re-auth.
+    caller_observed_access_token = access_token if access_token else None
     refresh_timeout_seconds = env_float("HERMES_CODEX_REFRESH_TIMEOUT_SECONDS", 20)
 
     should_refresh = bool(force_refresh)
@@ -4053,7 +4115,11 @@ def resolve_codex_runtime_credentials(
                 should_refresh = _codex_access_token_is_expiring(access_token, refresh_skew_seconds)
 
             if should_refresh:
-                tokens = _refresh_codex_auth_tokens(tokens, refresh_timeout_seconds)
+                tokens = _refresh_codex_auth_tokens(
+                    tokens,
+                    refresh_timeout_seconds,
+                    caller_observed_access_token=caller_observed_access_token,
+                )
                 access_token = str(tokens.get("access_token", "") or "").strip()
 
     base_url = (
