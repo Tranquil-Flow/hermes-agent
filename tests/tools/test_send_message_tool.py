@@ -1824,3 +1824,117 @@ class TestSendTelegramThreadNotFoundRetry:
         finally:
             if media_path and os.path.exists(media_path):
                 os.unlink(media_path)
+
+
+class TestSendToPlatformTelegramBaseUrl:
+    """Dispatch-boundary: PlatformConfig extra.base_url / base_file_url
+    reach telegram.Bot via _send_to_platform (#73156).
+
+    ``_send_telegram`` (standalone) already forwards the two values to
+    ``Bot(…, base_url=…, base_file_url=…)``.  This test proves the full
+    dispatch chain from ``_send_to_platform`` → ``_send_telegram`` → ``Bot``
+    so a gateway config entry that sets ``extra.base_url`` (self-hosted
+    telegram-bot-api server) actually reaches the Bot constructor.
+    """
+
+    def test_base_url_forwarded_to_bot_constructor(self, monkeypatch):
+        """PlatformConfig extra.base_url / base_file_url reach Bot()."""
+        from gateway.config import PlatformConfig
+
+        bot_kwargs_captured: dict = {}
+
+        def _make_bot(token, **kwargs):
+            bot_kwargs_captured["token"] = token
+            bot_kwargs_captured.update(kwargs)
+            return _FakeBot()
+
+        class _FakeBot:
+            send_message = AsyncMock(return_value=SimpleNamespace(message_id=1))
+            send_photo = AsyncMock(return_value=SimpleNamespace(message_id=2))
+            send_video = AsyncMock(return_value=SimpleNamespace(message_id=3))
+            send_voice = AsyncMock(return_value=SimpleNamespace(message_id=4))
+            send_audio = AsyncMock(return_value=SimpleNamespace(message_id=5))
+            send_document = AsyncMock(return_value=SimpleNamespace(message_id=6))
+
+        parse_mode = SimpleNamespace(MARKDOWN_V2="MarkdownV2", HTML="HTML")
+        constants_mod = SimpleNamespace(ParseMode=parse_mode)
+        _MessageEntity = lambda **_kw: SimpleNamespace(**_kw)
+        telegram_mod = SimpleNamespace(
+            Bot=_make_bot,
+            MessageEntity=_MessageEntity,
+            constants=constants_mod,
+        )
+        # Avoid injecting the mock while another test has its own
+        # monkeypatch still active — replace sys.modules entries
+        # cleanly via monkeypatch.setitem (same strategy as
+        # _install_telegram_mock).
+        monkeypatch.setitem(sys.modules, "telegram", telegram_mod)
+        monkeypatch.setitem(sys.modules, "telegram.constants", constants_mod)
+
+        pconfig = PlatformConfig(
+            enabled=True,
+            token="test-token",
+            extra={
+                "base_url": "http://local-bot-api:8081/bot",
+                "base_file_url": "http://local-bot-api:8081/bot/file",
+            },
+        )
+
+        result = asyncio.run(
+            _send_to_platform(Platform.TELEGRAM, pconfig, "-100123", "hello world")
+        )
+
+        assert result["success"] is True
+        assert bot_kwargs_captured.get("token") == "test-token"
+        assert (
+            bot_kwargs_captured.get("base_url")
+            == "http://local-bot-api:8081/bot"
+        ), f"Bot kwargs: {bot_kwargs_captured}"
+        assert (
+            bot_kwargs_captured.get("base_file_url")
+            == "http://local-bot-api:8081/bot/file"
+        ), f"Bot kwargs: {bot_kwargs_captured}"
+
+    def test_no_base_url_configured_is_noop(self, monkeypatch):
+        """When extra has no base_url, Bot receives no custom URL kwargs."""
+        from gateway.config import PlatformConfig
+
+        bot_kwargs_captured: dict = {}
+
+        def _make_bot(token, **kwargs):
+            bot_kwargs_captured["token"] = token
+            bot_kwargs_captured.update(kwargs)
+            return _FakeBot2()
+
+        class _FakeBot2:
+            send_message = AsyncMock(return_value=SimpleNamespace(message_id=1))
+            send_photo = AsyncMock(return_value=SimpleNamespace(message_id=2))
+            send_video = AsyncMock(return_value=SimpleNamespace(message_id=3))
+            send_voice = AsyncMock(return_value=SimpleNamespace(message_id=4))
+            send_audio = AsyncMock(return_value=SimpleNamespace(message_id=5))
+            send_document = AsyncMock(return_value=SimpleNamespace(message_id=6))
+
+        parse_mode = SimpleNamespace(MARKDOWN_V2="MarkdownV2", HTML="HTML")
+        constants_mod = SimpleNamespace(ParseMode=parse_mode)
+        _MessageEntity = lambda **_kw: SimpleNamespace(**_kw)
+        telegram_mod = SimpleNamespace(
+            Bot=_make_bot,
+            MessageEntity=_MessageEntity,
+            constants=constants_mod,
+        )
+        monkeypatch.setitem(sys.modules, "telegram", telegram_mod)
+        monkeypatch.setitem(sys.modules, "telegram.constants", constants_mod)
+
+        pconfig = PlatformConfig(
+            enabled=True,
+            token="test-token",
+            extra={},
+        )
+
+        result = asyncio.run(
+            _send_to_platform(Platform.TELEGRAM, pconfig, "-100123", "hello world")
+        )
+
+        assert result["success"] is True
+        assert "base_url" not in bot_kwargs_captured
+        assert "base_file_url" not in bot_kwargs_captured
