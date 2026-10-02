@@ -5264,6 +5264,20 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
         """Return the parent text channel when invoked from a thread."""
         return getattr(channel, "parent", None) or channel
 
+    @staticmethod
+    def _public_thread_create_kwargs(*, name: str, auto_archive_duration: int, reason: str) -> dict[str, Any]:
+        """Arguments for a message-less public thread fallback."""
+        kwargs: dict[str, Any] = {
+            "name": name,
+            "auto_archive_duration": auto_archive_duration,
+            "reason": reason,
+        }
+        channel_type = getattr(discord, "ChannelType", None)
+        public_thread = getattr(channel_type, "public_thread", None)
+        if public_thread is not None:
+            kwargs["type"] = public_thread
+        return kwargs
+
     async def _resolve_interaction_channel(self, interaction: discord.Interaction) -> Optional[Any]:
         """Return the interaction channel, fetching it if the payload is partial."""
         channel = getattr(interaction, "channel", None)
@@ -5286,7 +5300,7 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
         self, interaction: discord.Interaction, *, name: str, message: str = "",
         auto_archive_duration: int = 1440,
     ) -> Dict[str, Any]:
-        """Create a thread in the current channel; falls back to seed message + create_thread on rejection (e.g. permissions)."""
+        """Create a feed-visible thread in the current channel; falls back to direct public creation."""
         name = (name or "").strip()
         if not name:
             return {"error": t("platform.discord.command.thread.error_name_required")}
@@ -5305,25 +5319,25 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
         reason = f"Requested by {display_name} via /thread"
         starter_message = (message or "").strip()
         try:
-            thread = await parent_channel.create_thread(
+            seed_content = starter_message or t("platform.discord.thread.seed_message", name=name)
+            seed_msg = await parent_channel.send(seed_content)
+            thread = await seed_msg.create_thread(
                 name=name, auto_archive_duration=auto_archive_duration, reason=reason,
             )
-            if starter_message:
-                await thread.send(starter_message)
             return self._thread_created(thread, name)
-        except Exception as direct_error:
+        except Exception as seed_error:
             try:
-                seed_content = starter_message or t("platform.discord.thread.seed_message", name=name)
-                seed_msg = await parent_channel.send(seed_content)
-                thread = await seed_msg.create_thread(
+                thread = await parent_channel.create_thread(**self._public_thread_create_kwargs(
                     name=name, auto_archive_duration=auto_archive_duration, reason=reason,
-                )
+                ))
+                if starter_message:
+                    await thread.send(starter_message)
                 return self._thread_created(thread, name)
-            except Exception as fallback_error:
+            except Exception as direct_error:
                 return {
                     "error": t(
                         "platform.discord.command.thread.error_both_failed",
-                        direct_error=str(direct_error), fallback_error=str(fallback_error)),
+                        direct_error=str(direct_error), fallback_error=str(seed_error)),
                 }
 
     @staticmethod
@@ -5444,8 +5458,8 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
             return False
 
     async def create_handoff_thread(self, parent_chat_id: str, name: str) -> Optional[str]:
-        """Create a handoff thread under a text channel; returns the thread id or ``None``.
-        Falls back to seed-message + ``message.create_thread``; DMs/voice/threads can't host threads."""
+        """Create a feed-visible handoff thread under a text channel; returns its id or ``None``.
+        Uses a seed message as the primary anchor; DMs/voice/threads can't host child threads."""
         if not self._client or not DISCORD_AVAILABLE:
             return None
         try:
@@ -5471,28 +5485,35 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
         thread_name = (name or "handoff").strip()[:80] or "handoff"
         reason = "Hermes session handoff"
         try:
-            create = getattr(parent, "create_thread", None)
-            if create is not None:
-                thread = await create(name=thread_name, auto_archive_duration=1440, reason=reason)
-                return str(thread.id)
-        except Exception as direct_error:
-            logger.debug(
-                "[%s] Handoff thread: direct create failed (%s); trying seed-message fallback",
-                self.name, direct_error,
-            )
-        try:
             send = getattr(parent, "send", None)
             if send is None:
-                return None
+                raise RuntimeError("parent channel cannot send seed messages")
             seed_msg = await send(t("platform.discord.thread.handoff_seed", name=thread_name))
             thread = await seed_msg.create_thread(
                 name=thread_name, auto_archive_duration=1440, reason=reason,
             )
-            return str(thread.id)
-        except Exception as fallback_error:
+            thread_id = str(thread.id)
+            await self._threads.mark_async(thread_id)
+            return thread_id
+        except Exception as seed_error:
+            logger.debug(
+                "[%s] Handoff thread: seed-message create failed (%s); trying direct public fallback",
+                self.name, seed_error,
+            )
+        try:
+            create = getattr(parent, "create_thread", None)
+            if create is None:
+                return None
+            thread = await create(**self._public_thread_create_kwargs(
+                name=thread_name, auto_archive_duration=1440, reason=reason,
+            ))
+            thread_id = str(thread.id)
+            await self._threads.mark_async(thread_id)
+            return thread_id
+        except Exception as direct_error:
             logger.warning(
                 "[%s] Handoff thread: both create paths failed for parent %s: %s",
-                self.name, parent_chat_id, fallback_error,
+                self.name, parent_chat_id, direct_error,
             )
             return None
 

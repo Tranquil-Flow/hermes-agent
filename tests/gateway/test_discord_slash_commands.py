@@ -20,6 +20,7 @@ def _ensure_discord_mock():
         discord_mod.DMChannel = type("DMChannel", (), {})
         discord_mod.Thread = type("Thread", (), {})
         discord_mod.ForumChannel = type("ForumChannel", (), {})
+        discord_mod.ChannelType = SimpleNamespace(public_thread="public_thread")
         discord_mod.Interaction = object
 
         # Lightweight mock for app_commands.Group and Command used by
@@ -75,6 +76,7 @@ def _ensure_discord_mock():
 
 _ensure_discord_mock()
 
+import plugins.platforms.discord.adapter as discord_adapter_mod  # noqa: E402
 from plugins.platforms.discord.adapter import DiscordAdapter  # noqa: E402
 
 
@@ -292,7 +294,8 @@ async def test_slash_command_registration_stays_under_discord_limit(adapter):
 @pytest.mark.asyncio
 async def test_handle_thread_create_slash_reports_success(adapter):
     created_thread = SimpleNamespace(id=555, name="Planning", send=AsyncMock())
-    parent_channel = SimpleNamespace(create_thread=AsyncMock(return_value=created_thread), send=AsyncMock())
+    seed_message = SimpleNamespace(id=777, create_thread=AsyncMock(return_value=created_thread))
+    parent_channel = SimpleNamespace(create_thread=AsyncMock(), send=AsyncMock(return_value=seed_message))
     interaction_channel = SimpleNamespace(parent=parent_channel)
     interaction = SimpleNamespace(
         channel=interaction_channel,
@@ -305,12 +308,14 @@ async def test_handle_thread_create_slash_reports_success(adapter):
 
     await adapter._handle_thread_create_slash(interaction, "Planning", "Kickoff", 1440)
 
-    parent_channel.create_thread.assert_awaited_once_with(
+    parent_channel.send.assert_awaited_once_with("Kickoff")
+    seed_message.create_thread.assert_awaited_once_with(
         name="Planning",
         auto_archive_duration=1440,
         reason="Requested by Jezza via /thread",
     )
-    created_thread.send.assert_awaited_once_with("Kickoff")
+    parent_channel.create_thread.assert_not_awaited()
+    created_thread.send.assert_not_awaited()
     # Thread link shown to user
     interaction.followup.send.assert_awaited()
     args, kwargs = interaction.followup.send.await_args
@@ -319,12 +324,11 @@ async def test_handle_thread_create_slash_reports_success(adapter):
 
 
 @pytest.mark.asyncio
-async def test_handle_thread_create_slash_falls_back_to_seed_message(adapter):
-    created_thread = SimpleNamespace(id=555, name="Planning")
-    seed_message = SimpleNamespace(id=777, create_thread=AsyncMock(return_value=created_thread))
+async def test_handle_thread_create_slash_falls_back_to_direct_public_thread(adapter):
+    created_thread = SimpleNamespace(id=555, name="Planning", send=AsyncMock())
     channel = SimpleNamespace(
-        create_thread=AsyncMock(side_effect=RuntimeError("direct failed")),
-        send=AsyncMock(return_value=seed_message),
+        create_thread=AsyncMock(return_value=created_thread),
+        send=AsyncMock(side_effect=RuntimeError("seed failed")),
     )
     interaction = SimpleNamespace(
         channel=channel,
@@ -337,13 +341,123 @@ async def test_handle_thread_create_slash_falls_back_to_seed_message(adapter):
 
     await adapter._handle_thread_create_slash(interaction, "Planning", "Kickoff", 1440)
 
+    channel.create_thread.assert_awaited_once_with(
+        name="Planning",
+        auto_archive_duration=1440,
+        reason="Requested by Jezza via /thread",
+        type=discord_adapter_mod.discord.ChannelType.public_thread,
+    )
+    created_thread.send.assert_awaited_once_with("Kickoff")
+    interaction.followup.send.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_thread_create_slash_anchors_with_seed_message_first(adapter):
+    created_thread = SimpleNamespace(id=555, name="Planning")
+    seed_message = SimpleNamespace(id=777, create_thread=AsyncMock(return_value=created_thread))
+    channel = SimpleNamespace(
+        create_thread=AsyncMock(return_value=SimpleNamespace(id=999, name="Planning")),
+        send=AsyncMock(return_value=seed_message),
+    )
+    interaction = SimpleNamespace(
+        channel=channel,
+        channel_id=123,
+        user=SimpleNamespace(display_name="Jezza", id=42),
+        guild=SimpleNamespace(name="TestGuild"),
+        followup=SimpleNamespace(send=AsyncMock()),
+        response=SimpleNamespace(defer=AsyncMock()),
+    )
+    adapter._threads.mark_async = AsyncMock()
+    adapter._dispatch_thread_session = AsyncMock()
+
+    await adapter._handle_thread_create_slash(interaction, "Planning", "Kickoff", 1440)
+
     channel.send.assert_awaited_once_with("Kickoff")
     seed_message.create_thread.assert_awaited_once_with(
         name="Planning",
         auto_archive_duration=1440,
         reason="Requested by Jezza via /thread",
     )
-    interaction.followup.send.assert_awaited()
+    channel.create_thread.assert_not_awaited()
+    adapter._threads.mark_async.assert_awaited_once_with("555")
+    adapter._dispatch_thread_session.assert_awaited_once_with(interaction, "555", "Planning", "Kickoff")
+
+
+@pytest.mark.asyncio
+async def test_handle_thread_create_slash_direct_fallback_is_public(adapter):
+    created_thread = SimpleNamespace(id=555, name="Planning", send=AsyncMock())
+    channel = SimpleNamespace(
+        create_thread=AsyncMock(return_value=created_thread),
+        send=AsyncMock(side_effect=RuntimeError("seed send failed")),
+    )
+    interaction = SimpleNamespace(
+        channel=channel,
+        channel_id=123,
+        user=SimpleNamespace(display_name="Jezza", id=42),
+        guild=SimpleNamespace(name="TestGuild"),
+        followup=SimpleNamespace(send=AsyncMock()),
+        response=SimpleNamespace(defer=AsyncMock()),
+    )
+    adapter._threads.mark_async = AsyncMock()
+    adapter._dispatch_thread_session = AsyncMock()
+
+    await adapter._handle_thread_create_slash(interaction, "Planning", "Kickoff", 1440)
+
+    channel.create_thread.assert_awaited_once_with(
+        name="Planning",
+        auto_archive_duration=1440,
+        reason="Requested by Jezza via /thread",
+        type=discord_adapter_mod.discord.ChannelType.public_thread,
+    )
+    created_thread.send.assert_awaited_once_with("Kickoff")
+    adapter._threads.mark_async.assert_awaited_once_with("555")
+
+
+@pytest.mark.asyncio
+async def test_create_handoff_thread_anchors_with_seed_message_first(adapter):
+    created_thread = SimpleNamespace(id=555, name="Review")
+    seed_message = SimpleNamespace(id=777, create_thread=AsyncMock(return_value=created_thread))
+    channel = SimpleNamespace(
+        create_thread=AsyncMock(return_value=SimpleNamespace(id=999, name="Review")),
+        send=AsyncMock(return_value=seed_message),
+    )
+    adapter._client.get_channel = lambda _id: channel
+    adapter._threads.mark_async = AsyncMock()
+
+    thread_id = await adapter.create_handoff_thread("123", "Review")
+
+    assert thread_id == "555"
+    channel.send.assert_awaited_once()
+    assert "Review" in channel.send.await_args.args[0]
+    seed_message.create_thread.assert_awaited_once_with(
+        name="Review",
+        auto_archive_duration=1440,
+        reason="Hermes session handoff",
+    )
+    channel.create_thread.assert_not_awaited()
+    adapter._threads.mark_async.assert_awaited_once_with("555")
+
+
+@pytest.mark.asyncio
+async def test_create_handoff_thread_direct_fallback_is_public(adapter):
+    created_thread = SimpleNamespace(id=555, name="Review")
+    channel = SimpleNamespace(
+        create_thread=AsyncMock(return_value=created_thread),
+        send=AsyncMock(side_effect=RuntimeError("seed send failed")),
+    )
+    adapter._client.get_channel = lambda _id: channel
+    adapter._threads.mark_async = AsyncMock()
+
+    thread_id = await adapter.create_handoff_thread("123", "Review")
+
+    assert thread_id == "555"
+    channel.create_thread.assert_awaited_once_with(
+        name="Review",
+        auto_archive_duration=1440,
+        reason="Hermes session handoff",
+        type=discord_adapter_mod.discord.ChannelType.public_thread,
+    )
+    adapter._threads.mark_async.assert_awaited_once_with("555")
 
 
 # ------------------------------------------------------------------
