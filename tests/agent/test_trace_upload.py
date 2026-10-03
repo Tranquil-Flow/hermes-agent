@@ -91,6 +91,25 @@ def test_upload_blocks_when_redactor_fails(monkeypatch):
     upload_mock.assert_not_called()
 
 
+def test_no_token_message_names_commands_that_exist():
+    """#132076: the no-HF-token setup steps must point at the real entry point
+    (`hermes sessions export --format trace --upload`), never at a slash command or CLI
+    subcommand that is not registered anywhere."""
+    from hermes_cli.commands import COMMAND_REGISTRY
+
+    msg = upload_session_trace("s1")  # no token in the isolated test env
+
+    # Step 3 names the working CLI entry point...
+    assert "hermes sessions export --format trace --upload" in msg
+    # ...and no longer advertises the unregistered names from #132076.
+    assert "/upload-trace" not in msg
+    assert "hermes trace upload" not in msg
+    # Contract: the copy never references a slash command outside the registry.
+    referenced = [word for word in msg.split() if word.startswith("/") and len(word) > 1]
+    registry_names = {c.name for c in COMMAND_REGISTRY}
+    assert not (set(referenced) - registry_names)
+
+
 def test_converter_keeps_secrets_when_redact_disabled():
     secret = "sk-abc123def456ghi789jklmno"
     msgs = [{"role": "user", "content": f"key OPENAI_API_KEY={secret} end"}]
