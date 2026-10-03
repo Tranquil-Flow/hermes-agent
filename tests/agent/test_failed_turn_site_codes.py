@@ -11,7 +11,7 @@ import pytest
 from agent.error_surface import build_error_surface_from_result
 from agent.turn_explainers import EMPTY_RESPONSE_EXPLANATION, TurnExplainersMixin
 from agent.turn_failure_copy import (
-    SITE_FAILURE_CODES, exit_reason_failure, failure_cause_gloss,
+    SITE_FAILURE_CODES, exit_reason_failure, failure_cause_gloss, site_copy,
 )
 from agent.turn_overflow import _Recovery
 
@@ -147,6 +147,24 @@ def test_every_failure_code_copy_key_is_a_failure_code():
 
     assert set(_FAILURE_CODE_COPY) <= SITE_FAILURE_CODES
     assert not (set(_ONE_OFF_COPY) & SITE_FAILURE_CODES)
+
+
+def test_max_iterations_no_summary_names_a_config_key_that_exists():
+    """#132073: the iteration-limit message must advise the setting the turn limiter actually
+    reads (`agent.max_turns`), not the runtime attribute name `max_iterations`, which is not a
+    user-facing config key — following the old advice wrote a key Hermes never reads."""
+    from hermes_cli.config import resolve_turn_limit
+
+    text = site_copy("max_iterations_no_summary", limit=7)
+
+    # The advised key must be one resolve_turn_limit honours for the main loop...
+    assert "agent.max_turns" in text
+    # ...rendered through the real site_copy path with the limit interpolated...
+    assert "(7 tool calls)" in text
+    # ...and must not point users at a key the config loader ignores.
+    assert "raise `max_iterations`" not in text
+    # Contract: the key named in the copy, once set, actually changes the resolved limit.
+    assert resolve_turn_limit(7) == 7
 
 
 def test_cause_gloss_substitutes_the_subject_and_skips_unknown_reasons():
