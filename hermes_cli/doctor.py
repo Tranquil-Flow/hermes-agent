@@ -161,9 +161,15 @@ def _print_summary(should_fix: bool, total: Finding) -> None:
         print(numbered)
         if not should_fix:
             print(color("  Tip: run 'hermes doctor --fix' to auto-fix what's possible.", Colors.DIM))
-    else:
+    elif not total.incomplete:
         print(color("─" * 60, Colors.GREEN))
         print(color("  All checks passed! 🎉", Colors.GREEN, Colors.BOLD))
+    if total.incomplete:
+        print(color("─" * 60, Colors.YELLOW))
+        print(color(f"  {len(total.incomplete)} check(s) could not complete:", Colors.YELLOW, Colors.BOLD))
+        print()
+        for entry in total.incomplete:
+            print(color(f"  ⚠ {entry}", Colors.YELLOW))
     print()
 
 
@@ -185,8 +191,13 @@ def run_doctor(args):
             _section(title)
         total.merge(check(should_fix))
     # Opt-in live probes run AFTER all static checks (`--live`: real network calls; bounded + read-only).
-    with warn_on_error(""):
-        from hermes_cli.doctor_live import maybe_run_live_checks
-        maybe_run_live_checks(args, total.manual_issues)
+    # An import/probe failure must surface as an incomplete check (#132335), never a silent success —
+    # but only when --live was requested; a plain run never imports the live subsystem at all.
+    if getattr(args, "live", False):
+        try:
+            from hermes_cli.doctor_live import maybe_run_live_checks
+            maybe_run_live_checks(args, total.manual_issues)
+        except Exception as e:
+            total.incomplete.append(f"live checks could not complete ({e})")
     _print_summary(should_fix, total)
-    return int(bool(total.issues or total.manual_issues))
+    return int(bool(total.issues or total.manual_issues or total.incomplete))

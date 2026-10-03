@@ -58,19 +58,22 @@ class Finding:
     issues: list = field(default_factory=list)
     manual_issues: list = field(default_factory=list)
     fixed: int = 0
+    incomplete: list = field(default_factory=list)
 
     def merge(self, other: "Finding") -> None:
         self.issues.extend(other.issues)
         self.manual_issues.extend(other.manual_issues)
         self.fixed += other.fixed
+        self.incomplete.extend(other.incomplete)
 
 
 def doctor_check(on_error: str | None = None, detail: str = ""):
     """Turn ``fn(should_fix, f: Finding)`` into a ``(should_fix) -> Finding`` doctor check.
 
     *on_error* None: exceptions propagate (as they always did for that check). Otherwise the check is
-    best-effort via :func:`warn_on_error` (``""`` = silent) and the partial Finding is still returned,
-    so issues recorded before the crash survive."""
+    best-effort: the exception is reported via :func:`warn_on_error` (``""`` = silent) and the partial
+    Finding is still returned, so issues recorded before the crash survive. A check that raised is
+    recorded on the Finding as incomplete (#132335) so the summary and exit status can account for it."""
     def deco(fn):
         @functools.wraps(fn)
         def check(should_fix: bool) -> Finding:
@@ -78,8 +81,12 @@ def doctor_check(on_error: str | None = None, detail: str = ""):
             if on_error is None:
                 fn(should_fix, f)
             else:
-                with warn_on_error(on_error, detail):
+                try:
                     fn(should_fix, f)
+                except Exception as e:
+                    if on_error:
+                        check_warn(on_error.format(e=e), detail.format(e=e))
+                    f.incomplete.append(f"{getattr(fn, '__name__', 'check')} check could not complete ({e})")
             return f
         return check
     return deco
