@@ -18,7 +18,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, wait as _futures_wait
 from dataclasses import KW_ONLY, dataclass, replace
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Optional
 
 from agent.auxiliary_client import call_llm
 from agent.message_content import flatten_message_text
@@ -279,6 +279,48 @@ def _slot_runtime(slot: dict[str, Any]) -> dict[str, Any]:
     with _runtime_cache_lock:
         _runtime_cache[cache_key] = (now, out)
     return out
+
+
+def evict_slot_runtime_cache(provider: str) -> int:
+    """Drop cached ``_slot_runtime`` resolutions for *provider* (any model).
+
+    Credential rotation invalidates the cached api_key/base_url for up to
+    ``_RUNTIME_CACHE_TTL_SECONDS``; without this the aggregator retry re-sends
+    the benched key (#132284)."""
+    normalized = str(provider or "").strip().lower()
+    if not normalized:
+        return 0
+    with _runtime_cache_lock:
+        stale = [key for key in _runtime_cache if str(key[1] or "").strip().lower() == normalized]
+        for key in stale:
+            _runtime_cache.pop(key, None)
+    return len(stale)
+
+
+def peek_slot_runtime_api_key(provider: str, model: Optional[str]) -> Optional[str]:
+    """The cached ``_slot_runtime`` api_key for ``(provider, model)``, or ``None``.
+
+    Attribute a MoA aggregator failure to the credential that actually served the
+    request (#132284): the agent's own ``api_key`` is the virtual "moa" placeholder
+    and cannot identify a pool entry. Read-only — never resolves, never mutates the
+    cache, so a peek cannot extend a stale entry's TTL.
+    """
+    normalized = str(provider or "").strip().lower()
+    if not normalized:
+        return None
+    with _runtime_cache_lock:
+        entries = [
+            (key, cached) for key, cached in _runtime_cache.items()
+            if str(key[1] or "").strip().lower() == normalized
+            and (not model or not key[2] or str(key[2]) == str(model))
+        ]
+    if not entries:
+        return None
+    now = time.monotonic()
+    for _key, (cached_at, runtime) in entries:
+        if now - cached_at < _RUNTIME_CACHE_TTL_SECONDS and runtime.get("api_key"):
+            return str(runtime["api_key"])
+    return None
 
 
 def _merge_slot_extra_body(slot_extra_body: Any, caller_extra_body: Any) -> Any:

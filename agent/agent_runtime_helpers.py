@@ -1002,6 +1002,139 @@ def _recover_rate_limit(pool, *, has_retried_429, error_context, api_key_hint, c
     return (True, False) if rotate_and_swap(429, "rate limit") else (False, True)
 
 
+def _moa_aggregator_route(agent) -> Tuple[str, str]:
+    """``(provider, model)`` of the MoA facade's live aggregator slot; ``("", "")`` unresolvable.
+
+    Prefers the facade's ``last_aggregator_slot`` (the slot that actually served the failing
+    request) and falls back to the preset config via ``_resolve_moa_aggregator``.
+    """
+    slot = None
+    with contextlib.suppress(Exception):
+        completions = getattr(getattr(getattr(agent, "client", None), "chat", None), "completions", None)
+        slot = getattr(completions, "last_aggregator_slot", None)
+    provider = str((slot or {}).get("provider") or "").strip() if isinstance(slot, dict) else ""
+    model = str((slot or {}).get("model") or "").strip() if isinstance(slot, dict) else ""
+    if provider and provider.lower() != "moa":
+        return provider, model
+    try:
+        from agent.auxiliary_client import _resolve_moa_aggregator
+        agg_provider, agg_model = _resolve_moa_aggregator(getattr(agent, "model", None))
+        if agg_provider and agg_model:
+            return agg_provider, agg_model
+    except Exception:
+        logger.debug("MoA aggregator route resolution failed", exc_info=True)
+    return "", ""
+
+
+def _recover_moa_aggregator_pool(
+    agent, pool, *, aggregator_provider: str, aggregator_model: str,
+    status_code: Optional[int], has_retried_429: bool,
+    classified_reason: Optional["FailoverReason"], error_context: Optional[Dict[str, Any]],
+    billing_unverified: bool,
+) -> tuple:
+    """Rotate the aggregator provider's pool for a MoA main loop (#132284).
+
+    The agent's virtual identity (provider="moa", base_url="moa://local") must NOT be swapped:
+    ``_swap_credential`` would rewrite it onto a real wire endpoint. Instead mark the failed
+    credential exhausted, select the next eligible entry, and evict every cache that would
+    re-send the benched key — the aggregator retry re-resolves credentials per call via
+    ``_slot_runtime`` → ``call_llm`` → ``resolve_runtime_provider``.
+    """
+    # The agent's virtual identity cannot attribute the failure in the AGGREGATOR's pool:
+    # ``agent.api_key`` is the "moa" placeholder key, and passing it as the hint would match
+    # no entry — ``_rotate_unmatched`` rotates without benching anything, which is precisely
+    # the symptom #132284 reports. Attribute via the runtime cache that fed the failing
+    # aggregator request; with nothing cached, let the pool's selection strategy attribute.
+    api_key_hint: Optional[str] = None
+    with contextlib.suppress(Exception):
+        from agent.moa_loop import peek_slot_runtime_api_key
+        api_key_hint = peek_slot_runtime_api_key(aggregator_provider, aggregator_model)
+    if not api_key_hint:
+        api_key_hint = getattr(pool.current(), "runtime_api_key", None) or None
+    effective_reason = classified_reason
+    if effective_reason is None and status_code is not None:
+        effective_reason = _STATUS_TO_FAILOVER_REASON.get(status_code)
+
+    def _rotate(default_status: int, label: str) -> bool:
+        rotate_status = status_code if status_code is not None else default_status
+        kwargs: Dict[str, Any] = {
+            "status_code": rotate_status, "error_context": error_context,
+            "api_key_hint": api_key_hint,
+        }
+        if effective_reason is not None:
+            failure_reason = effective_reason.value
+            if effective_reason == FailoverReason.billing and billing_unverified:
+                from agent.credential_pool import FAILURE_REASON_BILLING_UNVERIFIED
+                failure_reason = FAILURE_REASON_BILLING_UNVERIFIED
+            kwargs["failure_reason"] = failure_reason
+        if aggregator_model:
+            kwargs["model"] = aggregator_model
+        next_entry = pool.mark_exhausted_and_rotate(**kwargs)
+        if next_entry is None:
+            return False
+        _evict_moa_aggregator_caches(aggregator_provider)
+        _ra().logger.info(
+            "MoA aggregator %s — rotated %s pool to credential %s",
+            label, aggregator_provider, getattr(next_entry, "id", "?"),
+        )
+        return True
+
+    if effective_reason == FailoverReason.billing:
+        return (True, False) if _rotate(402, "billing") else (False, has_retried_429)
+    if effective_reason == FailoverReason.rate_limit:
+        current_entry = None
+        if api_key_hint:
+            current_entry = next(
+                (e for e in pool.entries() if e.runtime_api_key == api_key_hint), None
+            )
+        if current_entry is None:
+            current_entry = pool.current()
+        current_last_status = getattr(current_entry, "last_status", None) if current_entry else None
+        if current_last_status == STATUS_EXHAUSTED:
+            _ra().logger.info(
+                "MoA aggregator credential already exhausted (last_status=%s) — rotating immediately",
+                current_last_status,
+            )
+            return (True, False) if _rotate(429, "rate limit, pre-exhausted") else (False, True)
+        usage_limit_reached = False
+        if error_context:
+            context_reason = str(error_context.get("reason") or "").lower()
+            context_message = str(error_context.get("message") or "").lower()
+            usage_limit_reached = any(t in context_reason for t in _USAGE_LIMIT_REASON_TOKENS) or any(
+                t in context_message for t in _USAGE_LIMIT_MESSAGE_TOKENS
+            )
+        if not has_retried_429 and not usage_limit_reached:
+            return False, True
+        return (True, False) if _rotate(429, "rate limit") else (False, True)
+    if effective_reason == FailoverReason.auth:
+        # Refresh-before-rotate mirrors the non-MoA auth branch; the refreshed key is picked
+        # up by the same cache eviction as a rotation.
+        try:
+            refreshed = pool.try_refresh_matching(api_key_hint=api_key_hint)
+        except Exception as refresh_exc:
+            _ra().logger.debug("MoA aggregator auth refresh failed: %s", refresh_exc)
+            refreshed = None
+        if refreshed is None:
+            return (True, False) if _rotate(401, "auth refresh failed") else (False, has_retried_429)
+        _evict_moa_aggregator_caches(aggregator_provider)
+        _ra().logger.info(
+            "MoA aggregator auth failure — refreshed %s pool entry %s",
+            aggregator_provider, getattr(refreshed, "id", "?"),
+        )
+        return True, has_retried_429
+    return False, has_retried_429
+
+
+def _evict_moa_aggregator_caches(aggregator_provider: str) -> None:
+    """Drop the per-process caches that would re-send a benched aggregator key (#132284)."""
+    with contextlib.suppress(Exception):
+        from agent.auxiliary_client import _evict_cached_clients
+        _evict_cached_clients(aggregator_provider)
+    with contextlib.suppress(Exception):
+        from agent.moa_loop import evict_slot_runtime_cache
+        evict_slot_runtime_cache(aggregator_provider)
+
+
 def recover_with_credential_pool(
     agent, *, status_code: Optional[int], has_retried_429: bool,
     classified_reason: Optional[FailoverReason] = None,
@@ -1012,6 +1145,39 @@ def recover_with_credential_pool(
     rotating. ``classified_reason`` beats raw HTTP codes (e.g. Anthropic 400 "out of extra
     usage"); ``billing_unverified`` gives the entry a short cooldown, not the one-hour bench."""
     pool = agent._credential_pool
+    # MoA virtual provider (#132284): ``agent._credential_pool`` is the virtual provider's
+    # pool — empty or None — while the request actually went out on the AGGREGATOR slot's
+    # provider. A 429/401/402 there must rotate the aggregator provider's real pool, or the
+    # failed credential is never marked and the turn sits in the Retry-After backoff.
+    current_provider = (getattr(agent, "provider", "") or "").strip().lower()
+    aggregator_provider = ""
+    aggregator_model = ""
+    if current_provider == "moa":
+        aggregator_provider, aggregator_model = _moa_aggregator_route(agent)
+        if not aggregator_provider:
+            return False, has_retried_429
+        try:
+            from agent.credential_pool import load_pool
+            moa_pool = load_pool(aggregator_provider)
+        except Exception as load_exc:
+            _ra().logger.debug(
+                "Credential pool: could not load %s pool for MoA aggregator recovery: %s",
+                aggregator_provider, load_exc,
+            )
+            return False, has_retried_429
+        if not moa_pool or not moa_pool.has_credentials():
+            return False, has_retried_429
+        if pool is not None and (getattr(pool, "provider", "") or "").strip().lower() == aggregator_provider:
+            # An already-bound aggregator pool: fall through to the normal path below so the
+            # mismatch guard and _failed_credential_identity keep their exact semantics.
+            pass
+        else:
+            return _recover_moa_aggregator_pool(
+                agent, moa_pool, aggregator_provider=aggregator_provider, aggregator_model=aggregator_model,
+                status_code=status_code, has_retried_429=has_retried_429,
+                classified_reason=classified_reason, error_context=error_context,
+                billing_unverified=billing_unverified,
+            )
     if pool is None:
         return False, has_retried_429
     # The pool belongs to the PRIMARY provider: acting on fallback errors would corrupt its state
@@ -1021,8 +1187,7 @@ def recover_with_credential_pool(
     # provider, the pool belongs to the PRIMARY provider. Mutating it based on fallback errors would corrupt
     # the primary's credential state (see #33088) and, via _swap_credential, overwrite the agent's base_url
     # back to the primary's endpoint — every subsequent request then goes to the wrong host and 404s (see
-    # #33163). The pool should only act when the agent is still on the same provider that seeded the pool.
-    current_provider = (getattr(agent, "provider", "") or "").strip().lower()
+    # #33163). The pool should only act when the agent is still on the provider that seeded the pool.
     pool_provider = (getattr(pool, "provider", "") or "").strip().lower()
     if pool_provider and not credential_pool_matches_provider(
         pool, current_provider, base_url=getattr(agent, "base_url", None)
