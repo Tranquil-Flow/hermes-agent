@@ -30,6 +30,21 @@ class TestNumericValues:
     def test_negative_int_is_unlimited(self):
         assert resolve_turn_limit(-5) == TURN_LIMIT_UNLIMITED
 
+    def test_positive_infinity_float_is_unlimited(self):
+        assert resolve_turn_limit(float("inf"), default=123) == TURN_LIMIT_UNLIMITED
+
+    @pytest.mark.parametrize("raw", [float("nan"), float("-inf")])
+    def test_non_positive_non_finite_float_returns_default(self, raw):
+        assert resolve_turn_limit(raw, default=123) == 123
+
+    @pytest.mark.parametrize("raw", [".inf", "+inf", "1e10000"])
+    def test_positive_infinity_string_forms_are_unlimited(self, raw):
+        assert resolve_turn_limit(raw, default=123) == TURN_LIMIT_UNLIMITED
+
+    @pytest.mark.parametrize("raw", ["nan", "-inf", "-1e10000"])
+    def test_non_positive_non_finite_string_forms_return_default(self, raw):
+        assert resolve_turn_limit(raw, default=123) == 123
+
 
 
 class TestUnlimitedSpellings:

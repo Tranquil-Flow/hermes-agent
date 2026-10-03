@@ -86,6 +86,21 @@ class TestMaxTurnsResolution:
         cli_obj = _make_cli(config_overrides={"agent": {}, "max_turns": 77})
         assert cli_obj.max_turns == 77
 
+    def test_yaml_infinity_max_turns_config_starts_as_unlimited(self):
+        from hermes_cli.config import TURN_LIMIT_UNLIMITED
+
+        cli_obj = _make_cli(config_overrides={"agent": {"max_turns": float("inf")}})
+
+        assert cli_obj.max_turns == TURN_LIMIT_UNLIMITED
+
+    @pytest.mark.parametrize("raw", [float("nan"), float("-inf")])
+    def test_non_finite_max_turns_config_falls_back_without_crashing(self, raw):
+        from hermes_cli.config import TURN_LIMIT_UNLIMITED
+
+        cli_obj = _make_cli(config_overrides={"agent": {"max_turns": raw}})
+
+        assert cli_obj.max_turns == TURN_LIMIT_UNLIMITED
+
 
 
 

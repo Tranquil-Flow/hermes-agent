@@ -13,6 +13,7 @@ import copy
 import difflib
 import json
 import logging
+import math
 import os
 import platform
 import re
@@ -1885,7 +1886,16 @@ TURN_LIMIT_UNLIMITED = sys.maxsize
 
 # Spellings that mean "no limit" (compared lowercased, whitespace-stripped).
 _UNLIMITED_SPELLINGS = frozenset({
-    "none", "null", "unlimited", "infinite", "infinity", "inf", "∞", "-1", "0"})
+    "none", "null", "unlimited", "infinite", "infinity", "inf", "+inf",
+    ".inf", "+.inf", "∞", "-1", "0",
+})
+
+
+def _resolve_non_finite_turn_limit(value: float, default: int) -> Optional[int]:
+    """Map NaN/infinite turn limits before ``int(value)`` can raise."""
+    if math.isfinite(value):
+        return None
+    return TURN_LIMIT_UNLIMITED if value > 0 else default
 
 
 def resolve_turn_limit(raw: Any, default: int = TURN_LIMIT_UNLIMITED) -> int:
@@ -1894,6 +1904,10 @@ def resolve_turn_limit(raw: Any, default: int = TURN_LIMIT_UNLIMITED) -> int:
     if raw is None or isinstance(raw, bool):
         return default
     if isinstance(raw, (int, float)):
+        if isinstance(raw, float):
+            resolved = _resolve_non_finite_turn_limit(raw, default)
+            if resolved is not None:
+                return resolved
         n = int(raw)
     elif isinstance(raw, str):
         s = raw.strip().lower()
@@ -1905,10 +1919,14 @@ def resolve_turn_limit(raw: Any, default: int = TURN_LIMIT_UNLIMITED) -> int:
             n = int(s)
         except ValueError:
             try:
-                n = int(float(s))
+                parsed = float(s)
             except ValueError:
                 logger.debug("resolve_turn_limit: unparseable value %r → default %d", raw, default)
                 return default
+            resolved = _resolve_non_finite_turn_limit(parsed, default)
+            if resolved is not None:
+                return resolved
+            n = int(parsed)
     else:
         # Unknown type (list, dict, …) — don't crash the agent over a bad config.
         logger.debug("resolve_turn_limit: unsupported type %s (%r) → default %d", type(raw).__name__, raw, default)
